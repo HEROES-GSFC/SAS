@@ -1,0 +1,29 @@
+include ../ARCH
+
+# Modification of Makefile found in GRASPv0 folder. 
+
+all: program
+
+# Executable, Change this for new code names
+EXE = GRASPv0_dv15
+
+
+$(OBJ_DIR)/%.o : %.cpp
+	$(CC) $(CFLAGS) $(VERSION) -c $< -o $@
+
+clean:
+	rm $(EXE)
+
+
+program : $(EXE).cpp
+	$(CC) $(RPATH) $(TARGET) $(CFLAGS) $(EXE).cpp -o $(EXE) $(SOLIB) $(PVLIB) $(IMLIB)
+
+
+#program-static : $(EXE).cpp
+#	$(CC) $(RPATH) $(TARGET) $(CFLAGS) $(EXE).cpp $(SALIB) -o $(EXE) $(SOLIB) $(IMLIB)
+
+
+install:
+	cp -f $(EXE) $(BIN_DIR)
+
+
