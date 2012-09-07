@@ -1,0 +1,91 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0300 
+header_name {.h} 
+code_name {.cxx}
+class Gui {open
+} {
+  Function {Gui()} {open
+  } {
+    Fl_Window mainWindow {
+      label {FOXSI GSE} open
+      xywh {65 24 958 701} type Double color 19
+      code0 {\#include "Application.h"}
+      code1 {\#include <stdlib.h>} visible
+    } {
+      Fl_Menu_Bar menuBar {
+        label menuBar open
+        xywh {-5 -1 1460 26} box BORDER_BOX color 29
+      } {
+        Submenu {} {
+          label {FOXSI GSE} open
+          xywh {0 0 100 20} labelfont 1
+        } {
+          MenuItem {} {
+            label {About FOXSI GSE}
+            xywh {0 0 36 21}
+          }
+          MenuItem {} {
+            label {Preferences...}
+            xywh {0 0 36 21}
+          }
+          MenuItem {} {
+            label Quit
+            callback {exit(1);}
+            xywh {5 5 36 21} shortcut 0x400071
+          }
+        }
+        Submenu fileMenu {
+          label File open
+          xywh {0 0 100 20}
+        } {}
+        Submenu menuProc {
+          label Window open
+          xywh {0 0 100 20}
+        } {
+          MenuItem {} {
+            label Commanding
+            xywh {0 0 31 20}
+          }
+          MenuItem {} {
+            label {ACTEL Commanding}
+            xywh {0 0 31 20}
+          }
+        }
+      }
+      Fl_Group {} {
+        label Image open
+        xywh {35 58 440 532}
+      } {
+        Fl_Box detectorsImageWindow {
+          xywh {60 80 300 300}
+          code0 {\#include "detectorsImage.h"}
+          class detectorsImage
+        }
+      }
+      Fl_Text_Display consoleBuf {
+        xywh {515 30 500 145}
+      }
+      Fl_Button {} {
+        label test
+        callback {app->run_test();} selected
+        xywh {515 190 70 20}
+      }
+    }
+    code {app=new Application();} {}
+    code {buff=new Fl_Text_Buffer();
+consoleBuf->buffer(buff);} {}
+    code {prefs=new Fl_Preferences(Fl_Preferences::USER, "sdc", "HEROES SAS GSE");} {}
+    code {// initialization} {}
+  }
+  Function {show()} {open
+  } {
+    code {mainWindow->show();
+detectorsImageWindow->show();} {}
+  }
+  decl {Application *app;} {public local
+  }
+  decl {Fl_Text_Buffer *buff;} {public local
+  }
+  decl {Fl_Preferences *prefs;} {public local
+  }
+} 

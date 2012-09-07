@@ -1,0 +1,2 @@
+GRASP: GRASPv0_dv15.cpp
+	g++ GRASPv0_dv15.cpp -o GRASP -lPvAPI

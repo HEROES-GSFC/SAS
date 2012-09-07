@@ -19,7 +19,6 @@
 /* =============================================================================================
    Includes
    ========================================================================================== */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,9 +36,6 @@
 #include <arpa/inet.h>
 
 //PvApi libraries
-#define PVDECL
-#define _x86
-#define _LINUX
 #include <PvApi.h>
 #include <ImageLib.h>
 // _____________________________________________________________________________________________
@@ -49,15 +45,13 @@
    ========================================================================================== */
 using namespace std;
 //#define	_STDCALL
-#define	TRUE		0
-#define	FRAMESCOUNT	1
+#define	TRUE		0#define	FRAMESCOUNT	1
 // _____________________________________________________________________________________________
 
 /* =============================================================================================
    Structure for camera data. The universal ID is unique to each camera and the handle allows
    the program to interact with the camera. The frame(s) are filled with images as they are
-   taken.
-   ========================================================================================== */
+   taken.   ========================================================================================== */
 struct tCamera {
 
 	unsigned long	UID;
@@ -895,7 +889,30 @@ void queueErrorHandling(int i){
 void CameraUnsetup(tCamera* Camera) {
 
 	printf("Preparing to unsetup camera with ID %lu\n", Camera->UID);
-	printf("\nClearing the queue.\n");
+	printf("\nClearing the queue.\n");while(PvCaptureWaitForFrameDone(Camera->Handle,&(Camera->Frame),10) == ePvErrTimeout)
+	//std::cout << "Waiting for frame to return to host...\n";
+
+    //check returned Frame.Status
+    if(Camera->Frame.Status == ePvErrSuccess)
+    {	
+	ProcessFrame((char*) &Camera->Frame.ImageBuffer, Camera->Frame.Width, Camera->Frame.Height);
+    }
+    else
+    {
+	if (Camera->Frame.Status == ePvErrDataMissing)
+	    std::cout << "Dropped packets. Possible improper network card settings:\nSee GigE Installation Guide.";
+	else
+	    std::cout << "Frame.Status error: " << Camera->Frame.Status << "\n";
+    }
+
+    //requeue frame	
+    if((errCode = PvCaptureQueueFrame(Camera->Handle,&(Camera->Frame),NULL)) != ePvErrSuccess)
+    {
+	std::cout << "CameraSnap: PvCaptureQueueFrame err: " <<  errCode << "\n";;
+	return false;
+    }
+    return true;
+    }
 	// Dequeue all the frames still queued (causes a block until dequeue finishes).
 	PvCaptureQueueClear(Camera->Handle);
 	// Close the camera.
