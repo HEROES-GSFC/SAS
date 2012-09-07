@@ -1,14 +1,19 @@
 #include <iostream>
 #include <vector>
+#include <math.h>
 #include <chord.hpp>
 
 double* chordCenter(const unsigned char* image, int M, int N, int chords, int thresh)
 {
 	int loc = 0;
-	double *center = new double[2];
+	double *center = new double[6]; //CRAZINESS!
 	int total[2] = {0};	
-	center[0] = 0;
-	center[1] = 0;
+	center[0] = 0; //will contain center in the X direction
+	center[1] = 0; //will contain center in the Y direction
+	center[2] = 0; //will contain the number of row chords
+	center[3] = 0; //will contain the number of column chords
+	center[4] = 0; //will contain sample standard deviation in the X direction
+	center[5] = 0; //will contain sample standard deviation in the Y direction
 	double temp;
 	for (int l = 0; l < chords; l++)
 	{
@@ -18,6 +23,8 @@ double* chordCenter(const unsigned char* image, int M, int N, int chords, int th
 		{		
 			total[0]++;
 			center[0] += temp;
+			center[4] += temp*temp;
+			//std::cout << "Row: " << loc << ", value: " << temp << std::endl;
 		}
 		
 		loc = (int) ((float) l*N/chords + N/(2*chords));
@@ -26,6 +33,8 @@ double* chordCenter(const unsigned char* image, int M, int N, int chords, int th
 		{
 			total[1]++;
 			center[1] += temp;
+			center[5] += temp*temp;
+			//std::cout << "Col: " << loc << ", value: " << temp << std::endl;
 		}
 	}
 	if(!total[0] || !total[1])
@@ -35,8 +44,13 @@ double* chordCenter(const unsigned char* image, int M, int N, int chords, int th
 	}
 	else
 	{	
+		center[2] = total[0];
+		center[3] = total[1];
 		center[0] = center[0]/total[0];
 		center[1] = center[1]/total[1];
+		center[4] = sqrt((center[4]-center[2]*center[0]*center[0])/(center[2]-1));
+		center[5] = sqrt((center[5]-center[3]*center[1]*center[1])/(center[3]-1));
+		//std::cout << "  Chords found: " << total[0] << " rows, " << total[1] << " columns" << std::endl;
 	}
 
 return center;
@@ -61,9 +75,9 @@ double chord(const unsigned char* image, int thresh, int width, int loc, int M, 
 		if (mode) cur = image[N*k + loc];
 		else cur = image[N*loc + k];
 		
-		if (last < thresh && cur > thresh)
+		if (last < thresh && cur >= thresh)
 		{
-			 //std::cout << "Rising Edge Found: " << k << "\n";
+			 //std::cout << "    Rising Edge Found (" << loc << "): " << k << "\n";
 			 edge_dir.push_back(0);
 			 if ((k-width) < 0) min = 0;
 			 else min = k-width;
@@ -81,9 +95,9 @@ double chord(const unsigned char* image, int thresh, int width, int loc, int M, 
 			 }
 			 k = idx.back().back();
 		}
-		else if(last > thresh && cur < thresh)
+		else if(last >= thresh && cur < thresh)
 		{
-			//std::cout << "Falling Edge Found: " << k-1 << "\n";
+			//std::cout << "    Falling Edge Found (" << loc << "): " << k-1 << "\n";
 			edge_dir.push_back(1);
 			if ((k-width-1) < 0)	min = 0;
 			else min = k-width-1;
