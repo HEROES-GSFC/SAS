@@ -2,6 +2,15 @@
 #define _LINUX
 #define PVDECL
 
+#define CHORDS 30
+#define THRESHOLD 128
+
+#define FIND_FIDUCIALS 2 //0, 1, or 2
+#define FID_BOX 200
+#define FID_ARM 10
+#define FID_MIN 100
+#define FID_MAX 200
+
 #include <string.h>
 #include <iostream>
 #include <time.h>
@@ -224,9 +233,9 @@ double* CameraSnap(tCamera* Camera)
     {	
        	//FrameCentroid((const unsigned char*) Camera->Frame.ImageBuffer, Camera->Frame.Width, Camera->Frame.Height);
 	center = chordCenter((const unsigned char*) Camera->Frame.ImageBuffer, 
-				Camera->Frame.Height, Camera->Frame.Width, 7, 128);
+				Camera->Frame.Height, Camera->Frame.Width, CHORDS, THRESHOLD);
 	if (center[0] > 0 && center[1] > 0)
-		std::cout << "Chord Center: " << center[0] << " " << center[1] << "\n";
+		std::cout << "Chord Center: " << center[0] << "+/-"<< center[4] << " (" << center[2] << "), " << center[1] << "+/-" << center[5] << " (" << center[3] << ")\n";
         }
     else
     {
@@ -295,8 +304,10 @@ int main(int argc, char* agrv[])
     float duration = 0;
     tPvUint32 width, height;
     double *center;
-    cv::Scalar color = 0;
+    cv::Scalar color(0,0,192);
+    cv::Scalar color2(128,0,0);
     cv::Point2d pt;
+    cv::Point2d pt1,pt2;
     //std::vector<int> param;
     //param.push_back(0);	
     if((errCode = PvInitialize()) != ePvErrSuccess)
@@ -323,21 +334,115 @@ int main(int argc, char* agrv[])
 		    std::cin >> duration;
 		    startTime = time(NULL);
 		    cv::Mat frame(Camera.Frame.Height, Camera.Frame.Width, CV_8UC1, Camera.Frame.ImageBuffer, cv::Mat::AUTO_STEP);
-		    cv::Mat image;
+
+
+		    cv::Mat image; //contains RGB version of image
+		    cv::Mat frame2, frame3, frame3_roi; //processed frame
+
+		    //kernel for fiducial detection
+		    cv::Mat kernel(FID_ARM*2+3, FID_ARM*2+3, CV_32FC1, 0.);
+		    for(int ii=0; ii<FID_ARM*2+1; ii++) kernel.at<float>(ii,FID_ARM) = kernel.at<float>(ii,FID_ARM+1) = kernel.at<float>(ii,FID_ARM+2) = kernel.at<float>(FID_ARM,ii) = kernel.at<float>(FID_ARM+1,ii) = kernel.at<float>(FID_ARM+2,ii) = 1./(FID_ARM*4*3+3*3);
+
 		    cv::namedWindow("Solar Solution", CV_WINDOW_AUTOSIZE);
 		    while ( time(NULL) < startTime + duration)
 		    //while(framesCapped < 1)
 		    {
 			center = CameraSnap(&Camera);
 			
-			image = frame.clone();
+			//image = frame.clone();
+
+
+			if (FIND_FIDUCIALS == 1 && center[2] > 0 && center[3] > 0) {
+
+			    //cv::inRange(frame, FID_MIN, FID_MAX, frame2);
+			    cv::inRange(frame.colRange(center[0]-FID_BOX/2,center[0]+FID_BOX/2).rowRange(center[1]-FID_BOX/2,center[1]+FID_BOX/2), FID_MIN, FID_MAX, frame2);
+
+			    //filters over the entire image!
+			    //should really do only a region of interest
+			    cv::filter2D(frame2, frame2, frame2.depth(), kernel);
+			    cv::threshold(frame2, frame2, 150, 255, cv::THRESH_BINARY);
+
+			    //I'm sure there's a better way to create a zero matrix, but Mat::zeros is not cooperating
+			    frame3 = frame.clone();
+			    frame3 -= frame3;
+			    frame3_roi = frame3.colRange(center[0]-FID_BOX/2,center[0]+FID_BOX/2).rowRange(center[1]-FID_BOX/2,center[1]+FID_BOX/2);
+			    frame2.copyTo(frame3_roi);
+
+			    cv::Mat list[] = {frame,frame+frame3,frame};
+			    //cv::Mat list[] = {frame3,frame3,frame3};
+			    //make into RGB image
+			    cv::merge(list,3,image);
+			} else if (FIND_FIDUCIALS == 2 && center[2] > 0 && center[3] > 0) {
+
+			    cv::Mat list[] = {frame,frame,frame};
+			    //make into RGB image
+			    cv::merge(list,3,image);
+
+			    frame2 = frame.colRange(center[0]-FID_BOX/2,center[0]+FID_BOX/2).rowRange(center[1]-FID_BOX/2,center[1]+FID_BOX/2);
+			    for(int kk=0;kk<frame2.rows;kk++) {
+				cv::line(image,cv::Point(0,center[1]-FID_BOX/2+kk),cv::Point(cv::sum(frame2.row(kk)).val[0]/300,center[1]-FID_BOX/2+kk), color, 1, CV_AA, 0);
+			    }
+			    for(int kk=0;kk<frame2.cols;kk++) {
+				cv::line(image,cv::Point(center[0]-FID_BOX/2+kk,0),cv::Point(center[0]-FID_BOX/2+kk,cv::sum(frame2.col(kk)).val[0]/300), color, 1, CV_AA, 0);
+			    }
+
+			} else {
+			    cv::Mat list[] = {frame,frame,frame};
+			    //make into RGB image
+			    cv::merge(list,3,image);
+			}
+			
 			pt.x = center[0]; pt.y = center[1];
-			cv::circle(image, pt, 1, color, 1, CV_AA, 0);
-			cv::circle(image, pt, 10, color, 1, CV_AA, 0);
+			//cv::circle(image, pt, 1, color, 1, CV_AA, 0);
+			//cv::circle(image, pt, 10, color, 1, CV_AA, 0);
+
+			//Symbol is sub-pixel rendered to 1/128 of a pixel
+			pt1.x = pt.x-5;
+			pt1.y = pt.y;
+			pt2.x = pt.x+5;
+			pt2.y = pt.y;
+			cv::line(image, pt1*128, pt2*128, color, 1, CV_AA, 7);
+			
+			pt1.x = pt.x;
+			pt1.y = pt.y-5;
+			pt2.x = pt.x;
+			pt2.y = pt.y+5;
+			cv::line(image, pt1*128, pt2*128, color, 1, CV_AA, 7);
+
+			pt1.x = pt.x-15;
+			pt1.y = pt.y-15;
+			pt2.x = pt.x- 5;
+			pt2.y = pt.y- 5;
+			cv::line(image, pt1*128, pt2*128, color, 5, CV_AA, 7);
+
+			pt1.x = pt.x+ 5;
+			pt1.y = pt.y+ 5;
+			pt2.x = pt.x+15;
+			pt2.y = pt.y+15;
+			cv::line(image, pt1*128, pt2*128, color, 5, CV_AA, 7);
+
+			pt1.x = pt.x-15;
+			pt1.y = pt.y+15;
+			pt2.x = pt.x- 5;
+			pt2.y = pt.y+ 5;
+			cv::line(image, pt1*128, pt2*128, color, 5, CV_AA, 7);
+
+			pt1.x = pt.x+ 5;
+			pt1.y = pt.y- 5;
+			pt2.x = pt.x+15;
+			pt2.y = pt.y-15;
+			cv::line(image, pt1*128, pt2*128, color, 5, CV_AA, 7);
+
+			//1-sigma error ellipse
+			if (center[2] > 1 && center[3] > 1) {
+				cv::Size axes(center[4],center[5]);
+				cv::ellipse(image, pt*128, axes*128, 0, 0, 360, color2, 1, CV_AA, 7);
+			}
+
 			imshow("Solar Solution", image);
 			cv::waitKey(10);
 			//imwrite("MeasureRadius.png", image, param);
-			delete [] center;
+			delete [] center; //CRAZINESS!
 			framesCapped++;
 		    }
 		    endTime = time(NULL);
