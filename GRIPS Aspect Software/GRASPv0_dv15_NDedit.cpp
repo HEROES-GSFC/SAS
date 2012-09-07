@@ -717,6 +717,7 @@ void CameraStop(tCamera* Camera) {
   ========================================================================================== */
 void CameraSnap(int x) {
 
+
 	//variables for thread blocking
 	sigset_t set;
 	struct timespec timeout;
@@ -792,7 +793,7 @@ void CameraSnap(int x) {
 					//block thread until interrupted or timed out. If timed out, kill the image
 					//since there are two threads, the interrupt isn't always caught on this thread
 					//A flag is used to ensure that timeouts are real and the image definitely hasn't returned 
-					if (sigtimedwait(&set, NULL, &timeout) == -1){
+					/*if (sigtimedwait(&set, NULL, &timeout) == -1){
 							if(errno == EAGAIN){
 								if(timeoutFlag){
 									timeoutFlag= false;
@@ -810,7 +811,7 @@ void CameraSnap(int x) {
 					}else{
 							//printf("Wait interrupted by Signo. \n");
 							Signocount++;
-					}
+					}*/
 				}else if(queueStatus == ePvErrUnplugged){
 					cout<<"Queue frame returns Camera is unplugged. No Snap. \n";
 					frameandqueueFlag= false;
