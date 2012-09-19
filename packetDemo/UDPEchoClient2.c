@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
 	payload[4] = (unsigned short int) packet_sequence_number & 0xFF;
 	payload[5] = (unsigned short int) (packet_sequence_number & 0xFF00) >> 8;
 	// uint16 - CRC-16 checksum
+	// need to actually calculate the check sum here, use lib_crc
 	uint16_t check_sum = 2345;
 	payload[6] = (unsigned short int) check_sum & 0xFF;
 	payload[7] = (unsigned short int) (check_sum & 0xFF00) >> 8;
