@@ -11,7 +11,7 @@ demo: main.cpp chord.o camera.o fiducials.o
 	$(CC) main.cpp chord.o camera.o fiducials.o -o demo $(OBJ) $(OPENCV) $(PVAPI) -pg
 
 fiducialTest: fiducialTest.cpp chord.o fiducials.o
-	$(CC) fiducialTest.cpp chord.o fiducials.o -o fidtest $(OBJ) $(OPENCV) -pg
+	$(CC) fiducialTest.cpp chord.o fiducials.o -o fidtest $(OBJ) $(OPENCV)
 	
 chord.o: chord.cpp
 	$(CC) $(CFLAGS) chord.cpp $(OBJ)

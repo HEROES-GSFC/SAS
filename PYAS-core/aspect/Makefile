@@ -7,11 +7,11 @@ OBJ = -I.
 
 all: demo
 
-demo: main.cpp chord.o camera.o fiducials.o
-	$(CC) main.cpp chord.o camera.o fiducials.o -o demo $(OBJ) $(OPENCV) $(PVAPI) -pg
+full: fullDemo.cpp chord.o camera.o fiducials.o
+	$(CC) fullDemo.cpp chord.o camera.o fiducials.o -o fullDemo $(OBJ) $(OPENCV) $(PVAPI)
 
-fiducialTest: fiducialTest.cpp chord.o fiducials.o
-	$(CC) fiducialTest.cpp chord.o fiducials.o -o fidtest $(OBJ) $(OPENCV) -pg
+fid: fiducialTest.cpp chord.o fiducials.o
+	$(CC) fidDemo.cpp chord.o fiducials.o -o fidDemo $(OBJ) $(OPENCV)
 	
 chord.o: chord.cpp
 	$(CC) $(CFLAGS) chord.cpp $(OBJ)
@@ -23,4 +23,4 @@ camera.o: camera.cpp
 	$(CC) $(CFLAGS) camera.cpp $(OBJ) $(PVAPI)
 
 clean:
-	rm -rf *.o demo fiduicalTest
+	rm -rf *.o fullDemo fidDemo

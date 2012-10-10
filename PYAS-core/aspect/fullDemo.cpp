@@ -4,7 +4,7 @@
 
 #include <PvApi.h>
 
-#define CHORDS 80
+#define CHORDS 30
 #define THRESHOLD 75
 
 #define FID_WIDTH 5
@@ -40,7 +40,7 @@ void FrameCentroid(const unsigned char* Frame, int width, int height)
 	for (int n = 0; n < width; n++)
 	{
             //pixel = (double) ((((int) Frame[width*m + n])+256)% 256);
-           pixel = (double) Frame[width*m + n];
+        pixel = (double) Frame[width*m + n];
 	    centm += m*pixel;
 	    centn += n*pixel;
 	    total += pixel;
@@ -93,7 +93,6 @@ int main(int argc, char* agrv[])
 					std::cout << "CameraStart Done. Running CameraSnap loop\n";
 					std::cout << "Run for how many seconds: ";
 					std::cin >> duration;
-					startTime = time(NULL);
 					cv::Mat frame(height, width, CV_8UC1, Camera.Frame.ImageBuffer, cv::Mat::AUTO_STEP);
 					
 					cv::Mat subImage;
@@ -112,26 +111,27 @@ int main(int argc, char* agrv[])
 					colParams.threshold = FID_COL_THRESH;
 
 					cv::namedWindow("Solar Solution", CV_WINDOW_AUTOSIZE);
+					startTime = time(NULL);
 					while ( time(NULL) < startTime + duration)
 					//while(framesCapped < 1)
 					{
 						CameraSnap(&Camera);
 						chordCenter((const unsigned char*) Camera.Frame.ImageBuffer, height, width, 
 												CHORDS, THRESHOLD, center);
+						std::cout << "Chord Center: " << center[0] << "+/-"<< center[4] << " (" << center[2] << "), " 
+								  << center[1] << "+/-" << center[5] << " (" << center[3] << ")\n";
 						if (center[0] > 0 && center[1] > 0 &&
 							center[0] < width && center[1] < height)
 						{
-							std::cout << "Chord Center: " << center[0] << "+/-"<< center[4] << " (" << center[2] << "), " 
-									  << center[1] << "+/-" << center[5] << " (" << center[3] << ")\n";
-						
+							
 							rowRange.end = (((int) center[1]) + SOLAR_RADIUS < height-1) ? (((int) center[1]) + SOLAR_RADIUS) : (height-1);
 							rowRange.start = (((int) center[1]) - SOLAR_RADIUS > 0) ? (((int) center[1]) - SOLAR_RADIUS) : 0;
 							colRange.end = (((int) center[0]) + SOLAR_RADIUS < width) ? (((int) center[0]) + SOLAR_RADIUS) : (width-1);
 							colRange.start = (((int) center[0]) - SOLAR_RADIUS > 0) ? (((int) center[0]) - SOLAR_RADIUS) : 0;
 							subImage = frame(rowRange, colRange);
 						
-							fidLocs = morphFindFiducials(subImage, rowParams, colParams, 23, locs, numLocs);
-							std::cout << "Found " << fidLocs << " fiducials\n";
+							fidLocs = morphFindFiducials(subImage, rowParams, colParams, FID_LENGTH, locs, numLocs);
+/*							std::cout << "Found " << fidLocs << " fiducials\n";
 							cv::Mat frame2 = frame.clone();
 							cv::Mat list[] = {frame,frame2,frame};
 							for (int k = 0; k < fidLocs; k++)
@@ -142,14 +142,14 @@ int main(int argc, char* agrv[])
 						}
 						else
 						{
-							fidLocs = morphFindFiducials(frame, rowParams, colParams, 23, locs, numLocs);
+							fidLocs = morphFindFiducials(frame, rowParams, colParams, FID_LENGTH, locs, numLocs);
 							std::cout << "Found " << fidLocs << " fiducials\n";
 							for (int k = 0; k < fidLocs; k++)
 							{
 								cv::circle(image, cv::Point(locs[k], locs[numLocs + k]), 10, color, 5, CV_AA, 0);
 								std::cout <<  locs[numLocs + k] << ", " << locs[k] << "\n";
 							}
-						}
+*/						}
 								
 						pt.x = center[0]; pt.y = center[1];
 						//cv::circle(image, pt, 1, color, 1, CV_AA, 0);
