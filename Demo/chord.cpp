@@ -3,10 +3,10 @@
 #include <math.h>
 #include <chord.hpp>
 
-int chordCenter(const unsigned char* image, int M, int N, int chords, int thresh, double* center)
+double* chordCenter(const unsigned char* image, int M, int N, int chords, int thresh)
 {
 	int loc = 0;
-	//CRAZINESS!
+	double *center = new double[6]; //CRAZINESS!
 	int total[2] = {0};	
 	center[0] = 0; //will contain center in the X direction
 	center[1] = 0; //will contain center in the Y direction
@@ -53,7 +53,7 @@ int chordCenter(const unsigned char* image, int M, int N, int chords, int thresh
 		//std::cout << "  Chords found: " << total[0] << " rows, " << total[1] << " columns" << std::endl;
 	}
 
-return 0;
+return center;
 }
 
 double chord(const unsigned char* image, int thresh, int width, int loc, int M, int N, bool mode)

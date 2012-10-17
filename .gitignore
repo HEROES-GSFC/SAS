@@ -11,5 +11,8 @@
 *.la
 *.a
 
+# Whatever
+*~
+
 # Mac Files
 .DS_Store

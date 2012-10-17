@@ -1,4 +1,3 @@
-#include <opencv.hpp>
 #include <highgui/highgui.hpp>
 #include <imgproc/imgproc.hpp>
 #include <fiducials.hpp>
@@ -44,8 +43,6 @@ int morphPeakFind(cv::Mat image, morphParams params, int* locs, int numLocs)
 	logfile.close();
 */
 	
-	min = 256*length;
-	minIdx = 0;
 	for(int k = 1; k < length-1; k++)
 	{
 		if (proj.at<float>(k) > thresh)
@@ -60,6 +57,8 @@ int morphPeakFind(cv::Mat image, morphParams params, int* locs, int numLocs)
 				}
 				else
 				{
+					min = 256*length;
+					minIdx = -1;
 					for(int m = 0; m < numLocs; m++)
 					{
 						if (proj.at<float>(locs[m]) < min)
@@ -71,7 +70,6 @@ int morphPeakFind(cv::Mat image, morphParams params, int* locs, int numLocs)
 					if (proj.at<float>(k) > min)
 					{
 						locs[minIdx] = k;
-						min = proj.at<float>(k);
 					}
 				}
 			}
@@ -111,4 +109,110 @@ int morphFindFiducials(cv::Mat image, morphParams rowParams, morphParams colPara
 */
 	}
 	return nLocs;
+}
+
+int matchFindFiducials(cv::Mat image, cv::Mat kernel, int threshold, cv::Point* locs, int numLocs)
+{
+	cv::Scalar mean, stddev;
+	cv::Size imSize, kerSize;
+	cv::Mat detect;
+	int locIdx = 0;
+	float thresh = 0;
+	int minIdx;
+//	double dMin, dMax;
+	float min, curVal;
+	imSize = image.size();
+	kerSize = kernel.size();
+
+	cv::filter2D(image, detect, CV_32FC1, kernel, cv::Point(-1,-1));
+	cv::normalize(detect,detect,0,1,cv::NORM_MINMAX);
+	
+	cv::meanStdDev(detect, mean, stddev);
+/*	std::cout << "Mean: " << mean[0] << "\n";
+	std::cout << "Std: " << stddev[0] << "\n";
+	
+	cv::minMaxLoc(detect, &dMin, &dMax, NULL, NULL);
+	std::cout << "Min: " << dMin << "\n";
+	std::cout << "Max: " << dMax << "\n";
+    cv::namedWindow( "Display window", CV_WINDOW_AUTOSIZE ); 
+	cv::imshow( "Display window", detect ); 
+    cv::waitKey(0);
+*/
+	thresh = mean[0] + threshold*stddev[0];
+	
+	for (int m = 1; m < imSize.height-1; m++)
+	{
+		for (int n = 1; n < imSize.width-1; n++)
+		{	 
+			curVal = detect.at<float>(m,n);
+			if(curVal > thresh)
+			{
+//				std::cout << m << " " << n << "\n";
+				if((curVal > detect.at<float>(m,n+1)) &
+				   (curVal > detect.at<float>(m,n-1)) &
+				   (curVal > detect.at<float>(m+1,n)) &
+				   (curVal > detect.at<float>(m-1,n)))
+				{
+					if (locIdx < numLocs)
+					{
+						locs[locIdx] = cv::Point(n,m);
+						locIdx++;
+					}
+					else
+					{
+						min = kerSize.width*kerSize.height*256;
+						minIdx = -1;
+						for(int k = 0; k < numLocs; k++)
+						{
+							if (detect.at<float>(locs[k]) < min)
+							{
+								minIdx = k;
+								min = detect.at<float>(locs[k]);
+							}	
+						}
+						if (curVal > min)
+						{
+							locs[minIdx] = cv::Point(n,m);
+						}
+					}
+				}
+			}
+		}
+	}
+	return locIdx;
+	
+}
+
+void matchKernel(cv::OutputArray _kernel)
+{
+	cv::Mat temp;
+	temp = cv::imread("./Mask.png",0);
+	
+	_kernel.create(temp.size(), CV_32FC1);
+	cv::Mat kernel = _kernel.getMat();
+	cv::Size kerSize = kernel.size();
+	for (int m = 0; m < kerSize.height; m++)
+	{
+		for (int n = 0; n < kerSize.width; n++)
+		{
+			if(temp.at<unsigned char>(cv::Point(n,m)) == 0x80)
+			{
+				kernel.at<float>(cv::Point(n,m)) = 0.0;
+			}
+			else
+			{
+				if(temp.at<unsigned char>(cv::Point(n,m)) > 0x80)
+				{
+					kernel.at<float>(cv::Point(n,m)) = 1.0;
+				}
+				else
+				{
+					kernel.at<float>(cv::Point(n,m)) = -1.0;
+				}
+			}
+		//	std::cout << temp.at<char>(cv::Point(n,m)) << " ";
+		//	std::cout << kernel.at<float>(cv::Point(n,m)) << " ";
+		}
+		//std::cout << "\n";		
+	}
 }

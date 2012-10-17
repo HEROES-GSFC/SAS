@@ -3,24 +3,15 @@ OPENCVDIR = /usr/include/opencv2/
 CFLAGS=-c -Wall
 PVAPI = -lPvAPI
 OPENCV = -I$(OPENCVDIR) -lopencv_core -lopencv_highgui -lopencv_imgproc
-OBJ = -I.
+CHORD = -I.
 
 all: demo
 
-demo: main.cpp chord.o camera.o fiducials.o
-	$(CC) main.cpp chord.o camera.o fiducials.o -o demo $(OBJ) $(OPENCV) $(PVAPI) -pg
-
-fiducialTest: fiducialTest.cpp chord.o fiducials.o
-	$(CC) fiducialTest.cpp chord.o fiducials.o -o fidtest $(OBJ) $(OPENCV) -pg
+demo: main.cpp chord.o
+	$(CC) main.cpp chord.o -o demo $(CHORD) $(PVAPI) $(OPENCV)
 	
 chord.o: chord.cpp
-	$(CC) $(CFLAGS) chord.cpp $(OBJ)
-	
-fiducials.o: chord.cpp
-	$(CC) $(CFLAGS) fiducials.cpp $(OBJ) $(OPENCV)
-	
-camera.o: camera.cpp
-	$(CC) $(CFLAGS) camera.cpp $(OBJ) $(PVAPI)
+	$(CC) $(CFLAGS) chord.cpp $(CHORD)
 
 clean:
-	rm -rf *.o demo fiduicalTest
+	rm -rf *.o demo

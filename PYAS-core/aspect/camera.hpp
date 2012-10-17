@@ -15,9 +15,13 @@ typedef struct
 
 void Sleep(unsigned int);
 void WaitForCamera();
+
+
 bool CameraGet(tCamera*);
 bool CameraSetup(tCamera*, tPvUint32 &width, tPvUint32 &height);
 bool CameraStart(tCamera*);
 void CameraStop(tCamera*);
 void CameraUnsetup(tCamera*);
 int CameraSnap(tCamera*);
+bool CameraInitialize();
+void CameraUnInitialize();

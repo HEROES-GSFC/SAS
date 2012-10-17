@@ -5,13 +5,13 @@ PVAPI = -lPvAPI
 OPENCV = -I$(OPENCVDIR) -lopencv_core -lopencv_highgui -lopencv_imgproc
 OBJ = -I.
 
-all: demo
+all: fullDemo
 
-full: fullDemo.cpp chord.o camera.o fiducials.o
+fullDemo: fullDemo.cpp chord.o camera.o fiducials.o
 	$(CC) fullDemo.cpp chord.o camera.o fiducials.o -o fullDemo $(OBJ) $(OPENCV) $(PVAPI)
 
-fid: fiducialTest.cpp chord.o fiducials.o
-	$(CC) fidDemo.cpp chord.o fiducials.o -o fidDemo $(OBJ) $(OPENCV)
+fidDemo: fidDemo.cpp chord.o fiducials.o
+	$(CC) fidDemo.cpp chord.o fiducials.o -o fidDemo $(OBJ) $(OPENCV) -pg
 	
 chord.o: chord.cpp
 	$(CC) $(CFLAGS) chord.cpp $(OBJ)
@@ -23,4 +23,4 @@ camera.o: camera.cpp
 	$(CC) $(CFLAGS) camera.cpp $(OBJ) $(PVAPI)
 
 clean:
-	rm -rf *.o fullDemo fidDemo
+	rm -rf *.o fullDemo fidDemo *.out

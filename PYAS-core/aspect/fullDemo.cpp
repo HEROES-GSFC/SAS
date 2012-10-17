@@ -1,9 +1,3 @@
-#define _x64
-#define _LINUX
-#define PVDECL
-
-#include <PvApi.h>
-
 #define CHORDS 30
 #define THRESHOLD 75
 
@@ -12,6 +6,11 @@
 #define SOLAR_RADIUS 105
 #define FID_ROW_THRESH 5
 #define FID_COL_THRESH 0
+#define FID_MATCH_THRESH 5
+
+#define DEBUG 0
+#define DISPLAY 1
+#define FIDTYPE 1
 
 #include <string.h>
 #include <iostream>
@@ -25,38 +24,9 @@
 
 #include <opencv.hpp>
 #include <highgui/highgui.hpp>
-
-
-void FrameCentroid(const unsigned char* Frame, int width, int height)
-{
-	  
-    double centm, centn, total, pixel;
-    double Cx, Cy;
-    centm = 0; centn = 0; total = 0;
-    std::ofstream myfile;
-    myfile.open ("example.txt");
-    for (int m = 0; m < height; m++)
-    {
-	for (int n = 0; n < width; n++)
-	{
-            //pixel = (double) ((((int) Frame[width*m + n])+256)% 256);
-        pixel = (double) Frame[width*m + n];
-	    centm += m*pixel;
-	    centn += n*pixel;
-	    total += pixel;
-	    myfile << pixel << ',';
-	}
-	myfile << '\n';
-    }
-    myfile.close();
-    Cx = (double) centn/total;
-    Cy = (double) centm/total;
-    std::cout << "Centroid " << Cx << ", " << Cy << "\n";
-}
  
 int main(int argc, char* agrv[])
 {
-    tPvErr errCode;
     int startTime, endTime, framesCapped = 0;
     float duration = 0;
     tPvUint32 width, height;
@@ -66,14 +36,17 @@ int main(int argc, char* agrv[])
     cv::Point2d pt;
     cv::Point2d pt1,pt2;
     int numLocs = 20;
-    int locs[2*numLocs];
+	#if FIDTYPE == 0
+		int locs[2*numLocs];
+	#else
+		cv::Point locs[numLocs];
+    #endif
     double* temp;
     int fidLocs;
-    //std::vector<int> param;
-    //param.push_back(0);	
-    if((errCode = PvInitialize()) != ePvErrSuccess)
+	
+    if(CameraInitialize())
     {
-        std::cout << "PvInitialize err: " << errCode << "\n";
+    	return 1;
     }
     else
     {
@@ -99,7 +72,7 @@ int main(int argc, char* agrv[])
 					cv::Range rowRange, colRange;
 					
 					cv::Mat image; //contains RGB version of image
-										
+					#if FIDTYPE == 0					
 					morphParams rowParams;
 				    rowParams.dim = 0;
 					rowParams.tophatWidth = FID_LENGTH;
@@ -109,8 +82,16 @@ int main(int argc, char* agrv[])
 					colParams.dim = 1;
 					colParams.tophatWidth = FID_WIDTH;
 					colParams.threshold = FID_COL_THRESH;
-
+					#else
+					cv::Mat kernel;
+					matchKernel(kernel);
+					#endif
+					
+					#if DISPLAY
+					cv::Mat list[] = {frame,frame,frame};
 					cv::namedWindow("Solar Solution", CV_WINDOW_AUTOSIZE);
+					#endif
+					
 					startTime = time(NULL);
 					while ( time(NULL) < startTime + duration)
 					//while(framesCapped < 1)
@@ -118,8 +99,12 @@ int main(int argc, char* agrv[])
 						CameraSnap(&Camera);
 						chordCenter((const unsigned char*) Camera.Frame.ImageBuffer, height, width, 
 												CHORDS, THRESHOLD, center);
+						
+						#if DEBUG
 						std::cout << "Chord Center: " << center[0] << "+/-"<< center[4] << " (" << center[2] << "), " 
 								  << center[1] << "+/-" << center[5] << " (" << center[3] << ")\n";
+						#endif
+						
 						if (center[0] > 0 && center[1] > 0 &&
 							center[0] < width && center[1] < height)
 						{
@@ -129,28 +114,37 @@ int main(int argc, char* agrv[])
 							colRange.end = (((int) center[0]) + SOLAR_RADIUS < width) ? (((int) center[0]) + SOLAR_RADIUS) : (width-1);
 							colRange.start = (((int) center[0]) - SOLAR_RADIUS > 0) ? (((int) center[0]) - SOLAR_RADIUS) : 0;
 							subImage = frame(rowRange, colRange);
-						
+							
+							#if FIDTYPE == 0
 							fidLocs = morphFindFiducials(subImage, rowParams, colParams, FID_LENGTH, locs, numLocs);
-/*							std::cout << "Found " << fidLocs << " fiducials\n";
-							cv::Mat frame2 = frame.clone();
-							cv::Mat list[] = {frame,frame2,frame};
+							#else
+							fidLocs = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, locs, numLocs);
+							#endif
+							
+							#if DEBUG
+							std::cout << "Found " << fidLocs << " fiducials\n";
+							#endif
+							
+							#if DISPLAY
+							cv::merge(list,3,image);
 							for (int k = 0; k < fidLocs; k++)
 							{
-								cv::circle(frame2, cv::Point(locs[k]+colRange.start, locs[numLocs + k]+rowRange.start), 10, color2, 2, CV_AA, 0);
-								cv::merge(list,3,image);
-							}	
+								#if FIDTYPE == 0
+								cv::circle(image, cv::Point(locs[k]+colRange.start, locs[numLocs + k]+rowRange.start), 10, color2, 2, CV_AA, 0);
+								#else
+								cv::circle(image, cv::Point(locs[k].x+colRange.start, locs[k].y+rowRange.start), 10, color2, 2, CV_AA, 0);	
+								#endif
+							}
+							#endif	
 						}
 						else
 						{
-							fidLocs = morphFindFiducials(frame, rowParams, colParams, FID_LENGTH, locs, numLocs);
-							std::cout << "Found " << fidLocs << " fiducials\n";
-							for (int k = 0; k < fidLocs; k++)
-							{
-								cv::circle(image, cv::Point(locs[k], locs[numLocs + k]), 10, color, 5, CV_AA, 0);
-								std::cout <<  locs[numLocs + k] << ", " << locs[k] << "\n";
-							}
-*/						}
-								
+							
+							#if DEBUG
+							std::cout << "No center found. Skipping frame";
+							#endif
+						}
+						#if DISPLAY		
 						pt.x = center[0]; pt.y = center[1];
 						//cv::circle(image, pt, 1, color, 1, CV_AA, 0);
 						//cv::circle(image, pt, 10, color, 1, CV_AA, 0);
@@ -201,6 +195,7 @@ int main(int argc, char* agrv[])
 
 						imshow("Solar Solution", image);
 						cv::waitKey(10);
+						#endif
 						//imwrite("MeasureRadius.png", image, param);
 						framesCapped++;
 					}
@@ -214,7 +209,7 @@ int main(int argc, char* agrv[])
 			}
 		}
 		std::cout << "CameraUnsetup Done.\n";
-		PvUnInitialize();
+		CameraUnInitialize();
 	}
 	return 0;
 }

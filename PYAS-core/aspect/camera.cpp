@@ -1,13 +1,6 @@
-#define _x64
-#define _LINUX
-#define PVDECL
-
 #include <string.h>
 #include <iostream>
 #include <time.h>
-
-#include <PvApi.h>
-
 #include <camera.hpp>
 
 // Sleeeep?
@@ -240,4 +233,23 @@ int CameraSnap(tCamera* Camera)
 		return 0;
     }
     return 0;
+}
+
+bool CameraInitialize()
+{
+	tPvErr errCode;
+	if((errCode = PvInitialize()) != ePvErrSuccess)
+	{
+    	std::cout << "PvInitialize err: " << errCode << "\n";
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+void CameraUnInitialize()
+{
+	PvUnInitialize();
 }
