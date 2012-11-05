@@ -8,7 +8,7 @@ OBJ = -I.
 all: fullDemo
 
 fullDemo: fullDemo.cpp chord.o camera.o fiducials.o
-	$(CC) fullDemo.cpp chord.o camera.o fiducials.o -o fullDemo $(OBJ) $(OPENCV) $(PVAPI)
+	$(CC) fullDemo.cpp chord.o camera.o fiducials.o -o fullDemo $(OBJ) $(OPENCV) $(PVAPI) -pg
 
 fidDemo: fidDemo.cpp chord.o fiducials.o
 	$(CC) fidDemo.cpp chord.o fiducials.o -o fidDemo $(OBJ) $(OPENCV) -pg

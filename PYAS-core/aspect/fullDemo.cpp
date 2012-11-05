@@ -8,7 +8,7 @@
 #define FID_COL_THRESH 0
 #define FID_MATCH_THRESH 5
 
-#define DEBUG 0
+#define DEBUG 1
 #define DISPLAY 1
 #define FIDTYPE 1
 
@@ -74,11 +74,11 @@ int main(int argc, char* agrv[])
 					cv::Mat image; //contains RGB version of image
 					#if FIDTYPE == 0					
 					morphParams rowParams;
-				    rowParams.dim = 0;
+					rowParams.dim = 0;
 					rowParams.tophatWidth = FID_LENGTH;
 					rowParams.threshold = FID_ROW_THRESH;
         
-				    morphParams colParams;
+				 	morphParams colParams;
 					colParams.dim = 1;
 					colParams.tophatWidth = FID_WIDTH;
 					colParams.threshold = FID_COL_THRESH;
@@ -139,7 +139,7 @@ int main(int argc, char* agrv[])
 						}
 						else
 						{
-							
+							continue;
 							#if DEBUG
 							std::cout << "No center found. Skipping frame";
 							#endif
