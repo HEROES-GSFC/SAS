@@ -3,6 +3,7 @@
 #include <fiducials.hpp>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 // FIDTYPE of 0 for projection-based method (morphFindFiducials)
 // FIDTYPE of 1 for matched filter method (matchFindFiducials)
@@ -10,7 +11,7 @@
 
 // DEBUG of 1 plots images and makes a lot of noise
 // DEBUG of 0 doesn't do that
-#define DEBUG 1
+#define DEBUG 0
 
 #define FID_WIDTH 5
 #define FID_LENGTH 23
@@ -21,6 +22,8 @@
 #define CHORDS 50
 #define THRESHOLD 55
 #define SOLAR_RADIUS 105
+
+#define RATE 0
 
 int main( int argc, char** argv )
 { 
@@ -34,7 +37,7 @@ int main( int argc, char** argv )
     int numLocs = 20;
     double* temp;
     int fidLocs;
-    std::string file;
+    std::string file, savefile;
     char number;
 
 
@@ -47,10 +50,9 @@ int main( int argc, char** argv )
     cv::Mat image;
    	cv::Mat subImage;
 	cv::Range rowRange, colRange;
-	for (int q = 0; q <=1000; q++){
-	for (int k = 1; k <= 9; k++)
-	{
-	
+	for (int q = 0; q <=100; q++){
+	for (int k = 1; k <= 9; k++){
+
 	sprintf(&number, "%d", k);
 	file = "";
 	file += argv[1];
@@ -114,21 +116,21 @@ int main( int argc, char** argv )
 		colParams.threshold = FID_COL_THRESH;
 		fidLocs = morphFindFiducials(subImage, rowParams, colParams, FID_LENGTH, locs, numLocs);
 	#else
-	    cv::Mat image, kernel;
+	    cv::Mat kernel;
 		matchKernel(kernel);  		  
 		fidLocs = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, locs, numLocs);
 	#endif
 
 	#if DEBUG		
 	std::cout << "Final Fiducial Count: " << fidLocs << "\n";
-	for (int k = 0; k < fidLocs; k++)
+	for (int a = 0; a < fidLocs; a++)
 	{
 		#if FIDTYPE == 0
-			cv::circle(subImage, cv::Point(locs[k], locs[numLocs + k]), 5, cv::Scalar(0), 1);
-			std::cout << locs[k]  << " " << locs[numLocs + k] << "\n";
+			cv::circle(subImage, cv::Point(locs[a], locs[numLocs + a]), 5, cv::Scalar(0), 1);
+			std::cout << locs[a]  << " " << locs[numLocs + a] << "\n";
 		#else
-			cv::circle(subImage, locs[k], 5, cv::Scalar(0), 1);
-			std::cout << locs[k].y << " " << locs[k].x << "\n";
+			cv::circle(subImage, locs[a], 5, cv::Scalar(0), 1);
+			std::cout << locs[a].y << " " << locs[a].x << "\n";
 		#endif
 	}
     cv::namedWindow( "Display window", CV_WINDOW_AUTOSIZE ); 
@@ -136,6 +138,20 @@ int main( int argc, char** argv )
 	
     cv::waitKey(0);
 	#endif
+	
+	std::vector<int> pngstuff;
+	pngstuff.push_back(CV_IMWRITE_PNG_COMPRESSION);
+	pngstuff.push_back(RATE);
+	
+	sprintf(&number, "%d", k);
+	savefile = "lowlight";
+	savefile += number;
+	savefile += "_rate";
+	sprintf(&number, "%d", RATE);
+	savefile += number;
+	savefile += ".png";
+	
+	cv::imwrite(savefile, image, pngstuff);
 	    
     }}
     return 0;

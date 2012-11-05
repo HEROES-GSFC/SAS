@@ -7,5 +7,5 @@ struct morphParams{
 
 int morphPeakFind(cv::Mat, morphParams, int*, int);
 int morphFindFiducials(cv::Mat, morphParams, morphParams, int, int*, int);
-int matchFindFiducials(cv::Mat, cv::Mat, int , cv::Point*, int);
+int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point*, int);
 void matchKernel(cv::OutputArray);

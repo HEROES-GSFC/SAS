@@ -10,6 +10,8 @@
 
 #define DEBUG 1
 #define DISPLAY 1
+#define SAVE 1
+#define RATE 9
 #define FIDTYPE 1
 
 #include <string.h>
@@ -43,6 +45,12 @@ int main(int argc, char* agrv[])
     #endif
     double* temp;
     int fidLocs;
+    
+    #if SAVE == 1
+    	std::vector<int> pngstuff;
+		pngstuff.push_back(CV_IMWRITE_PNG_COMPRESSION);
+		pngstuff.push_back(RATE);
+	#endif
 	
     if(CameraInitialize())
     {
@@ -144,7 +152,8 @@ int main(int argc, char* agrv[])
 							std::cout << "No center found. Skipping frame";
 							#endif
 						}
-						#if DISPLAY		
+	
+					#if DISPLAY		
 						pt.x = center[0]; pt.y = center[1];
 						//cv::circle(image, pt, 1, color, 1, CV_AA, 0);
 						//cv::circle(image, pt, 10, color, 1, CV_AA, 0);
@@ -195,8 +204,19 @@ int main(int argc, char* agrv[])
 
 						imshow("Solar Solution", image);
 						cv::waitKey(10);
-						#endif
-						//imwrite("MeasureRadius.png", image, param);
+					#endif
+						
+					#if SAVE					
+						sprintf(&number, "%d", framescapped);
+						savefile = "./frames/frame";
+						savefile += number;
+						savefile += "_rate";
+						sprintf(&number, "%d", RATE);
+						savefile += number;
+						savefile += ".png";
+	
+						cv::imwrite(savefile, image, pngstuff);
+					#endif
 						framesCapped++;
 					}
 					endTime = time(NULL);

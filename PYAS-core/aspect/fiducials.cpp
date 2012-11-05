@@ -111,7 +111,7 @@ int morphFindFiducials(cv::Mat image, morphParams rowParams, morphParams colPara
 	return nLocs;
 }
 
-int matchFindFiducials(cv::Mat image, cv::Mat kernel, int threshold, cv::Point* locs, int numLocs)
+int matchFindFiducials(cv::InputArray _image, cv::InputArray _kernel, int threshold, cv::Point* locs, int numLocs)
 {
 	cv::Scalar mean, stddev;
 	cv::Size imSize, kerSize;
@@ -121,8 +121,14 @@ int matchFindFiducials(cv::Mat image, cv::Mat kernel, int threshold, cv::Point* 
 	int minIdx;
 //	double dMin, dMax;
 	float min, curVal;
+
+	cv::Mat image = _image.getMat();
+	cv::Mat kernel = _kernel.getMat();
+
 	imSize = image.size();
 	kerSize = kernel.size();
+
+
 
 	cv::filter2D(image, detect, CV_32FC1, kernel, cv::Point(-1,-1));
 	cv::normalize(detect,detect,0,1,cv::NORM_MINMAX);
