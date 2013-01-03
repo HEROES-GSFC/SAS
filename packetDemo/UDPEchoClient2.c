@@ -44,8 +44,8 @@ int main(int argc, char *argv[])
         echoServPort = DEFAULT_PORT;  /* 7 is the well-known port for the echo service */
 
 	memset(&payload, 0, sizeof(payload));    /* Zero out structure */
-    unsigned short int frameNumber;
-    for( frameNumber = 0; frameNumber < 200; frameNumber++)
+    uint16_t packet_sequence_number;
+    for( packet_sequence_number = 0; packet_sequence_number < 1000; packet_sequence_number++)
     {
         // build the HEROES Command Packet Header
         // uint16 - the sync word, split into two 8 bit chars
@@ -54,11 +54,10 @@ int main(int argc, char *argv[])
         // uint8 target system ID
         // 0 corresponds to Flight data recorder
         // see Table 6-2 in HEROES Telemetry and Command Interface Description doc
-        payload[2] = frameNumber;
+        payload[2] = 0;
         // uint8 - payload length (in bytes)
-        payload[3] = 10;
+        payload[3] = PAYLOAD_SIZE;
         // uint16 - packet sequence number
-        uint16_t packet_sequence_number = 345;
         payload[4] = (unsigned short int) packet_sequence_number & 0xFF;
         payload[5] = (unsigned short int) (packet_sequence_number & 0xFF00) >> 8;
         // uint16 - CRC-16 checksum
