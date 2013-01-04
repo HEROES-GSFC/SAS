@@ -5,27 +5,30 @@ CFLAGS=-c -Wall
 PVAPI = -lPvAPI
 OPENCV = -I$(OPENCVDIR) -lopencv_core -lopencv_highgui -lopencv_imgproc
 CCFITS = -I$(CCFITSDIR) -lCCfits
+THREAD = -lpthread -std=gnu++0x
 OBJ = -I.
 
 all: fullDemo
 
-fullDemo: fullDemo.cpp chord.o camera.o fiducials.o
-	$(CC) fullDemo.cpp chord.o camera.o fiducials.o -o fullDemo $(OBJ) $(OPENCV) $(PVAPI) -pg
+fullDemo: fullDemo.cpp processing.o camera.o 
+	$(CC) fullDemo.cpp camera.o processing.o -o fullDemo $(OBJ) $(OPENCV) $(PVAPI) -pg
 
-fidDemo: fidDemo.cpp chord.o fiducials.o compression.o
-	$(CC) fidDemo.cpp chord.o fiducials.o compression.o -o fidDemo $(OBJ) $(OPENCV) $(CCFITS) -pg
-	
-chord.o: chord.cpp
-	$(CC) $(CFLAGS) chord.cpp $(OBJ)
-	
-fiducials.o: chord.cpp
-	$(CC) $(CFLAGS) fiducials.cpp $(OBJ) $(OPENCV)
-	
+fidDemo: fidDemo.cpp processing.o compression.o
+	$(CC) fidDemo.cpp processing.o compression.o -o fidDemo $(OBJ) $(OPENCV) $(CCFITS) -pg
+
+threadDemo: threadDemo.cpp processing.o semaphore.o
+	$(CC) threadDemo.cpp processing.o semaphore.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD)
+
+processing.o: processing.cpp
+	$(CC) $(CFLAGS) processing.cpp $(OBJ) $(OPENCV)
+
 camera.o: camera.cpp
 	$(CC) $(CFLAGS) camera.cpp $(OBJ) $(PVAPI)
 
 compression.o: compression.cpp
 	$(CC) $(CFLAGS) compression.cpp $(OBJ) $(OPENCV) $(CCFITS)
+semaphore.o: semaphore.cpp
+	$(CC) $(CFLAGS) semaphore.cpp $(OBJ) $(THREAD)
 
 clean:
-	rm -rf *.o fullDemo fidDemo *.out
+	rm -rf *.o fullDemo fidDemo threadDemo *.out

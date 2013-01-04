@@ -1,6 +1,5 @@
 #include <highgui/highgui.hpp>
-#include <chord.hpp>
-#include <fiducials.hpp>
+#include <processing.hpp>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -11,7 +10,7 @@
 
 // DEBUG of 1 plots images and makes a lot of noise
 // DEBUG of 0 doesn't do that
-#define DEBUG 0
+#define DEBUG 1
 
 #define FID_WIDTH 5
 #define FID_LENGTH 23
