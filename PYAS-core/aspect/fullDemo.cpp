@@ -10,8 +10,8 @@
 
 #define DEBUG 1
 #define DISPLAY 1
-#define SAVE 1
-#define RATE 9
+#define SAVE 0
+#define RATE 0
 #define FIDTYPE 1
 
 #include <string.h>
@@ -47,6 +47,8 @@ int main(int argc, char* agrv[])
     int fidLocs;
     
     #if SAVE == 1
+		char number[4] = "000";
+		std::string savefile;
     	std::vector<int> pngstuff;
 		pngstuff.push_back(CV_IMWRITE_PNG_COMPRESSION);
 		pngstuff.push_back(RATE);
@@ -207,15 +209,16 @@ int main(int argc, char* agrv[])
 					#endif
 						
 					#if SAVE					
-						sprintf(&number, "%d", framescapped);
+						sprintf(number, "%d", framesCapped);
+												
 						savefile = "./frames/frame";
 						savefile += number;
 						savefile += "_rate";
-						sprintf(&number, "%d", RATE);
+						sprintf(number, "%d", RATE);
 						savefile += number;
 						savefile += ".png";
 	
-						cv::imwrite(savefile, image, pngstuff);
+						cv::imwrite(savefile, frame, pngstuff);
 					#endif
 						framesCapped++;
 					}
