@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/GEVPlayer" >
+        <file>res/GEVPlayer.ico</file>
+        <file>res/play.bmp</file>
+        <file>res/stop.bmp</file>
+        <file>res/wheel.bmp</file>
+        <file>res/finder_icons16.bmp</file>
+        <file>res/GEVPlayer_about.bmp</file>
+        <file>res/GEVPlayer_splash.bmp</file>
+    </qresource>
+</RCC>

@@ -10,8 +10,8 @@
 
 #define DEBUG 1
 #define DISPLAY 1
-#define SAVE 1
-#define RATE 9
+#define SAVE 0
+#define RATE 0
 #define FIDTYPE 1
 #include <string.h>
 #include <iostream>
@@ -44,12 +44,14 @@ int main(int argc, char* agrv[])
     double* temp;
     int fidLocs;
     
-#if SAVE == 1
-    std::vector<int> pngstuff;
-    pngstuff.push_back(CV_IMWRITE_PNG_COMPRESSION);
-    pngstuff.push_back(RATE);
-#endif
-	
+    #if SAVE == 1
+		char number[4] = "000";
+		std::string savefile;
+    	std::vector<int> pngstuff;
+		pngstuff.push_back(CV_IMWRITE_PNG_COMPRESSION);
+		pngstuff.push_back(RATE);
+	#endif
+
     if(CameraInitialize())
     {
     	return 1;
@@ -204,27 +206,29 @@ int main(int argc, char* agrv[])
 			cv::waitKey(10);
 #endif
 						
-#if SAVE					
-			sprintf(&number, "%d", framesCapped);
-			savefile = "./frames/frame";
-			savefile += number;
-			savefile += "_rate";
-			sprintf(&number, "%d", RATE);
-			savefile += number;
-			savefile += ".png";
+					#if SAVE					
+						sprintf(number, "%d", framesCapped);
+												
+						savefile = "./frames/frame";
+						savefile += number;
+						savefile += "_rate";
+						sprintf(number, "%d", RATE);
+						savefile += number;
+						savefile += ".png";
 	
-			cv::imwrite(savefile, image, pngstuff);
-#endif
-			framesCapped++;
-		    }
-		    endTime = time(NULL);
-		    std::cout << "Frame rate was: " << ((float) framesCapped/(endTime-startTime)) << "\n";
-		    std::cout << "CameraSnap loop Done. Running CameraStop\n";
-		    CameraStop(&Camera);
-		}
-		std::cout << "CameraStop Done. Running CameraUnsetup\n";
-		CameraUnsetup(&Camera);
-	    }
+						cv::imwrite(savefile, frame, pngstuff);
+					#endif
+						framesCapped++;
+					}
+					endTime = time(NULL);
+					std::cout << "Frame rate was: " << ((float) framesCapped/(endTime-startTime)) << "\n";
+					std::cout << "CameraSnap loop Done. Running CameraStop\n";
+					CameraStop(&Camera);
+				}
+				std::cout << "CameraStop Done. Running CameraUnsetup\n";
+				CameraUnsetup(&Camera);
+			}
+
 	}
 	std::cout << "CameraUnsetup Done.\n";
 	CameraUnInitialize();
