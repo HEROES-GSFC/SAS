@@ -26,11 +26,9 @@ fullDemo: fullDemo.cpp processing.o camera.o
 fidDemo: fidDemo.cpp processing.o compression.o
 	$(CC) fidDemo.cpp processing.o compression.o -o fidDemo $(OBJ) $(OPENCV) $(CCFITS) -pg
 
-threadDemo: threadDemo.cpp processing.o semaphore.o
-	$(CC) threadDemo.cpp processing.o semaphore.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD)
+threadDemo: threadDemo.cpp processing.o semaphore.o ImperxStream.o
+	$(CC) threadDemo.cpp processing.o semaphore.o ImperxStream.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD)
 
-ImperxStream: ImperxStream.o utilities.o
-	$(CC) ImperxStream.o utilities.o $(OBJ) $(THREAD) $(IMPERX)
 processing.o: processing.cpp
 	$(CC) $(CFLAGS) processing.cpp -o processing.o $(OBJ) $(OPENCV)
 

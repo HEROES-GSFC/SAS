@@ -6,6 +6,8 @@
 #include <PvBuffer.h>
 #include <PvStream.h>
 #include <PvStreamRaw.h>
+#include <opencv.hpp>
+#include <mutex>
 
 #include <string>
 
@@ -19,7 +21,7 @@ public:
     int Connect(const std::string &IP);
     //get/set parameters(name, value);
     void Initialize();
-    void Start(char &frame, Semaphore &frame_semaphore, Flag &stream_flag);
+    void Snap(cv::OutputArray _frame);
     void Stop();
     void Disconnect();
 

@@ -1,8 +1,8 @@
 #include <ImperxStream.hpp>
 
 ImperxStream::ImperxStream()
-: lStream()
-, lPipeline( &lStream )
+    : lStream()
+    , lPipeline( &lStream )
 {
     lDeviceInfo = 0;
 }
@@ -182,7 +182,7 @@ void ImperxStream::Initialize()
     lDevice.SetStreamDestination( lStream.GetLocalIPAddress(), lStream.GetLocalPort() ); 
 }
     
-void ImperxStream::Start(char &frame, Semaphore &frame_semaphore, Flag &stream_flag)
+void ImperxStream::Snap(cv::OutputArray _frame)
 {
     // IMPORTANT: the pipeline needs to be "armed", or started before 
     // we instruct the device to send us images
@@ -204,68 +204,64 @@ void ImperxStream::Start(char &frame, Semaphore &frame_semaphore, Flag &stream_f
     printf( "Sending StartAcquisition command to device\n" );
     lDeviceParams->ExecuteCommand( "AcquisitionStart" );
 
-    char lDoodle[] = "|\\-|-/";
-    int lDoodleIndex = 0;
-    PvInt64 lImageCountVal = 0;
-    double lFrameRateVal = 0.0;
-    double lBandwidthVal = 0.0;
 
-    // Acquire images until the user instructs us to stop
-    printf( "\n<press a key to stop streaming>\n" );
-    while ( stream_flag.check() )
-    {
-        // Retrieve next buffer		
-        PvBuffer *lBuffer = NULL;
-        PvResult  lOperationResult;
-        PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
+    // Retrieve next buffer		
+    PvBuffer *lBuffer = NULL;
+    PvResult  lOperationResult;
+    PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
         
-        if ( lResult.IsOK() )
-        {
-            if ( lOperationResult.IsOK() )
-            {
-                // Process Buffer
-		lStreamParams->GetIntegerValue( "ImagesCount", lImageCountVal );
-		lStreamParams->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
-		lStreamParams->GetFloatValue( "BandwidthAverage", lBandwidthVal );
-            
-		// If the buffer contains an image, display width and height
-		PvUInt32 lWidth = 0, lHeight = 0;
-		if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
-		{
-		    // Get image specific buffer interface
-		    PvImage *lImage = lBuffer->GetImage();
+    if ( lResult.IsOK() )
+    {
+	if ( lOperationResult.IsOK() )
+	{
+	    // Process Buffer
+	    lStreamParams->GetIntegerValue( "ImagesCount", lImageCountVal );
+	    lStreamParams->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
+	    lStreamParams->GetFloatValue( "BandwidthAverage", lBandwidthVal );
 
-		    // Read width, height
-		    lWidth = lBuffer->GetImage()->GetWidth();
-		    lHeight = lBuffer->GetImage()->GetHeight();
-		}
+	    // If the buffer contains an image, display width and height
+	    PvUInt32 lWidth = 0, lHeight = 0;
+	    if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
+	    {
+		// Get image specific buffer interface
+		PvImage *lImage = lBuffer->GetImage();
 
-		printf( "%c BlockID: %016llX W: %i H: %i %.01f FPS %.01f Mb/s\r", 
-			lDoodle[ lDoodleIndex ],
-			lBuffer->GetBlockID(),
-			lWidth,
-			lHeight,
-			lFrameRateVal,
-			lBandwidthVal / 1000000.0 ); 
-            }
-            // We have an image - do some processing (...) and VERY IMPORTANT,
-            // release the buffer back to the pipeline
-
-	    //semaphore thing
-	    //get all in there.
-	    //a semaphore thing
+		// Read width, height
+		lWidth = lImage->GetWidth();
+		lHeight = lImage->GetHeight();
+		std::cout << "Width: " << lWidth << ", Height: " << lHeight << "\n";
+		if (lImage->Get
+		_frame.create(lWidth, lHeight,  CV8U_C1)
+	    }
+	    else
+	    {
+		std::cout << "not an image you dummy\n";
+	    }
+	    printf( "%c BlockID: %016llX W: %i H: %i %.01f FPS %.01f Mb/s\r", 
+		    lDoodle[ lDoodleIndex ],
+		    lBuffer->GetBlockID(),
+		    lWidth,
+		    lHeight,
+		    lFrameRateVal,
+		    lBandwidthVal / 1000000.0 ); 
+	}
+	// We have an image - do some processing (...) and VERY IMPORTANT,
+	// release the buffer back to the pipeline
 	    
-            lPipeline.ReleaseBuffer( lBuffer );
-        }
-        else
-        {
-            // Timeout
-            printf( "%c Timeout\r", lDoodle[ lDoodleIndex ] );
-        }
-
-        ++lDoodleIndex %= 6;
-    
+	    
+	    
+	frame_mtx.lock();
+	lframe.copyTo(frame);
+	frame_mtx.lock();
+	frame_sempahore.increment();
+	    
+	lPipeline.ReleaseBuffer( lBuffer );
     }
+    else
+    {
+	// Timeout
+	printf( "%c Timeout\r", lDoodle[ lDoodleIndex ] );
+    }  
 }
 
 void ImperxStream::Stop()

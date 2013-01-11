@@ -17,14 +17,54 @@
 #include <thread>
 #include <mutex>
 #include <processing.hpp>
-#include <semaphore.hpp>
-#include <time.h>
+#include <utilities.hpp>
+#include <ImperxStream.hpp>
 
 using namespace std;
 using namespace cv;
 
-void load_image(mutex* en_mtx, bool* en, string* path, mutex* frame_mtx, OutputArray _frame, Semaphore* outReady)
-{    
+/*
+  void load_image(mutex* en_mtx, bool* en, string* path, mutex* frame_mtx, OutputArray _frame, Semaphore* outReady)
+  {    
+  int k = 0;
+  stringstream filename;
+  Mat temp;
+    
+  do
+  {
+  (*en_mtx).lock();
+  if(!(*en))
+  {
+  (*en_mtx).unlock();
+  std::cout << "Stream thread stopped\n";
+  return;
+  }
+  (*en_mtx).unlock();
+
+  filename.str("");
+  filename << *path << "/testframe";
+  filename.fill('0');
+  filename.width(2);
+  filename << k << ".png";
+
+  k++;
+  if (k >= 18)
+  k = 0;
+
+  temp = imread(filename.str(), 0);
+
+  (*frame_mtx).lock();
+  temp.copyTo(_frame);
+  (*frame_mtx).unlock();
+  (*outReady).increment();
+  sleep(1);
+  } while (true);
+  }
+*/
+
+void stream_images(mutex* en_mtx, bool* en, string* path, mutex* frame_mtx, OutputArray _frame, Semaphore* outReady)
+{
+    
     int k = 0;
     stringstream filename;
     Mat temp;
