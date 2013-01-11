@@ -26,12 +26,13 @@ class TelemetryStream {
 
     public:
         TelemetryStream(void);
+        void test_checksum( void );
         void set_temperature( unsigned short int temperature );
         void send( void );
         void make_test_packet( int packet_sequence_number );
         void init_socket( void );
         void print_packet( void );
-        char payload[PAYLOAD_SIZE];      /* payload to send to server */
+        unsigned short int payload[PAYLOAD_SIZE];      /* payload to send to server */
 };
 
 
@@ -59,6 +60,18 @@ void TelemetryStream::reset_frame_number( void )
     frame_number = 0;
 }
 
+void TelemetryStream::test_checksum( void )
+{
+    // initialize check sum variable
+    unsigned short checksum;
+    checksum = 0xffff;
+  
+    char test[] = "123456789";
+    for(int i = 0; i < sizeof(test)-1; i++){
+            checksum = update_crc_16( checksum, (char) test[i] );}
+    printf("4b37 vs calculated %x\n", checksum); 
+}
+
 void TelemetryStream::do_checksum( void )
 {
     // initialize check sum variable
@@ -67,9 +80,9 @@ void TelemetryStream::do_checksum( void )
     
     // calculate the checksum but leave out the last value as it contains the checksum
     for(int i = 0; i < sizeof(payload)-2; i++){
-            checksum = update_crc_16( checksum, payload[i] );}
+            checksum = update_crc_16( checksum, (char) payload[i] );}
     payload[8] = checksum;
-    printf("checksum is %u\n", checksum); 
+    printf("checksum is %x\n", checksum); 
 }
 
 void TelemetryStream::print_packet( void )
@@ -150,7 +163,7 @@ int main()
 {
     TelemetryStream *tStream;
     tStream = new TelemetryStream;
-
+    tStream->test_checksum();
     tStream->make_test_packet( 4 );
     tStream->print_packet();
     tStream->init_socket();

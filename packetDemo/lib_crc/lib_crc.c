@@ -191,10 +191,10 @@ unsigned short update_crc_16( unsigned short crc, char c ) {
 
     short_c = 0x00ff & (unsigned short) c;
 
-    //if ( ! crc_tab16_init ) init_crc16_tab();
+    if ( ! crc_tab16_init ) init_crc16_tab();
 
-    //tmp =  crc       ^ short_c;
-    //crc = (crc >> 8) ^ crc_tab16[ tmp & 0xff ];
+    tmp =  crc       ^ short_c;
+    crc = (crc >> 8) ^ crc_tab16[ tmp & 0xff ];
 
     return crc;
 
