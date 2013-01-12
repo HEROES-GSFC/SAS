@@ -26,8 +26,17 @@ fullDemo: fullDemo.cpp processing.o camera.o
 fidDemo: fidDemo.cpp processing.o compression.o
 	$(CC) fidDemo.cpp processing.o compression.o -o fidDemo $(OBJ) $(OPENCV) $(CCFITS) -pg
 
-threadDemo: threadDemo.cpp processing.o semaphore.o ImperxStream.o
-	$(CC) threadDemo.cpp processing.o semaphore.o ImperxStream.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD)
+threadDemo: threadDemo.cpp processing.o semaphore.o
+	$(CC) threadDemo.cpp processing.o semaphore.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD)
+
+packetDemo: packetDemo.cpp TelemetryStream.o ImperxStream.o utilities.o
+	$(CC) packetDemo.cpp TelemetryStream.o lib_crc.o ImperxStream.o utilities.o -o packetDemo $(OBJ) $(OPENCV) $(IMPERX) $(THREAD)
+
+commandingDemo: commandingDemo.cpp Commanding.o 
+	$(CC) commandingDemo.cpp Commanding.o lib_crc.o -o commandingDemo
+
+ImperxStream: ImperxStream.o utilities.o
+	$(CC) ImperxStream.o utilities.o $(OBJ) $(THREAD) $(IMPERX)
 
 processing.o: processing.cpp
 	$(CC) $(CFLAGS) processing.cpp -o processing.o $(OBJ) $(OPENCV)
@@ -41,8 +50,14 @@ ImperxStream.o: ImperxStream.cpp utilities.o
 compression.o: compression.cpp
 	$(CC) $(CFLAGS) compression.cpp -o compression.o $(OBJ) $(OPENCV) $(CCFITS)
 
+TelemetryStream.o: TelemetryStream.cpp ./lib_crc/lib_crc.c
+	$(CC) $(CFLAGS) TelemetryStream.cpp ./lib_crc/lib_crc.c -I./lib_crc/
+
+Commanding.o: Commanding.cpp ./lib_crc/lib_crc.c
+	$(CC) $(CFLAGS) Commanding.cpp ./lib_crc/lib_crc.c -I./lib_crc/
+
 utilities.o: utilities.cpp
 	$(CC) $(CFLAGS) utilities.cpp -o utilities.o $(OBJ) $(THREAD)
 
 clean:
-	rm -rf *.o fullDemo fidDemo threadDemo *.out
+	rm -rf *.o fullDemo fidDemo threadDemo packetDemo commandingDemo *.out
