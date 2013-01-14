@@ -5,7 +5,7 @@
 #include <string.h>     /* for memset() */
 #include <unistd.h>     /* for close() */
 
-#define PAYLOAD_SIZE 9     /* Longest string to echo */
+#define PAYLOAD_SIZE 9    
 #define DEFAULT_PORT 7000 /* The default port to send on */
 
 void DieWithError(char *errorMessage)
