@@ -4,10 +4,10 @@
 #include <stdlib.h>     /* for atoi() and exit() */
 #include <string.h>     /* for memset() */
 #include <unistd.h>     /* for close() */
+#include <time.h>       /* for time_t */
 #include "lib_crc/lib_crc.h"
 
 #define PAYLOAD_SIZE 9     /* Longest string to echo */
-#define DEFAULT_PORT 7000 /* The default port to send on */
 
 class TelemetryStream {
     private:
@@ -18,19 +18,24 @@ class TelemetryStream {
         unsigned int fromSize;           /* In-out of address size for recvfrom() */
         char *servIP;                     /* IP address of server */
         size_t payloadLen;               /* Length of payload */
-        int frame_number;
-        void update_frame_number( void );
-        void reset_frame_number( void );
-        void do_checksum( void );
-        void close_connection( void );
+        int frame_sequence_number;
+        uint16_t syncWord;
 
+        uint16_t temperatureInDegrees;
+        
+        void updateSequenceNumber( void );
+        void resetSequenceNumber( void );
+        void Dochecksum( void );
+        void closeSocket( void );
+        void buildHeader( void );
+        void buildPayload( void );
+        void sendPacket( void );
     public:
         TelemetryStream(void);
-        bool test_checksum( void );
-        void set_temperature( unsigned short int temperature );
+        bool testChecksum( void );
+        void setTemperature( uint16_t temperature );
         void send( void );
-        void make_test_packet( int packet_sequence_number );
-        void init_socket( void );
-        void print_packet( void );
-        unsigned short int payload[PAYLOAD_SIZE];      /* payload to send to server */
+        void initSocket( void );
+        void printPacket( void );
+        uint8_t payload[PAYLOAD_SIZE];      /* payload to send to server */
 };
