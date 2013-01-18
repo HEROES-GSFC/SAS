@@ -20,23 +20,20 @@ OBJ = -I.
 
 all: fullDemo
 
-fullDemo: fullDemo.cpp processing.o camera.o 
-	$(CC) fullDemo.cpp camera.o processing.o -o fullDemo $(OBJ) $(OPENCV) $(AVT) -pg
+fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o
+	$(CC) fullDemo.cpp processing.o utilities.o ImperxStream.o -o fullDemo $(OBJ) $(OPENCV) $(THREAD) $(IMPERX) -pg
 
 fidDemo: fidDemo.cpp processing.o compression.o
 	$(CC) fidDemo.cpp processing.o compression.o -o fidDemo $(OBJ) $(OPENCV) $(CCFITS) -pg
 
-threadDemo: threadDemo.cpp processing.o semaphore.o
-	$(CC) threadDemo.cpp processing.o semaphore.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD)
+threadDemo: threadDemo.cpp processing.o utilities.o
+	$(CC) threadDemo.cpp processing.o utilities.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD) -pg
 
 packetDemo: packetDemo.cpp TelemetryStream.o ImperxStream.o utilities.o
 	$(CC) packetDemo.cpp TelemetryStream.o lib_crc.o ImperxStream.o utilities.o -o packetDemo $(OBJ) $(OPENCV) $(IMPERX) $(THREAD)
 
 commandingDemo: commandingDemo.cpp Commanding.o 
 	$(CC) commandingDemo.cpp Commanding.o lib_crc.o -o commandingDemo
-
-ImperxStream: ImperxStream.o utilities.o
-	$(CC) ImperxStream.o utilities.o $(OBJ) $(THREAD) $(IMPERX)
 
 processing.o: processing.cpp
 	$(CC) $(CFLAGS) processing.cpp -o processing.o $(OBJ) $(OPENCV)
