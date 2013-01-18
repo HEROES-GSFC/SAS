@@ -1,8 +1,8 @@
 #include <ImperxStream.hpp>
 
 ImperxStream::ImperxStream()
-: lStream()
-, lPipeline( &lStream )
+  : lStream()
+  , lPipeline( &lStream )
 {
     lDeviceInfo = 0;
 }
@@ -271,10 +271,10 @@ void ImperxStream::Start(char &frame, Semaphore &frame_semaphore, Flag &stream_f
 long long int ImperxStream::getTemperature()
 {
 			
-	long long int lTempValue = 0.0;
-	lDevice.GetGenParameters()->GetIntegerValue( "CurrentTemperature", lTempValue );
+    long long int lTempValue = 0.0;
+    lDevice.GetGenParameters()->GetIntegerValue( "CurrentTemperature", lTempValue );
 	
-	return lTempValue;	
+    return lTempValue;	
 }
 
 
@@ -304,17 +304,18 @@ void ImperxStream::Disconnect()
     lDevice.Disconnect();
 }
 
-//int main(void)
-//{
- //   ImperxStream SweetThang;
-//    char lazy;
-//    Semaphore whatever;
-//    Flag givup;
-//    SweetThang.Connect();
-//    SweetThang.Initialize();
-//    SweetThang.Start(lazy, whatever, givup);
-//    fine_wait(15,0,0,0);
-//    SweetThang.Stop();
-//    SweetThang.Disconnect();
-//    return 0;
-//}
+int main(void)
+{
+    ImperxStream SweetThang;
+    char lazy;
+    Semaphore whatever;
+    Flag givup;
+    SweetThang.Connect();
+    SweetThang.Initialize();
+    thread thang(SweetThang.Start,lazy, whatever, givup);
+		 
+    fine_wait(15,0,0,0);
+    SweetThang.Stop();
+    SweetThang.Disconnect();
+    return 0;
+}

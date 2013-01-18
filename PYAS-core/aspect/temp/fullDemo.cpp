@@ -52,12 +52,12 @@ int main(int argc, char* agrv[])
 	ImperxStream camera;
 	int height, width;
 	camera.Connect();
-	camera.ConfigureSnap(height, width);
+	camera.ConfigureSnap();
 	camera.Initialize();
 	std::cout << "CameraStart Done. Running CameraSnap loop\n";
 	std::cout << "Run for how many seconds: ";
 	std::cin >> duration;
-	cv::Mat frame(height, width, cv::CV_8UC1);
+	cv::Mat frame;
 	
 	cv::Mat subImage;
 	cv::Range rowRange, colRange;
