@@ -10,7 +10,7 @@
 
 #define DEBUG 1
 #define DISPLAY 1
-#define SAVE 0
+#define SAVE 1
 #define RATE 0
 #define FIDTYPE 1
 #include <string.h>
@@ -85,7 +85,7 @@ int main(int argc, char* agrv[])
     while ( time(NULL) < startTime + duration)
 	//while(framesCapped < 1)
     {
-		camera.Snap(frame.data);
+		camera.Snap(frame);
 
 	chordCenter(frame.data, height, width, 
 		    CHORDS, THRESHOLD, center);
@@ -129,10 +129,13 @@ int main(int argc, char* agrv[])
 	}
 	else
 	{
-	    continue;
 #if DEBUG
-	    std::cout << "No center found. Skipping frame";
+	    std::cout << "No center found. Skipping frame\n";
 #endif
+	    cv::merge(list,3,image);
+	    imshow("Solar Solution", image );
+	    cv::waitKey(10);
+	    continue;   
 	}
 	
 #if DISPLAY		

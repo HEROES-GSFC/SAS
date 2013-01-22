@@ -196,7 +196,7 @@ void ImperxStream::Initialize()
     lDeviceParams->ExecuteCommand( "GevTimestampControlReset" );
 }
     
-void ImperxStream::Snap(unsigned char *frame)
+void ImperxStream::Snap(cv::Mat &frame)
 {
     // The pipeline is already "armed", we just have to tell the device
     // to start sending us images
@@ -237,14 +237,11 @@ void ImperxStream::Snap(unsigned char *frame)
 		lWidth = (int) lImage->GetWidth();
 		lHeight = (int) lImage->GetHeight();
 		unsigned char *img = lImage->GetDataPointer();
+		cv::Mat lframe(lHeight,lWidth,CV_8UC1,img, cv::Mat::AUTO_STEP);
+		lframe.copyTo(frame);
+
 		
-		for(int m = 0; m < lHeight; m++)
-		{
-		    for(int n = 0; n < lWidth; n++)
-		    {
-			frame[m*lWidth + lHeight] = img[m*lWidth + lHeight];
-		    }
-		}
+		
 	    }
 
 	    std::cout << lWidth << " " << lHeight << "\n";
@@ -377,7 +374,7 @@ void ImperxStream::ConfigureSnap(int &width, int &height)
     lDeviceParams->SetEnumValue("AcquisitionMode","SingleFrame");
     lDeviceParams->SetEnumValue("ExposureMode","Timed");
     lDeviceParams->SetEnumValue("PixelFormat","Mono8");
-    lDeviceParams->SetIntegerValue("ExposureTimeRaw",30000);
+    lDeviceParams->SetIntegerValue("ExposureTimeRaw",3000);
     lDeviceParams->GetIntegerValue("Height", lHeight);
     lDeviceParams->GetIntegerValue("Width", lWidth);
     height = (int) lHeight;

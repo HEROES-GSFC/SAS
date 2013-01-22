@@ -9,6 +9,7 @@
 
 #include <string>
 #include <utilities.hpp>
+#include <opencv.hpp>
 
 class ImperxStream
 {
@@ -20,7 +21,7 @@ public:
     void Initialize();
     void ConfigureSnap(int &width, int &height);
     void Stream(unsigned char *frame, Semaphore &frame_semaphore, Flag &stream_flag);
-    void Snap(unsigned char *frame);
+  void Snap(cv::Mat &frame);
     void Stop();
     void Disconnect();
     long long int getTemperature( void );

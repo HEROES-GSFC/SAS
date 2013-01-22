@@ -1,5 +1,5 @@
 CC=g++
-OPENCVDIR = /usr/local/include/opencv2/
+OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/local/include/CCfits/
 CFLAGS=-c -Wall
 AVT = -lPvAPI
@@ -42,7 +42,7 @@ camera.o: camera.cpp
 	$(CC) $(CFLAGS) camera.cpp $(OBJ) $(AVT)
 
 ImperxStream.o: ImperxStream.cpp utilities.o
-	$(CC) $(CFLAGS) ImperxStream.cpp utilities.o -o ImperxStream.o $(OBJ) $(THREAD) $(IMPERX)
+	$(CC) $(CFLAGS) ImperxStream.cpp utilities.o -o ImperxStream.o $(OBJ) $(THREAD) $(IMPERX) $(OPENCV)
 
 compression.o: compression.cpp
 	$(CC) $(CFLAGS) compression.cpp -o compression.o $(OBJ) $(OPENCV) $(CCFITS)
