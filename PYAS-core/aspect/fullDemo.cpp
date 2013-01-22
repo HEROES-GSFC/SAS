@@ -1,16 +1,16 @@
-#define CHORDS 30
-#define THRESHOLD 75
+#define CHORDS 50
+#define THRESHOLD 50
 
 #define FID_WIDTH 5
 #define FID_LENGTH 23
 #define SOLAR_RADIUS 105
 #define FID_ROW_THRESH 5
 #define FID_COL_THRESH 0
-#define FID_MATCH_THRESH 5
+#define FID_MATCH_THRESH 7
 
-#define DEBUG 1
+#define DEBUG 0
 #define DISPLAY 1
-#define SAVE 1
+#define SAVE 0
 #define RATE 0
 #define FIDTYPE 1
 #include <string.h>
@@ -49,9 +49,9 @@ int main(int argc, char* agrv[])
 #endif
     ImperxStream camera;
     int height, width;
-	camera.Connect();
-	camera.ConfigureSnap(width, height);
-	camera.Initialize();
+    camera.Connect();
+    camera.ConfigureSnap(width, height);
+    camera.Initialize();
     std::cout << "CameraStart Done. Running CameraSnap loop\n";
     std::cout << "Run for how many seconds: ";
     std::cin >> duration;
@@ -83,9 +83,8 @@ int main(int argc, char* agrv[])
 					
     startTime = time(NULL);
     while ( time(NULL) < startTime + duration)
-	//while(framesCapped < 1)
     {
-		camera.Snap(frame);
+	camera.Snap(frame);
 
 	chordCenter(frame.data, height, width, 
 		    CHORDS, THRESHOLD, center);

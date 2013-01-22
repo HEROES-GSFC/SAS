@@ -1,4 +1,5 @@
 #include <ImperxStream.hpp>
+#include <iostream>
 
 ImperxStream::ImperxStream()
     : lStream()
@@ -237,15 +238,29 @@ void ImperxStream::Snap(cv::Mat &frame)
 		lWidth = (int) lImage->GetWidth();
 		lHeight = (int) lImage->GetHeight();
 		unsigned char *img = lImage->GetDataPointer();
-		cv::Mat lframe(lHeight,lWidth,CV_8UC1,img, cv::Mat::AUTO_STEP);
-		lframe.copyTo(frame);
+//		cv::Mat lframe(lHeight,lWidth,CV_8UC1,img, cv::Mat::AUTO_STEP);
+//		lframe.copyTo(frame);
+		for (int m = 0; m < lHeight; m++)
+		{
+		    for (int n = 0; n < lWidth; n++)
+		    {
+			frame.at<unsigned char>(m,n) = img[m*lWidth + n];
+//			std::cout << (short int) img[n*lHeight +m] << " ";
+		    }
+		}
 
-		
-		
 	    }
-
+	    else
+	    {
+		std::cout << "No image\n";
+	    }
+	    
 	    std::cout << lWidth << " " << lHeight << "\n";
 	    
+	}
+	else
+	{
+	    std::cout << "Damaged Result\n";
 	}
 	// We have an image - do some processing (...) and VERY IMPORTANT,
 	// release the buffer back to the pipeline
@@ -257,13 +272,10 @@ void ImperxStream::Snap(cv::Mat &frame)
     }
     else
     {
-	// Timeout
-	printf( "%c Timeout\r", lDoodle[ lDoodleIndex ] );
+	std::cout << "Timeout\n";
     }
 
     ++lDoodleIndex %= 6;
-
-    
 }
 void ImperxStream::Stream(unsigned char *frame, Semaphore &frame_semaphore, Flag &stream_flag)
 {
@@ -374,7 +386,7 @@ void ImperxStream::ConfigureSnap(int &width, int &height)
     lDeviceParams->SetEnumValue("AcquisitionMode","SingleFrame");
     lDeviceParams->SetEnumValue("ExposureMode","Timed");
     lDeviceParams->SetEnumValue("PixelFormat","Mono8");
-    lDeviceParams->SetIntegerValue("ExposureTimeRaw",3000);
+    lDeviceParams->SetIntegerValue("ExposureTimeRaw",10000);
     lDeviceParams->GetIntegerValue("Height", lHeight);
     lDeviceParams->GetIntegerValue("Width", lWidth);
     height = (int) lHeight;

@@ -1,7 +1,6 @@
 #include <processing.hpp>
 #include <iostream>
 #include <fstream>
-#include <iostream>
 #include <vector>
 #include <math.h>
 
