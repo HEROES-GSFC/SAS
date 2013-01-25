@@ -11,17 +11,21 @@
 
 
 #define MAX_PAYLOAD 4096     /* Longest string to echo */
+#define MAX_PARAMS 10
 #define DEFAULT_PORT 7000 /* The default port to send on */
 #define SAS_IP_ADDR "10.1.49.140"
 
-void main()
+
+uint16_t do_checksum(char *, int);
+
+int main()
 {
 	int sock;                       /* Socket descriptor */
     struct sockaddr_in localAddr; /* Echo server address */
     struct sockaddr_in remoteAddr;     /* Source address of echo */
     unsigned short localPort;     /* Echo server port */
     unsigned int remote_length;           /* In-out of address size for recvfrom() */
-    uint16_t seq_number, seq_num_prev
+    uint16_t seq_num, seq_num_prev;
     uint16_t command_key;
     uint16_t parameters[MAX_PARAMS];
     uint8_t num_params;
@@ -30,13 +34,13 @@ void main()
 	
 	int packet_length, payload_length, discards;
 	uint8_t buffer[MAX_PAYLOAD];
-	uint16_t * packet = buffer;
+	uint16_t * packet = (uint16_t *) buffer;
 	
 	localPort = DEFAULT_PORT;
 	
 	seq_num_prev = 0;
-	packet_fail = FALSE;
-	checksum_fail = FALSE;
+	format_valid = FALSE;
+	checksum_valid = FALSE;
 	first_packet = TRUE;
 	lost_packets = FALSE;
 	connection_active = FALSE;
@@ -45,46 +49,47 @@ void main()
     
     //Construct the local address structure
     bzero((char *)&localAddr, sizeof(localAddr));  //zero out structure
-    ServAddr.sin_family = AF_INET;	//Internet address family
-    ServAddr.sin_addr.s_addr = htonl(INADDR_ANY);	//Any incoming interface
-    ServAddr.sin_port = htons(ServPort);	//Local port
+    localAddr.sin_family = AF_INET;	//Internet address family
+    localAddr.sin_addr.s_addr = htonl(INADDR_ANY);	//Any incoming interface
+    localAddr.sin_port = htons(localPort);	//Local port
     while (bind(sock, (struct sockaddr *) &localAddr, sizeof(localAddr)) == -1) {printf("Bind fail... retrying in 1 sec..."); sleep(1);}  //Bind address to the socket... wait 1 sec and retry on failure (not sure if this is a good idea)
     
+
     remote_length = sizeof(remoteAddr);
     
     connection_active = TRUE;  //set connection status to active
     
     //while(1){
-    while ((packet_length = recvfrom(sock, buffer, MAX_PAYLOAD, 0, (struck sockaddr *)&remoteaddr, &remote_length)) < 0) {printf("Failed to get datagram... retrying in 1 sec..."; sleep(1);}  //Get datagram, sleep on failure (not sure if good idea)
-        
+    while ((packet_length = recvfrom(sock, buffer, MAX_PAYLOAD, 0, (struct sockaddr *)&remoteAddr, &remote_length)) < 0) {printf("Failed to get datagram... retrying in 1 sec..."); sleep(1);}  //Get datagram, sleep on failure (not sure if good idea)
+    printf("breakpoint 1 reached\n");    
     //begin parsing packet
-    while((packet[0] != 0xc39a) || (buffer[2] != 0x30))
+    /*while((packet[0] != 0xc39a) || (buffer[2] != 0x30))
     {
 	    
-	    buffer++;   //find the packet header, discard invalid words and count the number discarded
-	    packet = buffer;
+	    *buffer = *buffer + 1;   //find the packet header, discard invalid words and count the number discarded
+	    packet = (uint16_t *) buffer;
 	    discards++;
-    }
+    }*/
     payload_length = buffer[3];  //payload length is in bytes and must be even, therefore divide by 2 gives number of words
     num_params = payload_length/2 - 1;
     seq_num = packet[2];
-    checksum_valid = (do_checksum(packet, packet_length) == 0);
+    checksum_valid = (do_checksum((char *)buffer, packet_length) == 0);
     command_key = packet[4];
     
     if (payload_length == (packet_length - 8)) {
-	    //no spare bytes
+	    }//no spare bytes
 	    else if (payload_length < (packet_length - 8)) {
-		    //incomplete packet
+		    }//incomplete packet
 		    else {
 			    //spare bytes
-	 }}}
+	 }
 	 
-	 printf("Packet recieved:\nPayload Length: %x\nSequence Number: %x\n Checksum Status: %x\n Command Key: %x", payload_length, seq_num, checksum_valid, command_key);
+	 printf("Packet recieved:\nPacket Length: %x\nPayload Length: %x\nSequence Number: %x\n Checksum Status: %x\nCommand Key: %x", packet_length, payload_length, seq_num, checksum_valid, command_key);
 	//}//end of while loop
 	 	 
 	 close(sock);
 	 
-	 return;
+	 return 0;
     
 }
 
