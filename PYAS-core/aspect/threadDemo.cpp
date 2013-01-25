@@ -11,63 +11,18 @@
 #define NUM_LOCS 20
 
 #include <opencv.hpp>
-#include <highgui/highgui.hpp>
 #include <iostream>
 #include <string>
 #include <thread>
 #include <mutex>
 #include <processing.hpp>
 #include <utilities.hpp>
-#include <ImperxStream.hpp>
 
-using namespace std;
-using namespace cv;
-
-/*
-  void load_image(mutex* en_mtx, bool* en, string* path, mutex* frame_mtx, OutputArray _frame, Semaphore* outReady)
-  {    
-  int k = 0;
-  stringstream filename;
-  Mat temp;
-    
-  do
-  {
-  (*en_mtx).lock();
-  if(!(*en))
-  {
-  (*en_mtx).unlock();
-  std::cout << "Stream thread stopped\n";
-  return;
-  }
-  (*en_mtx).unlock();
-
-  filename.str("");
-  filename << *path << "/testframe";
-  filename.fill('0');
-  filename.width(2);
-  filename << k << ".png";
-
-  k++;
-  if (k >= 18)
-  k = 0;
-
-  temp = imread(filename.str(), 0);
-
-  (*frame_mtx).lock();
-  temp.copyTo(_frame);
-  (*frame_mtx).unlock();
-  (*outReady).increment();
-  sleep(1);
-  } while (true);
-  }
-*/
-
-void stream_images(mutex* en_mtx, bool* en, string* path, mutex* frame_mtx, OutputArray _frame, Semaphore* outReady)
-{
-    
+void load_image(std::mutex* en_mtx, bool* en, std::string* path, std::mutex* frame_mtx, cv::OutputArray _frame, Semaphore* outReady)
+{    
     int k = 0;
-    stringstream filename;
-    Mat temp;
+    std::stringstream filename;
+    cv::Mat temp;
     
     do
     {
@@ -90,24 +45,22 @@ void stream_images(mutex* en_mtx, bool* en, string* path, mutex* frame_mtx, Outp
 	if (k >= 18)
 	    k = 0;
 
-	temp = imread(filename.str(), 0);
+	temp = cv::imread(filename.str(), 0);
 
 	(*frame_mtx).lock();
 	temp.copyTo(_frame);
 	(*frame_mtx).unlock();
 	(*outReady).increment();
-	sleep(1);
+	fine_wait(1,0,0,0);
     } while (true);
 }
 
-void process_image(mutex* en_mtx, bool* en, mutex* frame_mtx, InputArray _frame, mutex* center_mtx, cv::Point* center, Semaphore* inReady, Semaphore* outReady, cv::Point* _locs, int* _fidLocs, mutex* fid_mtx)
+
+void process_image(std::mutex* en_mtx, bool* en, std::mutex* frame_mtx, cv::InputArray _frame, std::mutex* center_mtx, cv::Point* center, Semaphore* inReady, Semaphore* outReady, cv::Point* _locs, int* _fidLocs, std::mutex* fid_mtx)
 {
     cv::Size frameSize;
     cv::Mat frame;
     double chordOutput[6];
-    timespec waittime;
-    waittime.tv_sec = 0;
-    waittime.tv_nsec = 10000000;
 
     cv::Mat kernel;
     cv::Mat subImage;
@@ -138,7 +91,7 @@ void process_image(mutex* en_mtx, bool* en, mutex* frame_mtx, InputArray _frame,
 	    }
 	    catch(const char* e)
 	    {
-		nanosleep(&waittime,NULL);
+		fine_wait(0,10,0,0);
 	    }
 	}
 	(*frame_mtx).lock();
@@ -181,7 +134,7 @@ void process_image(mutex* en_mtx, bool* en, mutex* frame_mtx, InputArray _frame,
     } while(true);		        
 }
 
-void display_image(mutex* en_mtx, bool* en, mutex* frame_mtx, InputArray _frame, mutex* center_mtx, cv::Point* center, Semaphore* inReady, cv::Point* locs, int* fidLocs, mutex* fid_mtx)
+void display_image(std::mutex* en_mtx, bool* en, std::mutex* frame_mtx, cv::InputArray _frame, std::mutex* center_mtx, cv::Point* center, Semaphore* inReady, cv::Point* locs, int* fidLocs, std::mutex* fid_mtx)
 {
     cv::namedWindow("Frame", CV_WINDOW_AUTOSIZE);
     cv::Mat render, frame;
@@ -189,9 +142,6 @@ void display_image(mutex* en_mtx, bool* en, mutex* frame_mtx, InputArray _frame,
     cv::Scalar color(0,0,192);
     cv::Scalar color2(128,0,0);
     cv::Point pt, pt1, pt2;
-    timespec waittime;
-    waittime.tv_sec = 0;
-    waittime.tv_nsec = 10000000;
 
     do
     {
@@ -201,9 +151,9 @@ void display_image(mutex* en_mtx, bool* en, mutex* frame_mtx, InputArray _frame,
 	    if(!(*en))
 	    {
 		(*en_mtx).unlock();
-		destroyWindow("Frame");
-		waitKey(1);				     
-		cout << "Display thread stopped\n";
+		cv::destroyWindow("Frame");
+		cv::waitKey(1);				     
+		std::cout << "Display thread stopped\n";
 		return;
 	    }
 	    (*en_mtx).unlock();	
@@ -214,7 +164,7 @@ void display_image(mutex* en_mtx, bool* en, mutex* frame_mtx, InputArray _frame,
 	    }
 	    catch(const char* e)
 	    {
-		nanosleep(&waittime,NULL);
+		fine_wait(0,10,0,0);
 	    }
 	}
 	(*frame_mtx).lock();
@@ -224,7 +174,7 @@ void display_image(mutex* en_mtx, bool* en, mutex* frame_mtx, InputArray _frame,
 	for (int q = 0; q < 3; q++)
       	    channels[q] = frame;
 
-	merge(channels, 3, render);
+	cv::merge(channels, 3, render);
 
 	(*center_mtx).lock();
 	pt = *center;
@@ -270,36 +220,37 @@ void display_image(mutex* en_mtx, bool* en, mutex* frame_mtx, InputArray _frame,
 	    cv::circle(render, cv::Point(locs[k].x, locs[k].y), 10, color2, 2, CV_AA, 0);
 	}
 	(*fid_mtx).unlock();
-	imshow("Frame", render);
-	waitKey(10);
+	cv::imshow("Frame", render);
+	cv::waitKey(10);
     } while(true);
 }
 
 int main( int argc, char** argv )
 {
-    static string path;
-    cv::Mat frame(960, 1280, CV_8UC1, cv::Mat::AUTO_STEP);
+    static std::string path;
+    int height = 960, width = 1280;
+    cv::Mat frame(height, width, CV_8UC1);
     cv::Point center;
     bool en = 1;
-    mutex en_mtx, frame_mtx, center_mtx, fid_mtx;
+    std::mutex en_mtx, frame_mtx, center_mtx, fid_mtx;
     Semaphore frameReady, frameProcessed;
     cv::Point locs[NUM_LOCS];
     int fidLocs;
 
     if (argc != 2)
     {
-	cout << "Grabbing frames from default directory: ./frames\n";
+	std::cout << "Grabbing frames from default directory: ./frames\n";
 	path = "./frames";
     }
     else
     {
-	cout << "Grabbing frames from: " << argv[1] << "\n";
+	std::cout << "Grabbing frames from: " << argv[1] << "\n";
 	path = argv[1];
     }
     
-    thread stream(load_image, &en_mtx, &en, &path, &frame_mtx, frame, &frameReady);
-    thread process(process_image, &en_mtx, &en, &frame_mtx, frame, &center_mtx, &center, &frameReady, &frameProcessed, locs, &fidLocs, &fid_mtx);
-    thread show(display_image, &en_mtx, &en, &frame_mtx, frame, &center_mtx, &center,&frameProcessed, locs, &fidLocs, &fid_mtx);
+    std::thread stream(load_image, &en_mtx, &en, &path, &frame_mtx, frame, &frameReady);
+    std::thread process(process_image, &en_mtx, &en, &frame_mtx, frame, &center_mtx, &center, &frameReady, &frameProcessed, locs, &fidLocs, &fid_mtx);
+    std::thread show(display_image, &en_mtx, &en, &frame_mtx, frame, &center_mtx, &center,&frameProcessed, locs, &fidLocs, &fid_mtx);
     
     sleep(30);
     
