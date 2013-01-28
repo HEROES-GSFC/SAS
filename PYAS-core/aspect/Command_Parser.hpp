@@ -20,10 +20,14 @@ class Command_Parser {
         struct sockaddr_in remoteAddr;     /* Source address of echo */
         unsigned short localPort;     /* Echo server port */
         unsigned int remote_length;           /* In-out of address size for recvfrom() */
-        uint16_t seq_number, seq_num_prev
+        
+        uint8_t buffer[MAX_PAYLOAD];
+        int packet_length, payload_length;
+        
+        int seq_number, seq_num_prev
         uint16_t command_key;
         uint16_t parameters[MAX_PARAMS];
-        uint8_t num_params;
+        int num_params;
         bool format_valid, checksum_valid, first_packet, lost_packets, connection_active, parse_complete;
         
         void parse_packet(uint8_t *);
@@ -34,14 +38,17 @@ class Command_Parser {
         CommandParser(void);
         
         bool test_checksum( void );
-        void print_packet( void );
+       	int init(void);
+       	int close(void);
+       	int TestGetOneCmd(void);
         
-        void close_connection( void );
         bool packet_status(void);
         bool checksum_status(void);
         bool packets_lost(void);
       	bool connection_status(void);
       	bool parse_status(void);
       	uint16_t get_command_key();
+      	(uint16_t *) get_params();
+      	int get_num_params();
         
 };
