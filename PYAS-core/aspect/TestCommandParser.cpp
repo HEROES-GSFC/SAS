@@ -84,7 +84,7 @@ int main()
 			    //spare bytes
 	 }
 	 
-	 printf("Packet recieved:\nPacket Length: %x\nPayload Length: %x\nSequence Number: %x\n Checksum Status: %x\nCommand Key: %x", packet_length, payload_length, seq_num, checksum_valid, command_key);
+	 printf("Packet recieved:\nPacket Length: x%x\nPayload Length: x%x\nSequence Number: x%x\n Checksum Status: x%x\nCommand Key: x%x", packet_length, payload_length, seq_num, checksum_valid, command_key);
 	//}//end of while loop
 	 	 
 	 close(sock);
