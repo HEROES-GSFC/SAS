@@ -13,6 +13,15 @@
 //#define DEFAULT_PORT 5000 /* The default port to send on */
 #define MAX_PARAMS 10
 
+struct Command
+{
+	int seq_number, num_params;
+    uint16_t key;
+    uint16_t parameters[MAX_PARAMS];
+    bool format_valid, checksum_valid;
+    Command * Next;
+};    
+
 class Command_Parser {
     private:
         int sock;                       /* Socket descriptor */
@@ -21,18 +30,16 @@ class Command_Parser {
         unsigned short localPort;     /* Echo server port */
         unsigned int remote_length;           /* In-out of address size for recvfrom() */
         
-        uint8_t buffer[MAX_PAYLOAD];
-        int packet_length, payload_length;
+        Command * first;
+        int listsize;
+        bool connection_active;
         
-        int seq_number, seq_num_prev
-        uint16_t command_key;
-        uint16_t parameters[MAX_PARAMS];
-        int num_params;
-        bool format_valid, checksum_valid, first_packet, lost_packets, connection_active, parse_complete;
+        uint8_t buffer[MAX_PAYLOAD];
         
         void parse_packet(uint8_t *);
         void do_checksum( void );
         void parse_packet(void);
+        void insert(command *);
         
     public:
         CommandParser(void);
@@ -51,4 +58,4 @@ class Command_Parser {
       	(uint16_t *) get_params();
       	int get_num_params();
         
-};
+};    

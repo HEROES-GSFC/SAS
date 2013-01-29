@@ -20,7 +20,7 @@ void Commanding::init_socket( void )
 
     /* Construct local address structure */
     memset(&ServAddr, 0, sizeof(ServAddr));   /* Zero out structure */
-    ServAddr.sin_family = AF_INET;                /* Internet address family */
+    ServAddr.sin_family = PF_INET;                /* Internet address family */
     ServAddr.sin_addr.s_addr = htonl(INADDR_ANY); /* Any incoming interface */
     ServAddr.sin_port = htons(ServPort);      /* Local port */
 
