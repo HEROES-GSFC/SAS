@@ -1,5 +1,5 @@
 CC=g++
-OPENCVDIR = /usr/include/opencv2/
+OPENCVDIR = /usr/local/include/opencv2/
 CCFITSDIR = /usr/local/include/CCfits/
 CFLAGS=-c -Wall
 AVT = -lPvAPI
