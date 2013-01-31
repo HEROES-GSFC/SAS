@@ -19,7 +19,7 @@ struct Command
     uint16_t key;
     uint16_t parameters[MAX_PARAMS];
     bool format_valid, checksum_valid;
-    Command * Next;
+    Command * next;
 };    
 
 class Command_Parser {
@@ -32,7 +32,7 @@ class Command_Parser {
         
         Command * first;
         int listsize;
-        bool connection_active;
+        bool connection_active, verbose;
         
         uint8_t buffer[MAX_PAYLOAD];
         
@@ -47,15 +47,15 @@ class Command_Parser {
         bool test_checksum( void );
        	int init(void);
        	int close(void);
-       	int TestGetOneCmd(void);
+       	void listen(void);
+       	void listenOnce(void);
         
-        bool packet_status(void);
-        bool checksum_status(void);
-        bool packets_lost(void);
-      	bool connection_status(void);
-      	bool parse_status(void);
-      	uint16_t get_command_key();
-      	(uint16_t *) get_params();
+        bool connection_status();
+       	bool empty(void);
+        uint16_t get_key();
       	int get_num_params();
+        uint16_t get_params(int);
+      	uint16_t get_seqnum();
+      	bool set_verbose(bool);
         
 };    
