@@ -56,5 +56,11 @@ Commanding.o: Commanding.cpp ./lib_crc/lib_crc.c
 utilities.o: utilities.cpp
 	$(CC) $(CFLAGS) utilities.cpp -o utilities.o $(OBJ) $(THREAD)
 
+lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
+	$(CC) $(CFLAGS) lib_crc/lib_crc.c
+
+Packet.o: Packet.cpp Packet.hpp
+	$(CC) $(CFLAGS) Packet.cpp
+
 clean:
 	rm -rf *.o fullDemo fidDemo threadDemo packetDemo commandingDemo *.out
