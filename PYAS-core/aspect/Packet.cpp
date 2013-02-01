@@ -1,8 +1,10 @@
 #include <iostream>
 #include <iomanip>
+#include <string>
 
 #include <stdint.h>
-#include <string.h>
+#include <stdlib.h>
+#include <memory.h>
 #include <sys/time.h>
 
 #include "Packet.hpp"
@@ -18,6 +20,15 @@ TelemetryPacketSizeException tpSizeException;
 ByteString::ByteString()
 {
   length = 0;
+}
+
+ByteString::ByteString(const char *str)
+{
+  length = 0;
+  std::string sstr(str);
+  for (uint16_t i=0;i<(uint16_t)sstr.length()/2;i++) {
+    *this << (uint8_t)strtol(sstr.substr(i*2, 2).c_str(), NULL, 16);
+  }
 }
 
 template <class T>

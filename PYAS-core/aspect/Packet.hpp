@@ -101,6 +101,7 @@ class ByteString {
 
   public:
     ByteString();
+    ByteString(const char *str); //from a null-terminated hexadecimal string
 
     uint16_t getLength() { return length; }
 
