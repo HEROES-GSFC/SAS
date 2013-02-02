@@ -32,25 +32,26 @@ ByteString::ByteString(const char *str)
 }
 
 template <class T>
-void ByteString::append(T value)
+void ByteString::append(const T& value)
 {
-  append(&value, sizeof(value));
+  append_bytes(&value, sizeof(value));
 }
 
-void ByteString::append(const void *ptr, uint16_t num)
+template <>
+void ByteString::append<ByteString>(const ByteString& bs)
+{
+  append_bytes(bs.buffer, bs.length);
+}
+
+void ByteString::append_bytes(const void *ptr, uint16_t num)
 {
   if(length+num > PACKET_MAX_SIZE) throw bsFullException;
   memcpy(buffer+length, ptr, num);
   length += num;
 }
 
-void ByteString::appendBS(ByteString& bs)
-{
-  append(bs.buffer, bs.length);
-}
-
 template <class T>
-void ByteString::replace(uint16_t loc, T value)
+void ByteString::replace(uint16_t loc, const T& value)
 {
   if(loc+sizeof(value) > length) throw bsAccessException;
   memcpy(buffer+loc, &value, sizeof(value));
@@ -68,11 +69,8 @@ uint16_t ByteString::outputTo(uint8_t dest[])
   return length;
 }
 
-ByteString& operator<<(ByteString& bs, uint8_t value) { bs.append(value); return bs; }
-ByteString& operator<<(ByteString& bs, uint16_t value) { bs.append(value); return bs; }
-ByteString& operator<<(ByteString& bs, uint32_t value) { bs.append(value); return bs; }
-ByteString& operator<<(ByteString& bs, double value) { bs.append(value); return bs; }
-ByteString& operator<<(ByteString& bs, ByteString& other) { bs.appendBS(other); return bs; }
+template <class T>
+ByteString& operator<<(ByteString& bs, const T& value) { bs.append(value); return bs; }
 
 ostream& operator<<(ostream& os, ByteString& bs)
 {

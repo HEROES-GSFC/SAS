@@ -7,11 +7,12 @@ the inputs are the target ID and the sequence number.  For TelemetryPacket, the
 inputs are the data type and the source ID.
 
 After the packet is created, you can append data to the packet.  The recommended
-approach is to use the insertion operator <<, which can accept a number of
+approach is to use the insertion operator <<, which can accept the following
 data types:
-  uint8_t, uint16_t, uint32_t, double, ByteString
-(The other approach is to use append(), which is necessary if you want to
-append an array.)
+  uint8_t, uint16_t, uint32_t, int8_t, int16_t, int32_t, float, double,
+  ByteString*
+For classes (*), the actual data inserted is customized.  To insert an array,
+you will need to use the append_bytes() method.
 
 Once the packet is built to satisfaction, you can extract the data.  The
 recommended approach is to use the extraction operator >> to a uint8_t array
@@ -63,7 +64,7 @@ catch (std::exception& e)
 uint8_t image[5] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
 TelemetryPacket tp2(0x70, 0x30);
 tp2 << (uint32_t)0xEFBEADDE;
-tp2.append(image, 5);
+tp2.append_bytes(image, 5);
 std::cout << tp2 << std::endl;
 
 
@@ -106,14 +107,12 @@ class ByteString {
     uint16_t getLength() { return length; }
 
     template <class T>
-    void append(T value);
+    void append(const T& value);
 
-    void append(const void *ptr, uint16_t num);
-
-    void appendBS(ByteString& bs);
+    void append_bytes(const void *ptr, uint16_t num);
 
     template <class T>
-    void replace(uint16_t loc, T value);
+    void replace(uint16_t loc, const T& value);
 
     void clear();
 
@@ -123,11 +122,8 @@ class ByteString {
 
     //insertion operator <<
     //Overloaded for appending and for stream output
-    friend ByteString& operator<<(ByteString& bs, uint8_t value);
-    friend ByteString& operator<<(ByteString& bs, uint16_t value);
-    friend ByteString& operator<<(ByteString& bs, uint32_t value);
-    friend ByteString& operator<<(ByteString& bs, double value);
-    friend ByteString& operator<<(ByteString& bs, ByteString& other);
+    template <class T>
+    friend ByteString& operator<<(ByteString& bs, const T& value);
     friend std::ostream& operator<<(std::ostream& os, ByteString& bs);
 
     //extraction operator >>
