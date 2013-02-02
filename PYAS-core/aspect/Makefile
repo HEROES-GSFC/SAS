@@ -26,8 +26,8 @@ fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o
 fidDemo: fidDemo.cpp processing.o compression.o
 	$(CC) fidDemo.cpp processing.o compression.o -o fidDemo $(OBJ) $(OPENCV) $(CCFITS) -pg
 
-threadDemo: threadDemo.cpp processing.o utilities.o
-	$(CC) threadDemo.cpp processing.o utilities.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD) -pg
+threadDemo: threadDemo.cpp processing.o utilities.o ImperxStream.o
+	$(CC) threadDemo.cpp processing.o utilities.o ImperxStream.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD) $(IMPERX) -pg
 
 packetDemo: packetDemo.cpp TelemetryStream.o ImperxStream.o utilities.o
 	$(CC) packetDemo.cpp TelemetryStream.o lib_crc.o ImperxStream.o utilities.o -o packetDemo $(OBJ) $(OPENCV) $(IMPERX) $(THREAD)

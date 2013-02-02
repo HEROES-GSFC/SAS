@@ -10,15 +10,17 @@
 
 #define NUM_LOCS 20
 
+#define FRAME_PERIOD 100
+
 #include <opencv.hpp>
 #include <iostream>
 #include <string>
 #include <thread>
 #include <mutex>
 #include <processing.hpp>
-#include <utilities.hpp>
 #include <ImperxStream.hpp>
 
+/*
 void snap_image(std::mutex &en_mtx, bool &en, std::mutex &frame_mtx, cv::OutputArray _frame, Semaphore &outReady)
 {    
     int width = 0, height = 0;
@@ -26,9 +28,9 @@ void snap_image(std::mutex &en_mtx, bool &en, std::mutex &frame_mtx, cv::OutputA
     ImperxStream camera;
     while(camera.Connect())
     {
-	fine_wait(0,100,0,0);
+	fine_wait(0,FRAME_PERIOD,0,0);
     }
-    camera.Configure(width, height);
+    camera.ConfigureSnap(width, height);
     camera.Initialize();
 
     frame_mtx.lock();
@@ -61,6 +63,9 @@ void snap_image(std::mutex &en_mtx, bool &en, std::mutex &frame_mtx, cv::OutputA
     } while (true);
 }
 
+*/
+
+
 void load_image(std::mutex* en_mtx, bool* en, std::string* path, std::mutex* frame_mtx, cv::OutputArray _frame, Semaphore* outReady)
 {    
     int k = 0;
@@ -79,9 +84,9 @@ void load_image(std::mutex* en_mtx, bool* en, std::string* path, std::mutex* fra
 	(*en_mtx).unlock();
 
 	filename.str("");
-	filename << *path << "/testframe";
+	filename << *path << "/frame";
 	filename.fill('0');
-	filename.width(2);
+	filename.width(3);
 	filename << k << ".png";
 
 	k++;
@@ -94,7 +99,7 @@ void load_image(std::mutex* en_mtx, bool* en, std::string* path, std::mutex* fra
 	temp.copyTo(_frame);
 	(*frame_mtx).unlock();
 	(*outReady).increment();
-	fine_wait(0,100,0,0);
+	fine_wait(0,FRAME_PERIOD,0,0);
     } while (true);
 }
 
@@ -290,12 +295,12 @@ int main( int argc, char** argv )
 	std::cout << "Grabbing frames from: " << argv[1] << "\n";
 	path = argv[1];
     }
-    std::thread stream(load_image, en_mtx, en, frame_mtx, frame, frameReady);
-//    std::thread stream(load_image, &en_mtx, &en, &path, &frame_mtx, frame, &frameReady);
+//    std::thread stream(snap_image, en_mtx, en, frame_mtx, frame, frameReady);
+    std::thread stream(load_image, &en_mtx, &en, &path, &frame_mtx, frame, &frameReady);
     std::thread process(process_image, &en_mtx, &en, &frame_mtx, frame, &center_mtx, &center, &frameReady, &frameProcessed, locs, &fidLocs, &fid_mtx);
     std::thread show(display_image, &en_mtx, &en, &frame_mtx, frame, &center_mtx, &center,&frameProcessed, locs, &fidLocs, &fid_mtx);
     
-    sleep(30);
+    fine_wait(30,0,0,0);
     
     en_mtx.lock();
     en = 0;
