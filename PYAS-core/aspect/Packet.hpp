@@ -96,9 +96,13 @@ class ByteString {
     uint8_t buffer[PACKET_MAX_SIZE];
     uint16_t length;
 
-    //This is a hook to allow derived classes to apply finishing touches
-    //to the buffer when outputTo() or >> is used
+    //A hook to allow derived classes to apply finishing touches to the buffer
+    //when outputTo() or >> is used
     virtual void finish() {};
+
+    //Tells the compiler to instantiate the necessary template functions
+    //Does not need to be actually run
+    void _template_loader();
 
   public:
     ByteString();

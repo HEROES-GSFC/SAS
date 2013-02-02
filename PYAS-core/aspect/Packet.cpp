@@ -96,6 +96,23 @@ uint16_t ByteString::checksum()
   return ((value & 0xff) << 8) | (value >> 8);
 }
 
+void ByteString::_template_loader()
+{
+  *this << (uint8_t)0 << (uint16_t)0 << (uint32_t)0;
+  *this << (int8_t)0 << (int16_t)0 << (int32_t)0;
+  *this << (float)0 << (double)0;
+  *this << *this;
+
+  this->replace(0, (uint8_t)0);
+  this->replace(0, (uint16_t)0);
+  this->replace(0, (uint32_t)0);
+  this->replace(0, (int8_t)0);
+  this->replace(0, (int16_t)0);
+  this->replace(0, (int32_t)0);
+  this->replace(0, (float)0);
+  this->replace(0, (double)0);
+}
+
 CommandPacket::CommandPacket(uint8_t i_targetID, uint16_t i_number)
   : targetID(i_targetID), number(i_number)
 {
