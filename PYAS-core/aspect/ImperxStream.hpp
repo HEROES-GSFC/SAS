@@ -8,27 +8,30 @@
 #include <PvStreamRaw.h>
 
 #include <string>
-
 #include <utilities.hpp>
+#include <opencv.hpp>
 
 class ImperxStream
 {
 public:
-    ImperxStream();
-    int Connect();
-    int Connect(const std::string &IP);
-    //get/set parameters(name, value);
-    void Initialize();
-    void Start(char &frame, Semaphore &frame_semaphore, Flag &stream_flag);
-    void Stop();
-    void Disconnect();
+	ImperxStream();
+	int Connect();
+	int Connect(const std::string &IP);
+	//get/set parameters(name, value);
+	void Initialize();
+	void ConfigureSnap(int &width, int &height);
+	void Stream(unsigned char *frame, Semaphore &frame_semaphore, Flag &stream_flag);
+	void Snap(cv::Mat &frame);
+	void Stop();
+	void Disconnect();
 	long long int getTemperature( void );
 
 private:
-    PvDevice lDevice;
-    PvDeviceInfo *lDeviceInfo;
-    PvGenParameterArray *lDeviceParams;
-    PvStream lStream;
-    PvPipeline lPipeline;
+	PvDevice lDevice;
+	PvDeviceInfo *lDeviceInfo;
+	PvGenParameterArray *lDeviceParams;
+	PvStream lStream;
+	PvGenParameterArray *lStreamParams;
+	PvPipeline lPipeline;
 };
 

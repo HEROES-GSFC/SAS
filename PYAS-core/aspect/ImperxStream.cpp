@@ -1,8 +1,9 @@
 #include <ImperxStream.hpp>
+#include <iostream>
 
 ImperxStream::ImperxStream()
-: lStream()
-, lPipeline( &lStream )
+    : lStream()
+    , lPipeline( &lStream )
 {
     lDeviceInfo = 0;
 }
@@ -180,17 +181,13 @@ void ImperxStream::Initialize()
 
     // Have to set the Device IP destination to the Stream
     lDevice.SetStreamDestination( lStream.GetLocalIPAddress(), lStream.GetLocalPort() ); 
-}
-    
-void ImperxStream::Start(char &frame, Semaphore &frame_semaphore, Flag &stream_flag)
-{
     // IMPORTANT: the pipeline needs to be "armed", or started before 
     // we instruct the device to send us images
     printf( "Starting pipeline\n" );
     lPipeline.Start();
 
     // Get stream parameters/stats
-    PvGenParameterArray *lStreamParams = lStream.GetParameters();
+    lStreamParams = lStream.GetParameters();
 
     // TLParamsLocked is optional but when present, it MUST be set to 1
     // before sending the AcquisitionStart command
@@ -198,7 +195,90 @@ void ImperxStream::Start(char &frame, Semaphore &frame_semaphore, Flag &stream_f
 
     printf( "Resetting timestamp counter...\n" );
     lDeviceParams->ExecuteCommand( "GevTimestampControlReset" );
+}
+    
+void ImperxStream::Snap(cv::Mat &frame)
+{
+    // The pipeline is already "armed", we just have to tell the device
+    // to start sending us images
+    printf( "Sending StartAcquisition command to device\n" );
+    lDeviceParams->ExecuteCommand( "AcquisitionStart" );
 
+    char lDoodle[] = "|\\-|-/";
+    int lDoodleIndex = 0;
+
+    PvInt64 lImageCountVal = 0;
+    double lFrameRateVal = 0.0;
+    double lBandwidthVal = 0.0;
+
+    std::cout << "here\n";
+    // Retrieve next buffer		
+    PvBuffer *lBuffer = NULL;
+    PvResult lOperationResult;
+    PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
+        
+    if ( lResult.IsOK() )
+    {
+	if ( lOperationResult.IsOK() )
+	{
+	    // Process Buffer
+	    lStreamParams->GetIntegerValue( "ImagesCount", lImageCountVal );
+	    lStreamParams->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
+	    lStreamParams->GetFloatValue( "BandwidthAverage", lBandwidthVal );
+            
+	    // If the buffer contains an image, display width and height
+	    int lWidth = 0, lHeight = 0;
+	    if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
+	    {
+		// Get image specific buffer interface
+		PvImage *lImage = lBuffer->GetImage();
+	      
+	      
+		// Read width, height
+		lWidth = (int) lImage->GetWidth();
+		lHeight = (int) lImage->GetHeight();
+		unsigned char *img = lImage->GetDataPointer();
+//		cv::Mat lframe(lHeight,lWidth,CV_8UC1,img, cv::Mat::AUTO_STEP);
+//		lframe.copyTo(frame);
+		for (int m = 0; m < lHeight; m++)
+		{
+		    for (int n = 0; n < lWidth; n++)
+		    {
+			frame.at<unsigned char>(m,n) = img[m*lWidth + n];
+//			std::cout << (short int) img[n*lHeight +m] << " ";
+		    }
+		}
+
+	    }
+	    else
+	    {
+		std::cout << "No image\n";
+	    }
+	    
+	    std::cout << lWidth << " " << lHeight << "\n";
+	    
+	}
+	else
+	{
+	    std::cout << "Damaged Result\n";
+	}
+	// We have an image - do some processing (...) and VERY IMPORTANT,
+	// release the buffer back to the pipeline
+	//semaphore thing
+	//get all in there.
+	//a semaphore thing
+
+	lPipeline.ReleaseBuffer( lBuffer );
+    }
+    else
+    {
+	std::cout << "Timeout\n";
+    }
+
+    ++lDoodleIndex %= 6;
+}
+void ImperxStream::Stream(unsigned char *frame, Semaphore &frame_semaphore, Flag &stream_flag)
+{
     // The pipeline is already "armed", we just have to tell the device
     // to start sending us images
     printf( "Sending StartAcquisition command to device\n" );
@@ -214,16 +294,17 @@ void ImperxStream::Start(char &frame, Semaphore &frame_semaphore, Flag &stream_f
     printf( "\n<press a key to stop streaming>\n" );
     while ( stream_flag.check() )
     {
-        // Retrieve next buffer		
-        PvBuffer *lBuffer = NULL;
-        PvResult  lOperationResult;
-        PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
+	std::cout << "here\n";
+	// Retrieve next buffer		
+	PvBuffer *lBuffer = NULL;
+	PvResult  lOperationResult;
+	PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
         
-        if ( lResult.IsOK() )
+	if ( lResult.IsOK() )
         {
-            if ( lOperationResult.IsOK() )
+	    if ( lOperationResult.IsOK() )
             {
-                // Process Buffer
+		// Process Buffer
 		lStreamParams->GetIntegerValue( "ImagesCount", lImageCountVal );
 		lStreamParams->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
 		lStreamParams->GetFloatValue( "BandwidthAverage", lBandwidthVal );
@@ -238,43 +319,38 @@ void ImperxStream::Start(char &frame, Semaphore &frame_semaphore, Flag &stream_f
 		    // Read width, height
 		    lWidth = lBuffer->GetImage()->GetWidth();
 		    lHeight = lBuffer->GetImage()->GetHeight();
+		    stream_flag.raise();	    
+
 		}
 
-		printf( "%c BlockID: %016llX W: %i H: %i %.01f FPS %.01f Mb/s\r", 
-			lDoodle[ lDoodleIndex ],
-			lBuffer->GetBlockID(),
-			lWidth,
-			lHeight,
-			lFrameRateVal,
-			lBandwidthVal / 1000000.0 ); 
+		std::cout << lWidth << " " << lHeight << "\n";
+	    
             }
-            // We have an image - do some processing (...) and VERY IMPORTANT,
-            // release the buffer back to the pipeline
-
+	    // We have an image - do some processing (...) and VERY IMPORTANT,
+	    // release the buffer back to the pipeline
 	    //semaphore thing
 	    //get all in there.
 	    //a semaphore thing
-	    
-            lPipeline.ReleaseBuffer( lBuffer );
+    	
+	    lPipeline.ReleaseBuffer( lBuffer );
         }
-        else
+	else
         {
-            // Timeout
-            printf( "%c Timeout\r", lDoodle[ lDoodleIndex ] );
+	    // Timeout
+	    printf( "%c Timeout\r", lDoodle[ lDoodleIndex ] );
         }
 
-        ++lDoodleIndex %= 6;
-    
+	++lDoodleIndex %= 6;
+
     }
 }
-
 long long int ImperxStream::getTemperature()
 {
 			
-	long long int lTempValue = 0.0;
-	lDevice.GetGenParameters()->GetIntegerValue( "CurrentTemperature", lTempValue );
+    long long int lTempValue = 0.0;
+    lDevice.GetGenParameters()->GetIntegerValue( "CurrentTemperature", lTempValue );
 	
-	return lTempValue;	
+    return lTempValue;	
 }
 
 
@@ -304,17 +380,16 @@ void ImperxStream::Disconnect()
     lDevice.Disconnect();
 }
 
-//int main(void)
-//{
- //   ImperxStream SweetThang;
-//    char lazy;
-//    Semaphore whatever;
-//    Flag givup;
-//    SweetThang.Connect();
-//    SweetThang.Initialize();
-//    SweetThang.Start(lazy, whatever, givup);
-//    fine_wait(15,0,0,0);
-//    SweetThang.Stop();
-//    SweetThang.Disconnect();
-//    return 0;
-//}
+void ImperxStream::ConfigureSnap(int &width, int &height)
+{
+    PvInt64 lWidth, lHeight;
+    lDeviceParams->SetEnumValue("AcquisitionMode","SingleFrame");
+    lDeviceParams->SetEnumValue("ExposureMode","Timed");
+    lDeviceParams->SetEnumValue("PixelFormat","Mono8");
+    lDeviceParams->SetIntegerValue("ExposureTimeRaw",10000);
+    lDeviceParams->GetIntegerValue("Height", lHeight);
+    lDeviceParams->GetIntegerValue("Width", lWidth);
+    height = (int) lHeight;
+    width = (int) lWidth;
+}
+
