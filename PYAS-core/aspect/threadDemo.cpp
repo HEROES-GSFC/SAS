@@ -18,49 +18,7 @@
 #include <thread>
 #include <mutex>
 #include <processing.hpp>
-#include <ImperxStream.hpp>
-
-void snap_image(std::mutex* en_mtx, bool &en, std::mutex* frame_mtx, cv::OutputArray _frame, Semaphore* outReady)
-{    
-    int width = 0, height = 0;
-    cv::Mat temp;
-    ImperxStream camera;
-    while(camera.Connect())
-    {
-	fine_wait(0,FRAME_PERIOD,0,0);
-    }
-    camera.ConfigureSnap(width, height);
-    camera.Initialize();
-
-    (*frame_mtx).lock();
-    _frame.create(width, height, CV_8UC1);
-    (*frame_mtx).unlock();
-
-    temp.create(width, height, CV_8UC1);
-
-    do
-    {
-	(*en_mtx).lock();
-	if(!en)
-	{
-	    (*en_mtx).unlock();
-	    camera.Stop();
-	    camera.Disconnect();
-	    std::cout << "Stream thread stopped\n";
-	    return;
-	}
-	(*en_mtx).unlock();
-
-	camera.Snap(temp);
-
-	(*frame_mtx).lock();
-	temp.copyTo(_frame);
-	(*frame_mtx).unlock();
-
-	(*outReady).increment();
-	fine_wait(0,100,0,0);
-    } while (true);
-}
+#include <utilities.hpp>
 
 void load_image(std::mutex* en_mtx, bool& en, std::string &path, std::mutex* frame_mtx, cv::OutputArray _frame, Semaphore* outReady)
 {    
@@ -98,7 +56,6 @@ void load_image(std::mutex* en_mtx, bool& en, std::string &path, std::mutex* fra
 	fine_wait(0,FRAME_PERIOD,0,0);
     } while (true);
 }
-
 
 void process_image(std::mutex* en_mtx, bool* en, std::mutex* frame_mtx, cv::InputArray _frame, std::mutex* center_mtx, cv::Point* center, Semaphore* inReady, Semaphore* outReady, cv::Point* _locs, int* _fidLocs, std::mutex* fid_mtx)
 {
@@ -291,7 +248,7 @@ int main( int argc, char** argv )
 	std::cout << "Grabbing frames from: " << argv[1] << "\n";
 	path = argv[1];
     }
-    std::thread strome(snap_image, &en_mtx, en, &frame_mtx, frame, &frameReady);
+
     std::thread stream(load_image, &en_mtx, en, path, &frame_mtx, frame, &frameReady);
     std::thread process(process_image, &en_mtx, &en, &frame_mtx, frame, &center_mtx, &center, &frameReady, &frameProcessed, locs, &fidLocs, &fid_mtx);
     std::thread show(display_image, &en_mtx, &en, &frame_mtx, frame, &center_mtx, &center,&frameProcessed, locs, &fidLocs, &fid_mtx);
@@ -301,8 +258,7 @@ int main( int argc, char** argv )
     en_mtx.lock();
     en = 0;
     en_mtx.unlock();
-    
-    strome.join();
+
     stream.join();
     process.join();
     show.join();
