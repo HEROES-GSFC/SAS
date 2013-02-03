@@ -96,23 +96,6 @@ uint16_t ByteString::checksum()
   return ((value & 0xff) << 8) | (value >> 8);
 }
 
-void ByteString::_template_loader()
-{
-  *this << (uint8_t)0 << (uint16_t)0 << (uint32_t)0;
-  *this << (int8_t)0 << (int16_t)0 << (int32_t)0;
-  *this << (float)0 << (double)0;
-  *this << *this;
-
-  this->replace(0, (uint8_t)0);
-  this->replace(0, (uint16_t)0);
-  this->replace(0, (uint32_t)0);
-  this->replace(0, (int8_t)0);
-  this->replace(0, (int16_t)0);
-  this->replace(0, (int32_t)0);
-  this->replace(0, (float)0);
-  this->replace(0, (double)0);
-}
-
 CommandPacket::CommandPacket(uint8_t i_targetID, uint16_t i_number)
   : targetID(i_targetID), number(i_number)
 {
@@ -178,7 +161,28 @@ void TelemetryPacket::writeTime()
 
 namespace pkt
 {
-  ostream& byte(ostream& os) { return os << std::hex << std::setw(2) << std::setfill('0'); }
-  ostream& word(ostream& os) { return os << std::hex << std::setw(4) << std::setfill('0'); }
-  ostream& reset(ostream& os) { return os << std::resetiosflags(std::ios_base::hex) << std::setfill(' '); }
+ostream& byte(ostream& os) { return os << std::hex << std::setw(2) << std::setfill('0'); }
+ostream& word(ostream& os) { return os << std::hex << std::setw(4) << std::setfill('0'); }
+ostream& reset(ostream& os) { return os << std::resetiosflags(std::ios_base::hex) << std::setfill(' '); }
+
+//Ensures the compiler instantiates the necessary template functions
+//Does not need to be actually run
+void _template_loader()
+{
+  ByteString dummy;
+  dummy << (uint8_t)0 << (uint16_t)0 << (uint32_t)0;
+  dummy << (int8_t)0 << (int16_t)0 << (int32_t)0;
+  dummy << (float)0 << (double)0;
+  dummy << dummy;
+
+  dummy.replace(0, (uint8_t)0);
+  dummy.replace(0, (uint16_t)0);
+  dummy.replace(0, (uint32_t)0);
+  dummy.replace(0, (int8_t)0);
+  dummy.replace(0, (int16_t)0);
+  dummy.replace(0, (int32_t)0);
+  dummy.replace(0, (float)0);
+  dummy.replace(0, (double)0);
+}
+
 }

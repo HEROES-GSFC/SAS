@@ -100,10 +100,6 @@ class ByteString {
     //when outputTo() or >> is used
     virtual void finish() {};
 
-    //Tells the compiler to instantiate the necessary template functions
-    //Does not need to be actually run
-    void _template_loader();
-
   public:
     ByteString();
     ByteString(const char *str); //from a null-terminated hexadecimal string
