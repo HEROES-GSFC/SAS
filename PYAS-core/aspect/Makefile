@@ -4,13 +4,17 @@
 #   $@ matches the output
 
 CC=g++
+GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
 
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/local/include/CCfits/
 INCLUDE = -I$(OPENCVDIR) -I$(CCFITSDIR) -I$(PUREGEV_ROOT)/include/
 
-CFLAGS = -Wall $(INCLUDE) -std=gnu++0x
+CFLAGS = -Wall $(INCLUDE)
+ifeq "$(GCC_VERSION_GE_43)" "1"
+    CFLAGS += -std=gnu++0x
+endif
 
 #AVT = -lPvAPI
 IMPERX =-L$(PUREGEV_ROOT)/lib/		\
