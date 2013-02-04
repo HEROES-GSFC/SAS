@@ -9,7 +9,7 @@
 
 #include <string>
 #include "utilities.hpp"
-#include "opencv.hpp"
+#include <opencv.hpp>
 
 class ImperxStream
 {
