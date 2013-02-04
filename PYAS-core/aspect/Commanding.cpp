@@ -1,19 +1,16 @@
 #include "Commanding.hpp"
 
-#define PAYLOAD_SIZE 9     /* Longest string to echo */
-#define DEFAULT_PORT 7001 /* The default port to send on */
+#define PAYLOAD_SIZE 14     /* Longest string to echo */
 
 Commanding::Commanding(void)
 {
-    ServPort = DEFAULT_PORT;  /* 7 is the well-known port for the echo service */
-    memset(&payload, 0, sizeof(payload));    /* Zero out structure */    
+    ServPort = 5010;  /* 7 is the well-known port for the echo service */
+    memset(&payload, 0, sizeof(payload));    /* Zero out structure */   
+    syncWord = 0xc39a;
 }
-
 
 void Commanding::init_socket( void )
 {
-    ServPort = DEFAULT_PORT;
-
     /* Create socket for sending/receiving datagrams */
     if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
         printf("socket() failed");
@@ -60,10 +57,18 @@ int Commanding::parse_packet( void )
 {
     uint16_t checksum;
     checksum = calculate_checksum();
+       
+    if( (((uint16_t) payload[1] >> 8) & 0xFF00 + payload[0]) != syncWord; ) { return 0; }
+    if( payload[2] = 0x30; ) { return 0; }
+    if( ((uint16_t) (payload[7] >> 8) & 0xFF00 + payload[6]) != checksum; ) { return 0; }
+
+    frame_sequence_number = ((uint16_t) payload[5] >> 8) & 0xFF00 + payload[4];
+  
+    command_type = ((uint16_t) payload[9] >> 8) & 0xFF00 + payload[8];
+    command_key = ((uint16_t) payload[11] >> 8) & 0xFF00 + payload[10];
+    command_value = ((uint16_t) payload[13] >> 8) & 0xFF00 + payload[12];
     
-    if( payload[PAYLOAD_SIZE-1] != checksum ){ return 0; }
-    if( payload[0] != 0xeb90 ) { return 0; }
-    if( payload[1] != 0xf626 ) { return 0; }
+    return 1;
 }
 
 uint16_t Commanding::calculate_checksum( void )
@@ -81,9 +86,9 @@ uint16_t Commanding::calculate_checksum( void )
 void Commanding::print_packet( void )
 {
     printf("Packet\n");
-    for(int i = 0; i < sizeof(payload)-1; i++)
+    for(int i = 0; i <= sizeof(payload)-1; i++)
         {
-            printf("%u ", (uint16_t) payload[i]);
+            printf("%i:%u ", (uint16_t) payload[i]);
         }
     printf("\n");
 }
@@ -92,4 +97,5 @@ void Commanding::bad_packet_error( void )
 {
     // if command packet is found to be bad by parse_packet
     // then ask TelemetryStream to send an error packet
+    printf("Packet Error!");
 }
