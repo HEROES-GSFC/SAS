@@ -17,7 +17,8 @@ class UDPSender {
 
     public:
         UDPSender( void );
-        UDPSender( char *ip, unsigned short port );
+        UDPSender( const char *ip, unsigned short port );
+	~UDPSender();
         
         virtual void send(  TelemetryPacket *packet  );
         void init_connection( void );
@@ -27,13 +28,13 @@ class UDPSender {
 class TelemetrySender: public UDPSender {
    
     public:
-        TelemetrySender( char *ip, unsigned short port );
+        TelemetrySender( const char *ip, unsigned short port ) {};
         virtual void send( TelemetryPacket *packet );
 };
 
 class CommandSender: public UDPSender {
 
     public:
-        CommandSender( char *ip, unsigned short port );
+        CommandSender( const char *ip, unsigned short port ) {};
         virtual void send( CommandPacket *packet );
 };
