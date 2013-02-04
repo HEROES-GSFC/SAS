@@ -1,16 +1,21 @@
 #include "UDPSender.hpp"
 
-UDPSender::UDPSender(void)
+UDPSender::UDPSender(void) : sendPort(7000)
 {
-    sendtoIP = new char[11 + 1];
-    sendtoIP = "10.1.49.140";
-    sendPort = 7000;
+    char ip[] = "10.1.49.140";
+    sendtoIP = new char[strlen(ip)+1];
+    strcpy(sendtoIP, ip);
 }
 
-UDPSender::UDPSender( char *ip, unsigned short port )
+UDPSender::UDPSender( const char *ip, unsigned short port ) : sendPort(port)
 {
-    sendtoIP = ip;
-    sendPort = port;
+    sendtoIP = new char[strlen(ip)+1];
+    strcpy(sendtoIP, ip);
+}
+
+UDPSender::~UDPSender()
+{
+    delete sendtoIP;
 }
 
 void UDPSender::init_connection( void )
@@ -47,11 +52,8 @@ void UDPSender::send( TelemetryPacket *packet )
     close_connection();
 }
 
-TelemetrySender::TelemetrySender( char *ip, unsigned short port )
-{
-    sendtoIP = ip;
-    sendPort = port;
-}
+TelemetrySender::TelemetrySender( const char *ip, unsigned short port )
+  : UDPSender(ip, port) { }
 
 void TelemetrySender::send( TelemetryPacket *packet )
 {
@@ -69,11 +71,8 @@ void TelemetrySender::send( TelemetryPacket *packet )
     close_connection();
 }
 
-CommandSender::CommandSender( char *ip, unsigned short port )
-{
-    sendtoIP = ip;
-    sendPort = port;
-}
+CommandSender::CommandSender( const char *ip, unsigned short port )
+  : UDPSender(ip, port) { }
 
 void CommandSender::send( CommandPacket *packet )
 {

@@ -16,7 +16,7 @@ void *sendTelemetryThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
     TelemetrySender *telSender;
-    char *ip = "192.168.1.2";
+    char ip[] = "192.168.1.2";
 
     telSender = new TelemetrySender( ip, (unsigned short) 5000);
     
@@ -72,7 +72,7 @@ void *sendCTLCommands(void *threadid)
     printf("Hello World! It's me, thread #%ld!\n", tid);
     
     CommandSender *comSender;
-    char *ip = "192.168.1.1";
+    char ip[] = "192.168.1.1";
 
     comSender = new CommandSender( ip, (unsigned short) 5000);
  
