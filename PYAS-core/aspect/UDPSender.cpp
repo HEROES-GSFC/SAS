@@ -52,6 +52,9 @@ void UDPSender::send( TelemetryPacket *packet )
     close_connection();
 }
 
+TelemetrySender::TelemetrySender( const char *ip, unsigned short port )
+  : UDPSender(ip, port) { }
+
 void TelemetrySender::send( TelemetryPacket *packet )
 {
     init_connection();
@@ -67,6 +70,9 @@ void TelemetrySender::send( TelemetryPacket *packet )
         printf("sendto() sent a different number of bytes than expected");
     close_connection();
 }
+
+CommandSender::CommandSender( const char *ip, unsigned short port )
+  : UDPSender(ip, port) { }
 
 void CommandSender::send( CommandPacket *packet )
 {
