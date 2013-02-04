@@ -3,7 +3,7 @@
 UDPSender::UDPSender(void)
 {
     sendtoIP = new char[11 + 1];
-    sendtoIP = "10.1.49.140";
+    strcpy(sendtoIP, "10.1.49.140");
     sendPort = 7000;
 }
 
