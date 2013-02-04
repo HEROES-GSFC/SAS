@@ -1,11 +1,23 @@
+# Pattern matching in make files
+#   $^ matches all the input dependencies
+#   $< matches the first input dependency
+#   $@ matches the output
+
 CC=g++
+GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
+
+PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/local/include/CCfits/
-CFLAGS=-c -Wall
-AVT = -lPvAPI
-PUREGEV_ROOT = /opt/pleora/ebus_sdk
+INCLUDE = -I$(OPENCVDIR) -I$(CCFITSDIR) -I$(PUREGEV_ROOT)/include/
+
+CFLAGS = -Wall $(INCLUDE)
+ifeq "$(GCC_VERSION_GE_43)" "1"
+    CFLAGS += -std=gnu++0x
+endif
+
+#AVT = -lPvAPI
 IMPERX =-L$(PUREGEV_ROOT)/lib/		\
-	-I$(PUREGEV_ROOT)/include/	\
 	-lPvBase             		\
 	-lPvDevice          		\
 	-lPvBuffer          		\
@@ -13,63 +25,45 @@ IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 	-lPvGenICam          		\
 	-lPvStreamRaw        		\
 	-lPvStream 
-OPENCV = -I$(OPENCVDIR) -lopencv_core -lopencv_highgui -lopencv_imgproc
-CCFITS = -I$(CCFITSDIR) -lCCfits
-THREAD = -lpthread -std=gnu++0x
-OBJ = -I.
+OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
+CCFITS = -lCCfits
+THREAD = -lpthread
 
-all: fullDemo
+EXEC = fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test
+
+all: $(EXEC)
 
 fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o
-	$(CC) fullDemo.cpp processing.o utilities.o ImperxStream.o -o fullDemo $(OBJ) $(OPENCV) $(THREAD) $(IMPERX) -pg
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) -pg
 
 fidDemo: fidDemo.cpp processing.o compression.o
-	$(CC) fidDemo.cpp processing.o compression.o -o fidDemo $(OBJ) $(OPENCV) $(CCFITS) -pg
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS) -pg
 
 threadDemo: threadDemo.cpp processing.o utilities.o
-	$(CC) threadDemo.cpp processing.o utilities.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD) -pg
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) -pg
 
-packetDemo: packetDemo.cpp TelemetrySender.o ImperxStream.o utilities.o
-	$(CC) packetDemo.cpp TelemetrySender.o lib_crc.o ImperxStream.o utilities.o -o packetDemo $(OBJ) $(OPENCV) $(IMPERX) $(THREAD)
+packetDemo: packetDemo.cpp TelemetrySender.o ImperxStream.o utilities.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(IMPERX) $(THREAD)
 
-commandingDemo: commandingDemo.cpp Commanding.o 
-	$(CC) commandingDemo.cpp Commanding.o lib_crc.o -o commandingDemo
+commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@
 
-networkDemo: networkDemo.cpp Packet.o UDPSender.o ./lib_crc/lib_crc.c
-	$(CC) networkDemo.cpp Packet.o UDPSender.o -o networkDemo ./lib_crc/lib_crc.c -I./lib_crc/
+networkDemo: networkDemo.cpp Packet.o UDPSender.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-test: test.cpp Packet.o UDPSender.o ./lib_crc/lib_crc.c
-	$(CC) test.cpp UDPSender.o Packet.o lib_crc.o -o test
+test: test.cpp Packet.o UDPSender.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@
 
-processing.o: processing.cpp
-	$(CC) $(CFLAGS) processing.cpp -o processing.o $(OBJ) $(OPENCV)
+#This pattern matching will catch all "simple" object dependencies
+%.o: %.cpp %.hpp
+	$(CC) -c $(CFLAGS) $< -o $@
 
-camera.o: camera.cpp
-	$(CC) $(CFLAGS) camera.cpp $(OBJ) $(AVT)
-
-ImperxStream.o: ImperxStream.cpp utilities.o
-	$(CC) $(CFLAGS) ImperxStream.cpp utilities.o -o ImperxStream.o $(OBJ) $(THREAD) $(IMPERX) $(OPENCV)
-
-compression.o: compression.cpp
-	$(CC) $(CFLAGS) compression.cpp -o compression.o $(OBJ) $(OPENCV) $(CCFITS)
-
-Commanding.o: Commanding.cpp ./lib_crc/lib_crc.c
-	$(CC) $(CFLAGS) Commanding.cpp ./lib_crc/lib_crc.c -I./lib_crc/
-
-utilities.o: utilities.cpp
-	$(CC) $(CFLAGS) utilities.cpp -o utilities.o $(OBJ) $(THREAD)
+#No longer relevant?
+#camera.o: camera.cpp
+#	$(CC) -c $(CFLAGS) $< -o $@ $(OBJ) $(AVT)
 
 lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
-	$(CC) $(CFLAGS) lib_crc/lib_crc.c
-
-Packet.o: Packet.cpp Packet.hpp
-	$(CC) $(CFLAGS) lib_crc.o Packet.cpp
-
-UDPSender.o: UDPSender.cpp UDPSender.hpp ./lib_crc/lib_crc.c
-	$(CC) $(CFLAGS) UDPSender.cpp ./lib_crc/lib_crc.c -I./lib_crc/
-
-UDPReceiver.o: UDPReceiver.cpp UDPReceiver.hpp
-    $(CC) $(CFLAGS) UDPReceiver.cpp
+	$(CC) -c $(CFLAGS) $< -o $@
 
 clean:
-	rm -rf *.o fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo *.out
+	rm -rf *.o *.out $(EXEC)

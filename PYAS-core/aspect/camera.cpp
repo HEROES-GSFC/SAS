@@ -1,7 +1,7 @@
 #include <string.h>
 #include <iostream>
 #include <time.h>
-#include <camera.hpp>
+#include "camera.hpp"
 
 // Sleeeep?
 void Sleep(unsigned int time)

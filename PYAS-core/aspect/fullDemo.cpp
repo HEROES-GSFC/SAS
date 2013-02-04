@@ -19,8 +19,8 @@
 #include <vector>
 #include <fstream>
 
-#include <ImperxStream.hpp>
-#include <processing.hpp>
+#include "ImperxStream.hpp"
+#include "processing.hpp"
  
 int main(int argc, char* agrv[])
 {
