@@ -1,7 +1,12 @@
+# Pattern matching in make files
+#   $^ matches all the input dependencies
+#   $< matches the first input dependency
+#   $@ matches the output
+
 CC=g++
 OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/local/include/CCfits/
-CFLAGS=-c -Wall
+CFLAGS=-Wall
 AVT = -lPvAPI
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
 IMPERX =-L$(PUREGEV_ROOT)/lib/		\
@@ -21,55 +26,47 @@ OBJ = -I.
 all: fullDemo
 
 fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o
-	$(CC) fullDemo.cpp processing.o utilities.o ImperxStream.o -o fullDemo $(OBJ) $(OPENCV) $(THREAD) $(IMPERX) -pg
+	$(CC) $(CFLAGS) $^ -o $@ $(OBJ) $(OPENCV) $(THREAD) $(IMPERX) -pg
 
 fidDemo: fidDemo.cpp processing.o compression.o
-	$(CC) fidDemo.cpp processing.o compression.o -o fidDemo $(OBJ) $(OPENCV) $(CCFITS) -pg
+	$(CC) $(CFLAGS) $^ -o $@ $(OBJ) $(OPENCV) $(CCFITS) -pg
 
 threadDemo: threadDemo.cpp processing.o utilities.o
-	$(CC) threadDemo.cpp processing.o utilities.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD) -pg
+	$(CC) $(CFLAGS) $^ -o $@ $(OBJ) $(OPENCV) $(THREAD) -pg
 
-packetDemo: packetDemo.cpp TelemetrySender.o ImperxStream.o utilities.o
-	$(CC) packetDemo.cpp TelemetrySender.o lib_crc.o ImperxStream.o utilities.o -o packetDemo $(OBJ) $(OPENCV) $(IMPERX) $(THREAD)
+packetDemo: packetDemo.cpp TelemetrySender.o ImperxStream.o utilities.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OBJ) $(OPENCV) $(IMPERX) $(THREAD)
 
-commandingDemo: commandingDemo.cpp Commanding.o 
-	$(CC) commandingDemo.cpp Commanding.o lib_crc.o -o commandingDemo
+commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@
 
-networkDemo: networkDemo.cpp Packet.o UDPSender.o ./lib_crc/lib_crc.c
-	$(CC) networkDemo.cpp Packet.o UDPSender.o -o networkDemo ./lib_crc/lib_crc.c -I./lib_crc/
+networkDemo: networkDemo.cpp Packet.o UDPSender.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@
 
-test: test.cpp Packet.o UDPSender.o ./lib_crc/lib_crc.c
-	$(CC) test.cpp UDPSender.o Packet.o lib_crc.o -o test
+test: test.cpp Packet.o UDPSender.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+#This pattern matching will catch all "simple" object dependencies
+%.o: %.cpp %.hpp
+	$(CC) -c $(CFLAGS) $< -o $@
 
 processing.o: processing.cpp
-	$(CC) $(CFLAGS) processing.cpp -o processing.o $(OBJ) $(OPENCV)
+	$(CC) -c $(CFLAGS) $< -o $@ $(OBJ) $(OPENCV)
 
 camera.o: camera.cpp
-	$(CC) $(CFLAGS) camera.cpp $(OBJ) $(AVT)
+	$(CC) -c $(CFLAGS) $< -o $@ $(OBJ) $(AVT)
 
 ImperxStream.o: ImperxStream.cpp utilities.o
-	$(CC) $(CFLAGS) ImperxStream.cpp utilities.o -o ImperxStream.o $(OBJ) $(THREAD) $(IMPERX) $(OPENCV)
+	$(CC) -c $(CFLAGS) $< -o $@ $(OBJ) $(THREAD) $(IMPERX) $(OPENCV)
 
 compression.o: compression.cpp
-	$(CC) $(CFLAGS) compression.cpp -o compression.o $(OBJ) $(OPENCV) $(CCFITS)
-
-Commanding.o: Commanding.cpp ./lib_crc/lib_crc.c
-	$(CC) $(CFLAGS) Commanding.cpp ./lib_crc/lib_crc.c -I./lib_crc/
+	$(CC) -c $(CFLAGS) $< -o $@ $(OBJ) $(OPENCV) $(CCFITS)
 
 utilities.o: utilities.cpp
-	$(CC) $(CFLAGS) utilities.cpp -o utilities.o $(OBJ) $(THREAD)
+	$(CC) -c $(CFLAGS) $< -o $@ $(OBJ) $(THREAD)
 
 lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
-	$(CC) $(CFLAGS) lib_crc/lib_crc.c
-
-Packet.o: Packet.cpp Packet.hpp
-	$(CC) $(CFLAGS) lib_crc.o Packet.cpp
-
-UDPSender.o: UDPSender.cpp UDPSender.hpp ./lib_crc/lib_crc.c
-	$(CC) $(CFLAGS) UDPSender.cpp ./lib_crc/lib_crc.c -I./lib_crc/
-
-UDPReceiver.o: UDPReceiver.cpp UDPReceiver.hpp
-    $(CC) $(CFLAGS) UDPReceiver.cpp
+	$(CC) -c $(CFLAGS) $< -o $@
 
 clean:
 	rm -rf *.o fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo *.out
