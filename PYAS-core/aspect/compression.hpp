@@ -1,3 +1,3 @@
-#include <opencv.hpp>
+#include "opencv.hpp"
 
 int writeFITSImage(cv::InputArray);
