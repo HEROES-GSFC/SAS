@@ -21,9 +21,18 @@ class UDPReceiver {
         int recvMsgSize;                /* Size of received message */
 
     public:
-        UDPReceiver(void);
-        UDPReceiver(unsigned short port);
+        UDPReceiver( void );
+        UDPReceiver( unsigned short port );
+        ~UDPReceiver();
+        
         void listen( void );
         void init_connection( void );
         void close_connection( void );
+};
+
+class CommandReceiver: public UDPReceiver {
+
+    public:
+        CommandReceiver( unsigned short port );
+        CommandPacket *getCommandPacket( void );
 };

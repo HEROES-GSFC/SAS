@@ -48,7 +48,7 @@ packetDemo: packetDemo.cpp TelemetrySender.o ImperxStream.o utilities.o lib_crc.
 commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@
 
-networkDemo: networkDemo.cpp Packet.o UDPSender.o lib_crc.o
+networkDemo: networkDemo.cpp Packet.o UDPSender.o UDPReceiver.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 test: test.cpp Packet.o UDPSender.o lib_crc.o

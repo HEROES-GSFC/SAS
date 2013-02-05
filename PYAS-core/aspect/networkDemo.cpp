@@ -6,6 +6,7 @@
 #include <unistd.h>     /* for sleep()  */
 
 #include "UDPSender.hpp"
+#include "UDPReceiver.hpp"
 #include "Packet.hpp"
 
 int stop_message[NUM_THREADS];
@@ -49,14 +50,19 @@ void *listenForCommandsThread(void *threadid)
     long tid;
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
+    CommandReceiver *comReceiver;
+    comReceiver = new CommandReceiver( (unsigned short) 5000);
+    comReceiver->init_connection();
 	while(1)    // run forever
 	{
+	    comReceiver->listen();
 	    // listen for packet
 	    // parse packet
 	    // send out
 	    
 	    if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
+            comReceiver->close_connection();
     	    pthread_exit(NULL);
         }
 	}
@@ -85,6 +91,7 @@ void *sendCTLCommands(void *threadid)
         	    
 	    if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
+            comSender->close_connection();
     	    pthread_exit(NULL);
         }
 	}
@@ -123,11 +130,11 @@ int main(void)
     }
 
 	while(1){
-	    sleep(10);
+	    sleep(100);
 	    // kill thread 0, 1
 	    stop_message[0] = 1;	    
 	    stop_message[1] = 1;
-	    
+	    stop_message[2] = 1;
 	    exit(1);
 	} /* never stop */
 
