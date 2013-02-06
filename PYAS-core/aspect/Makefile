@@ -1,8 +1,6 @@
 CC=g++
 OPENCVDIR = /usr/local/include/opencv2/
-CCFITSDIR = /usr/local/include/CCfits/
 CFLAGS=-c -Wall
-AVT = -lPvAPI
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
 IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 	-I$(PUREGEV_ROOT)/include/	\
@@ -37,9 +35,6 @@ commandingDemo: commandingDemo.cpp Commanding.o
 
 processing.o: processing.cpp
 	$(CC) $(CFLAGS) processing.cpp -o processing.o $(OBJ) $(OPENCV)
-
-camera.o: camera.cpp
-	$(CC) $(CFLAGS) camera.cpp $(OBJ) $(AVT)
 
 ImperxStream.o: ImperxStream.cpp utilities.o
 	$(CC) $(CFLAGS) ImperxStream.cpp utilities.o -o ImperxStream.o $(OBJ) $(THREAD) $(IMPERX) $(OPENCV)
