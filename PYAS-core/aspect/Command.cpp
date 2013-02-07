@@ -56,8 +56,14 @@ Command::Command(const uint8_t *ptr)
 
 Command::Command(uint16_t heroes_c, uint16_t sas_c)
 {
-  if (heroes_c != 0) *this << heroes_c;
-  if(sas_c != 0) *this << sas_c;
+  if (heroes_c != 0) {
+    *this << heroes_c;
+    this->setReadIndex(2);
+    if(sas_c != 0) {
+      *this << sas_c;
+      this->setReadIndex(4);
+    }
+  }
 }
 
 uint16_t Command::lookup_payload_length(uint16_t heroes_cm, uint16_t sas_cm)
