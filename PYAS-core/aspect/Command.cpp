@@ -130,8 +130,7 @@ ByteString &operator<<(ByteString &bs, Command &cm)
   return (bs << (ByteString)cm);
 }
 
-CommandPacket::CommandPacket(uint8_t i_targetID, uint16_t i_number)
-  : targetID(i_targetID), number(i_number)
+CommandPacket::CommandPacket(uint8_t targetID, uint16_t number)
 {
   //Zeros are payload length and checksum
   *this << targetID << (uint8_t)0 << number << (uint16_t)0;
@@ -183,6 +182,13 @@ void CommandPacket::readNextCommandTo(Command &cm)
   readNextTo_bytes(buf, num);
   result.append_bytes(buf, num);
   cm = result;
+}
+
+uint16_t CommandPacket::getSequenceNumber()
+{
+  uint16_t value;
+  this->readAtTo(4, value);
+  return value;
 }
 
 CommandQueue::CommandQueue(CommandPacket &cp)

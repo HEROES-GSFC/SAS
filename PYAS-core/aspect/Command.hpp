@@ -81,16 +81,13 @@ class Command : public ByteString {
 
 class CommandPacket : public Packet {
   private:
-    uint8_t targetID;
-    uint16_t number;
-
     virtual void finish();
     void writePayloadLength();
     void writeChecksum();
 
   public:
     //Use this constuctor when assembling a command packet for sending
-    CommandPacket(uint8_t i_targetID, uint16_t i_number);
+    CommandPacket(uint8_t targetID, uint16_t number);
 
     //Use this constructor when handling a received command packet
     CommandPacket(const uint8_t *ptr, uint16_t num);
@@ -99,6 +96,7 @@ class CommandPacket : public Packet {
     virtual bool valid();
 
     void readNextCommandTo(Command &cm);
+    uint16_t getSequenceNumber();
 };
 
 class CommandQueue : public std::list<Command> {
