@@ -79,5 +79,13 @@ int main()
     std::cerr << e.what() << std::endl;
   }
 
+  Command cm1(0x1100);
+  std::cout << cm1.remainingBytes() << std::endl;
+  Command cm2(0x1102);
+  std::cout << cm2.remainingBytes() << std::endl;
+  cm2 << solution;
+  std::cout << cm2.remainingBytes() << std::endl;
+  Command cm3(0x10ff, 0x1234);
+
   return 0;
 }

@@ -36,6 +36,10 @@ To interpret the command:
   c.get_heroes_command();
   c.get_sas_command(); //returns 0 if the HEROES command is not 0x10ff
 
+Read the first uint16_t from an individual command's payload (after the keys):
+  uint16_t x;
+  c.readNextTo(x);
+
 
 Notes:
 - Make sure to build exactly complete commands
@@ -57,9 +61,11 @@ class Command : public ByteString {
   private:
 
   public:
+    Command(uint16_t heroes_c = 0, uint16_t sas_c = 0);
+
+    //Unsupported constructors
     Command(const char *str) : ByteString(str) {};
     Command(const uint8_t *ptr);
-    Command(uint16_t heroes_c = 0, uint16_t sas_c = 0);
 
     uint16_t get_heroes_command();
     uint16_t get_sas_command();
@@ -80,7 +86,10 @@ class CommandPacket : public Packet {
     void writeChecksum();
 
   public:
+    //Use this constuctor when assembling a command packet for sending
     CommandPacket(uint8_t i_targetID, uint16_t i_number);
+
+    //Use this constructor when handling a received command packet
     CommandPacket(const uint8_t *ptr, uint16_t num);
 
     virtual bool valid();
@@ -94,6 +103,7 @@ class CommandQueue : public std::list<Command> {
     CommandQueue() {};
     CommandQueue(CommandPacket &cp);
 
+    //Returns the number of commands added
     int add_packet(CommandPacket &cp);
 
   friend CommandQueue &operator<<(CommandQueue &cq, Command &c);
