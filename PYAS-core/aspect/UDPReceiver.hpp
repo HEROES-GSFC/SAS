@@ -8,7 +8,7 @@
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
-#define PAYLOAD_MAX 1024                /* Longest payload */
+#define PAYLOAD_MAX 254                /* Longest payload */
 
 class UDPReceiver {
     protected:
@@ -19,14 +19,15 @@ class UDPReceiver {
         unsigned int cliAddrLen;        /* Length of incoming message */
         char payload[PAYLOAD_MAX];      /* Buffer for echo string */
         unsigned short listeningPort;   /* The port to listen to */
-        int recvMsgSize;                /* Size of received message */
+        unsigned int recvMsgSize;                /* Size of received message */
 
     public:
         UDPReceiver( void );
         UDPReceiver( unsigned short port );
         ~UDPReceiver();
         
-        void listen( void );
+        unsigned int listen( void );
+        void get_packet( uint8_t *packet  );
         void init_connection( void );
         void close_connection( void );
 };

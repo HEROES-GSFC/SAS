@@ -6,10 +6,14 @@
 #include <unistd.h>     /* for sleep()  */
 
 #include "UDPSender.hpp"
+#include "UDPReceiver.hpp"
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
-int stop_message[NUM_THREADS];
+unsigned int stop_message[NUM_THREADS];
+unsigned int command_count = 0;
+
+CommandQueue *recvd_command_queue;
 
 void *sendTelemetryThread(void *threadid)
 {
@@ -24,8 +28,6 @@ void *sendTelemetryThread(void *threadid)
 	while(1)    // run forever
 	{
 	    sleep(1);
-	    // create packet
-	    // send packet
 	
 	    //Telemetry packet from SAS containing an array
         uint8_t image[5] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
@@ -53,12 +55,54 @@ void *listenForCommandsThread(void *threadid)
     CommandReceiver *comReceiver;
     comReceiver = new CommandReceiver( (unsigned short) 5000);
     comReceiver->init_connection();
+    
+    // send respond as soon as a good command is received
+    // this thread needs its own command sender
+    CommandSender *comSender;
+    char fdr_ip[] = "192.168.1.1";
+    comSender = new CommandSender( fdr_ip, (unsigned short) 5000);
+    
 	while(1)    // run forever
 	{
-	    comReceiver->listen();
+	    unsigned int packet_length;
+	    //packet_length = new unsigned int;
+	    
+	    packet_length = comReceiver->listen( );
+	    printf("listenForCommandsThread: %i\n", packet_length);
+	    uint8_t *packet;
+	    packet = new uint8_t[packet_length];
+	    comReceiver->get_packet( packet );
+	    
+	    CommandPacket *command_packet;
+	    command_packet = new CommandPacket( packet, packet_length );
+	    if (command_packet->valid()){
+	        printf("listenForCommandsThread: good command packet\n");
+	        
+            // send out a command received packet
+	        comSender->init_connection();
+            CommandPacket cp(0x01, 101);
+            cp << (uint16_t)0x1100;
+            comSender->send( &cp );
+            comSender->close_connection();
+    
+            // update the command count
+            command_count++;
+            
+            try { recvd_command_queue.add_packet(*command_packet); } 
+            catch (std::exception& e) {
+                std::cerr << e.what() << std::endl;
+            }
+	        
+	    } else {
+	        printf("listenForCommandsThread: bad command packet\n");
+	    }
+	    //for(unsigned int i = 0; i < packet_length; i++){
+	    //    printf("%d\n", packet[i]);
+	    //}
+	    
 	    // listen for packet
 	    // parse packet
-	    // send out
+
 	    
 	    if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
@@ -106,6 +150,8 @@ int main(void)
 	pthread_t threads[2];
     int rc;
     
+    recvd_command_queue = new CommandQueue;
+    
 	/* Create worker threads */
 	printf("In main: creating threads\n");
 	long t;
@@ -130,12 +176,14 @@ int main(void)
     }
 
 	while(1){
-	    sleep(100);
-	    // kill thread 0, 1
+
+        // check if new command have been added to command queue and service them
+        
+        
+	    // kill threads
 	    stop_message[0] = 1;	    
 	    stop_message[1] = 1;
 	    stop_message[2] = 1;
-	    exit(1);
 	} /* never stop */
 
    /* Last thing that main() should do */

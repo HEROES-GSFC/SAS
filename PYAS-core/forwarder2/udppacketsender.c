@@ -5,7 +5,7 @@
 #include <string.h>     /* for memset() */
 #include <unistd.h>     /* for close() */
 
-#define ECHOMAX 255     /* Longest string to echo */
+#define ECHOMAX 254     /* Longest string to echo */
 
 void DieWithError(char *errorMessage)
 {

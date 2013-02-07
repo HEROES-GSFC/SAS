@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "Command.hpp"
+#include "UDPSender.hpp"
 
 int main()
 {
@@ -79,5 +80,14 @@ int main()
     std::cerr << e.what() << std::endl;
   }
 
+    printf("Creating and sending packet\n");
+    CommandSender *comSender;
+    char ip[] = "192.168.1.114";
+    comSender = new CommandSender( ip, (unsigned short) 5000);
+    comSender->init_connection();
+    CommandPacket cp(0x01, 100);
+    cp << (uint16_t)0x1100;
+    comSender->send( &cp );
+    comSender->close_connection();
   return 0;
 }

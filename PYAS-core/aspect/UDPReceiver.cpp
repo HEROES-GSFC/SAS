@@ -8,11 +8,12 @@ UDPReceiver::UDPReceiver( unsigned short port ){
     listeningPort = port;
 }
 
-void UDPReceiver::listen( void ){
+unsigned int UDPReceiver::listen( void ){
     /* Block until receive message from a client */
     if ((recvMsgSize = recvfrom(sock, payload, sizeof(payload), 0,
         (struct sockaddr *) &senderAddr, &cliAddrLen)) < 0){
-        printf("recvfrom() failed");} else {printf("received");}
+        printf("recvfrom() failed");} else {printf("received  %i bytes\n", recvMsgSize);}
+    return recvMsgSize;
 }
 
 void UDPReceiver::init_connection( void ){
@@ -32,6 +33,10 @@ void UDPReceiver::init_connection( void ){
 
     /* Set the size of the in-out parameter */
     cliAddrLen = sizeof(senderAddr);
+}
+
+void UDPReceiver::get_packet( uint8_t *packet ){
+    memcpy( packet, payload, recvMsgSize);
 }
 
 void UDPReceiver::close_connection( void ){
