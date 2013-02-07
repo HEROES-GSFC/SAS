@@ -29,7 +29,7 @@ OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 CCFITS = -lCCfits
 THREAD = -lpthread
 
-EXEC = fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test
+EXEC = fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test test_command
 
 all: $(EXEC)
 
@@ -48,10 +48,13 @@ packetDemo: packetDemo.cpp TelemetrySender.o ImperxStream.o utilities.o lib_crc.
 commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@
 
-networkDemo: networkDemo.cpp Packet.o UDPSender.o lib_crc.o
+networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 test: test.cpp Packet.o UDPSender.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+test_command: test_command.cpp Packet.o Command.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 #This pattern matching will catch all "simple" object dependencies
