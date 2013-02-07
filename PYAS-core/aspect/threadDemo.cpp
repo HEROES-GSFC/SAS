@@ -17,8 +17,8 @@
 #include <string>
 #include <thread>
 #include <mutex>
-#include <processing.hpp>
 #include <utilities.hpp>
+#include <processing.hpp>
 
 void load_image(std::mutex* en_mtx, bool& en, std::string &path, std::mutex* frame_mtx, cv::OutputArray _frame, Semaphore* outReady)
 {    
