@@ -5,7 +5,8 @@
 #include <string.h>     /* for memset() */
 #include <unistd.h>     /* for close() */
 #include "lib_crc/lib_crc.h"
-#include "Packet.hpp"
+#include "Command.hpp"
+#include "Telemetry.hpp"
 
 class UDPSender {
     protected:
