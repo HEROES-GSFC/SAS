@@ -141,9 +141,16 @@ Packet::Packet(const uint8_t *ptr, uint16_t num)
 
 bool Packet::valid()
 {
+
+  //Not long enough to even have a sync word!
+  if(getLength() < 2) return false;
+
   uint16_t syncword;
   this->readAtTo(0, syncword);
   bool syncword_valid = (syncword == PACKET_HEROES_SYNC_WORD);
+
+  //Not long enough to even have a proper checksum!
+  if(getLength() < 8) return false;
 
   uint16_t alleged_checksum;
   //All packets should have the checksum at bytes 6 and 7
