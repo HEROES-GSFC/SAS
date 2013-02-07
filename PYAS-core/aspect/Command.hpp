@@ -67,12 +67,14 @@ class Command : public ByteString {
     Command(const char *str) : ByteString(str) {};
     Command(const uint8_t *ptr);
 
+    //Retrieve the command keys
     uint16_t get_heroes_command();
     uint16_t get_sas_command();
 
     uint16_t lookup_payload_length(uint16_t heroes_cm, uint16_t sas_cm = 0);
     uint16_t lookup_sas_payload_length(uint16_t sas_cm);
 
+  //insertion operator << for adding a Command object to a CommandPacket object
   friend ByteString &operator<<(ByteString &bs, const Command &cm);
 };
 
@@ -92,6 +94,7 @@ class CommandPacket : public Packet {
     //Use this constructor when handling a received command packet
     CommandPacket(const uint8_t *ptr, uint16_t num);
 
+    //Checks for the HEROES sync word and a valid checksum
     virtual bool valid();
 
     void readNextCommandTo(Command &cm);
@@ -106,10 +109,16 @@ class CommandQueue : public std::list<Command> {
     //Returns the number of commands added
     int add_packet(CommandPacket &cp);
 
+  //insertion operator <<
+  //Overloaded to add Command objects or Command objects from a CommandQueue
+  //In the latter case, the source CommandQueue is emptied
   friend CommandQueue &operator<<(CommandQueue &cq, Command &c);
   friend CommandQueue &operator<<(CommandQueue &cq, CommandQueue &cq2);
+
+  //insertion operator << for ostream output
   friend std::ostream &operator<<(std::ostream &os, CommandQueue &cq);
 
+  //extraction operator >> for popping off the next Command object
   friend CommandQueue &operator>>(CommandQueue &cq, Command &c);
 };
 
