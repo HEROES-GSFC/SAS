@@ -42,7 +42,8 @@ Read the first uint16_t from an individual command's payload (after the keys):
 
 
 Notes:
-- Make sure to build exactly complete commands
+- Will throw an exception when a Command with an incorrect number of associated
+  bytes (its payload) is attempted to be added to a CommandPacket
 - Currently, all SAS commands have a zero-length payload
 - A proper checksum and payload length are written to the HEROES header of a
   packet when either outputted to an array or to an ostream
@@ -75,7 +76,7 @@ class Command : public ByteString {
     uint16_t lookup_sas_payload_length(uint16_t sas_cm);
 
   //insertion operator << for adding a Command object to a CommandPacket object
-  friend ByteString &operator<<(ByteString &bs, const Command &cm);
+  friend ByteString &operator<<(ByteString &bs, Command &cm);
 };
 
 class CommandPacket : public Packet {

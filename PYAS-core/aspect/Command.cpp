@@ -12,6 +12,14 @@ class CommandUnknownException : public std::exception
   }
 } cmUnknownException;
 
+class CommandInvalidException : public std::exception
+{
+  virtual const char* what() const throw()
+  {
+    return "Command object has an incorrect number of associated bytes";
+  }
+} cmInvalidException;
+
 class CommandPacketInvalidException : public std::exception
 {
   virtual const char* what() const throw()
@@ -114,9 +122,11 @@ uint16_t Command::get_sas_command()
   return value;
 }
 
-//This one's a bit weird to have to exist, but just roll with it
-ByteString &operator<<(ByteString &bs, const Command &cm)
+ByteString &operator<<(ByteString &bs, Command &cm)
 {
+  if(cm.getLength() != 2+cm.lookup_payload_length(cm.get_heroes_command(), cm.get_sas_command())) {
+    throw cmInvalidException;
+  }
   return (bs << (ByteString)cm);
 }
 
