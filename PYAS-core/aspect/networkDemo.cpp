@@ -6,7 +6,8 @@
 #include <unistd.h>     /* for sleep()  */
 
 #include "UDPSender.hpp"
-#include "Packet.hpp"
+#include "Command.hpp"
+#include "Telemetry.hpp"
 
 int stop_message[NUM_THREADS];
 
