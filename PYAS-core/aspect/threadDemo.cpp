@@ -20,6 +20,8 @@
 #include <utilities.hpp>
 #include <processing.hpp>
 
+//stream
+
 void load_image(std::mutex* en_mtx, bool& en, std::string &path, std::mutex* frame_mtx, cv::OutputArray _frame, Semaphore* outReady)
 {    
     int k = 0;
