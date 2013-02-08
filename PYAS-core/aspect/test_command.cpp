@@ -85,8 +85,16 @@ int main()
     char ip[] = "192.168.1.114";
     comSender = new CommandSender( ip, (unsigned short) 5000);
     comSender->init_connection();
-    CommandPacket cp(0x01, 100);
-    cp << (uint16_t)0x1100;
+    
+    Command cm1(0x10ff, 0x0100);        // test
+    Command cm2(0x10ff, 0x0101);        // kill all threads
+    Command cm3(0x10ff, 0x0102);        // restart all threads
+    
+    CommandPacket cp(0x30, 100);
+    cp << cm1 << cm3;// << cm3;
+    
+    std::cout << cp << std::endl;
+    
     comSender->send( &cp );
     comSender->close_connection();
   return 0;

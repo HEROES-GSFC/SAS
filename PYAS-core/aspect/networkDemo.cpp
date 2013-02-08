@@ -12,6 +12,7 @@
 
 unsigned int stop_message[NUM_THREADS];
 unsigned int command_count = 0;
+uint16_t latest_sas_command_key = 0x0000;
 
 CommandQueue *recvd_command_queue;
 
@@ -88,7 +89,7 @@ void *listenForCommandsThread(void *threadid)
             // update the command count
             command_count++;
             
-            try { recvd_command_queue.add_packet(*command_packet); } 
+            try { recvd_command_queue->add_packet(*command_packet); } 
             catch (std::exception& e) {
                 std::cerr << e.what() << std::endl;
             }
@@ -147,7 +148,7 @@ void *sendCTLCommands(void *threadid)
 
 int main(void)
 {
-	pthread_t threads[2];
+	pthread_t threads[NUM_THREADS];
     int rc;
     
     recvd_command_queue = new CommandQueue;
@@ -178,12 +179,56 @@ int main(void)
 	while(1){
 
         // check if new command have been added to command queue and service them
+        if (!recvd_command_queue->empty()){
+            printf("size of queue: %zu\n", recvd_command_queue->size());
+            Command *command;
+            command = new Command;
+            *recvd_command_queue >> *command;
+            //recvd_command_queue->pop_front();
+
+            latest_sas_command_key = command->get_sas_command();
+            printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
+            
+            switch( latest_sas_command_key ){
+                case 0x0100:     // test, do nothing
+                    break;
+                case 0x0101:    // kill all worker threads
+                    for(int i = 0; i < NUM_THREADS; i++ ){
+                        stop_message[i] = 1;
+                    }
+                    break;
+                case 0x0102:    // (re)start all worker threads
+                    // kill them all just in case
+                    for(int i = 0; i < NUM_THREADS; i++ ){
+                        stop_message[i] = 1;
+                    }
+                    sleep(1);
+                    // reset stop message
+                    for(int i = 0; i < NUM_THREADS; i++ ){
+                        stop_message[i] = 0;
+                    }
+                    // restart them all
+                    t = 0L;
+                    rc = pthread_create(&threads[0],NULL, sendTelemetryThread,(void *)t);
+                    if (rc){
+                         printf("ERROR; return code from pthread_create() is %d\n", rc);
+                    }
+                    t = 1L;
+                    rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
+                    if (rc){
+                         printf("ERROR; return code from pthread_create() is %d\n", rc);
+                    }
+                    t = 2L;
+                    rc = pthread_create(&threads[2],NULL, sendCTLCommands,(void *)t);
+                    if (rc){
+                         printf("ERROR; return code from pthread_create() is %d\n", rc);
+                    }
+                    break;
+                default:        // unknown command!
+                    printf("Unknown command!\n");
+            }
+        }
         
-        
-	    // kill threads
-	    stop_message[0] = 1;	    
-	    stop_message[1] = 1;
-	    stop_message[2] = 1;
 	} /* never stop */
 
    /* Last thing that main() should do */
