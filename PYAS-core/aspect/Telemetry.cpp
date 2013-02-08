@@ -18,13 +18,18 @@ class TelemetryPacketSizeException : public std::exception
   }
 } tpSizeException;
 
-TelemetryPacket::TelemetryPacket(uint8_t i_typeID, uint8_t i_sourceID)
-  : typeID(i_typeID), sourceID(i_sourceID)
+TelemetryPacket::TelemetryPacket(uint8_t typeID, uint8_t sourceID)
 {
   //Zeros are payload length and checksum
   *this << typeID << sourceID << (uint16_t)0 << (uint16_t)0;
   //Zeros are nanoseconds and seconds
   *this << (uint32_t)0 << (uint32_t)0;
+}
+
+TelemetryPacket::TelemetryPacket(const uint8_t *ptr, uint16_t num)
+  : Packet(ptr, num)
+{
+  setReadIndex(INDEX_PAYLOAD);
 }
 
 void TelemetryPacket::finish()
@@ -52,4 +57,23 @@ void TelemetryPacket::writeTime()
   gettimeofday(&now, NULL);
   replace(INDEX_NANOSECONDS, (uint32_t)now.tv_usec*1000);
   replace(INDEX_SECONDS, (uint32_t)now.tv_sec);
+}
+
+bool TelemetryPacket::valid()
+{
+  return Packet::valid();
+}
+
+uint8_t TelemetryPacket::getTypeID()
+{
+  uint8_t value;
+  this->readAtTo(INDEX_TELEMETRY_TYPE, value);
+  return value;
+}
+
+uint8_t TelemetryPacket::getSourceID()
+{
+  uint8_t value;
+  this->readAtTo(INDEX_SOURCE_ID, value);
+  return value;
 }

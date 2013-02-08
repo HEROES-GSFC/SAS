@@ -192,6 +192,13 @@ void CommandPacket::readNextCommandTo(Command &cm)
   cm = result;
 }
 
+uint8_t CommandPacket::getTargetID()
+{
+  uint8_t value;
+  this->readAtTo(INDEX_TARGET_ID, value);
+  return value;
+}
+
 uint16_t CommandPacket::getSequenceNumber()
 {
   uint16_t value;

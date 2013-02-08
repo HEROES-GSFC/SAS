@@ -98,6 +98,8 @@ class CommandPacket : public Packet {
     virtual bool valid();
 
     void readNextCommandTo(Command &cm);
+
+    uint8_t getTargetID();
     uint16_t getSequenceNumber();
 };
 
