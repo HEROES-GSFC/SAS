@@ -88,7 +88,8 @@ void ByteString::setReadIndex(uint16_t loc)
 template <class T>
 void ByteString::readNextTo(T& value)
 {
-  readNextTo_bytes(&value, sizeof(value));
+  readAtTo(read_index, value);
+  read_index += sizeof(value);
 }
 
 void ByteString::readNextTo_bytes(void *ptr, uint16_t num)
