@@ -14,6 +14,8 @@ std::cout << tp2 << std::endl;
 
 #include "Packet.hpp"
 
+#define TELEMETRY_PACKET_MAX_SIZE 1024
+
 class TelemetryPacket : public Packet {
   private:
     uint8_t typeID;

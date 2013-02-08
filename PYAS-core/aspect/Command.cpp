@@ -2,6 +2,12 @@
 
 #include "Command.hpp"
 
+#define INDEX_TARGET_ID 2
+#define INDEX_PAYLOAD_LENGTH 3
+#define INDEX_SEQUENCE_NUMBER 4
+#define INDEX_CHECKSUM 6
+#define INDEX_PAYLOAD 8
+
 using std::ostream;
 
 class CommandUnknownException : public std::exception
@@ -136,13 +142,13 @@ CommandPacket::CommandPacket(uint8_t targetID, uint16_t number)
 {
   //Zeros are payload length and checksum
   *this << targetID << (uint8_t)0 << number << (uint16_t)0;
-  setReadIndex(8);
+  setReadIndex(INDEX_PAYLOAD);
 }
 
 CommandPacket::CommandPacket(const uint8_t *ptr, uint16_t num)
   : Packet(ptr, num)
 {
-  setReadIndex(8);
+  setReadIndex(INDEX_PAYLOAD);
 }
 
 void CommandPacket::finish()
@@ -153,16 +159,16 @@ void CommandPacket::finish()
 
 void CommandPacket::writePayloadLength()
 {
-  if(getLength()-8 > 254) throw cpSizeException;
+  if(getLength() > COMMAND_PACKET_MAX_SIZE) throw cpSizeException;
   //should check if payload length is even
   //should also check if payload length is >= 2 bytes
-  replace((uint16_t)3, (uint8_t)(getLength()-8));
+  replace(INDEX_PAYLOAD_LENGTH, (uint8_t)(getLength()-INDEX_PAYLOAD));
 }
 
 void CommandPacket::writeChecksum()
 {
-  replace(6, (uint16_t)0);
-  replace(6, (uint16_t)checksum());
+  replace(INDEX_CHECKSUM, (uint16_t)0);
+  replace(INDEX_CHECKSUM, (uint16_t)checksum());
 }
 
 bool CommandPacket::valid()
@@ -180,7 +186,7 @@ void CommandPacket::readNextCommandTo(Command &cm)
   Command result(heroes_cm, sas_cm);
   uint16_t num = result.lookup_payload_length(heroes_cm, sas_cm);
   if(heroes_cm == 0x10ff) num -= 2;
-  uint8_t buf[254];
+  uint8_t buf[COMMAND_PACKET_MAX_SIZE-INDEX_PAYLOAD];
   readNextTo_bytes(buf, num);
   result.append_bytes(buf, num);
   cm = result;
@@ -189,7 +195,7 @@ void CommandPacket::readNextCommandTo(Command &cm)
 uint16_t CommandPacket::getSequenceNumber()
 {
   uint16_t value;
-  this->readAtTo(4, value);
+  this->readAtTo(INDEX_SEQUENCE_NUMBER, value);
   return value;
 }
 

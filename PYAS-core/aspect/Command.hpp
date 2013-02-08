@@ -58,6 +58,8 @@ Notes:
 
 #include "Packet.hpp"
 
+#define COMMAND_PACKET_MAX_SIZE 262
+
 class Command : public ByteString {
   private:
 
