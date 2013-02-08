@@ -58,6 +58,8 @@ Notes:
 
 #include "Packet.hpp"
 
+#define COMMAND_PACKET_MAX_SIZE 262
+
 class Command : public ByteString {
   private:
 
@@ -96,6 +98,8 @@ class CommandPacket : public Packet {
     virtual bool valid();
 
     void readNextCommandTo(Command &cm);
+
+    uint8_t getTargetID();
     uint16_t getSequenceNumber();
 };
 

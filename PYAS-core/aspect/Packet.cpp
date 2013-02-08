@@ -10,6 +10,8 @@
 #include "Packet.hpp"
 #include "lib_crc/lib_crc.h"
 
+#define INDEX_CHECKSUM 6
+
 using std::ostream;
 
 class ByteStringFullException : public std::exception
@@ -150,14 +152,14 @@ bool Packet::valid()
   bool syncword_valid = (syncword == PACKET_HEROES_SYNC_WORD);
 
   //Not long enough to even have a proper checksum!
-  if(getLength() < 8) return false;
+  if(getLength() < INDEX_CHECKSUM+2) return false;
 
   uint16_t alleged_checksum;
   //All packets should have the checksum at bytes 6 and 7
-  this->readAtTo(6, alleged_checksum);
-  this->replace(6, (uint16_t)0);
+  this->readAtTo(INDEX_CHECKSUM, alleged_checksum);
+  this->replace(INDEX_CHECKSUM, (uint16_t)0);
   bool checksum_valid = (this->checksum() == alleged_checksum);
-  this->replace(6, alleged_checksum);
+  this->replace(INDEX_CHECKSUM, alleged_checksum);
 
   return syncword_valid && checksum_valid;
 }

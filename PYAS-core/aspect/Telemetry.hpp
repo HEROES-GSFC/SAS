@@ -14,6 +14,8 @@ std::cout << tp2 << std::endl;
 
 #include "Packet.hpp"
 
+#define TELEMETRY_PACKET_MAX_SIZE 1024
+
 class TelemetryPacket : public Packet {
   private:
     uint8_t typeID;
@@ -27,6 +29,15 @@ class TelemetryPacket : public Packet {
   public:
     //Use this constructor when assembling a telemetry packet for sending
     TelemetryPacket(uint8_t i_typeID, uint8_t i_sourceID);
+
+    //Use this constructor when handling a received telemetry packet
+    TelemetryPacket(const uint8_t *ptr, uint16_t num);
+
+    //Checks for the HEROES sync word and a valid checksum
+    virtual bool valid();
+
+    uint8_t getTypeID();
+    uint8_t getSourceID();
 };
 
 #endif
