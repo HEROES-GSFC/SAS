@@ -8,7 +8,7 @@
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
-#define PAYLOAD_MAX 254                /* Longest payload */
+#define PAYLOAD_MAX 262                /* Longest payload */
 
 class UDPReceiver {
     protected:

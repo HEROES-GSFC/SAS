@@ -22,7 +22,7 @@ void *sendTelemetryThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
     TelemetrySender *telSender;
-    char ip[] = "192.168.114";
+    char ip[] = "192.168.1.114";
 
     telSender = new TelemetrySender( ip, (unsigned short) 5000);
     
@@ -60,7 +60,7 @@ void *listenForCommandsThread(void *threadid)
     // send respond as soon as a good command is received
     // this thread needs its own command sender
     CommandSender *comSender;
-    char fdr_ip[] = "192.168.1.1114";
+    char fdr_ip[] = "192.168.1.114";
     comSender = new CommandSender( fdr_ip, (unsigned short) 5000);
     
 	while(1)    // run forever
@@ -79,7 +79,8 @@ void *listenForCommandsThread(void *threadid)
 	    if (command_packet->valid()){
 	        printf("listenForCommandsThread: good command packet\n");
 	        
-            // send out a command received packet
+            // TODO: Send out correct telemetry received packet!
+            // the packet below is not correct
 	        comSender->init_connection();
             CommandPacket cp(0x01, 101);
             cp << (uint16_t)0x1100;
@@ -123,7 +124,7 @@ void *sendCTLCommands(void *threadid)
     printf("Hello World! It's me, thread #%ld!\n", tid);
     
     CommandSender *comSender;
-    char ip[] = "192.168.1.1";
+    char ip[] = "192.168.1.114";
 
     comSender = new CommandSender( ip, (unsigned short) 5000);
  
