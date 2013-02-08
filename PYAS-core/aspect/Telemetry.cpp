@@ -24,6 +24,7 @@ TelemetryPacket::TelemetryPacket(uint8_t typeID, uint8_t sourceID)
   *this << typeID << sourceID << (uint16_t)0 << (uint16_t)0;
   //Zeros are nanoseconds and seconds
   *this << (uint32_t)0 << (uint32_t)0;
+  setReadIndex(INDEX_PAYLOAD);
 }
 
 TelemetryPacket::TelemetryPacket(const uint8_t *ptr, uint16_t num)
