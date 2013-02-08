@@ -59,33 +59,33 @@ class ByteString {
 
     uint16_t getLength() { return length; }
 
+    //Appending to the end
+    void append_bytes(const void *ptr, uint16_t num);
     template <class T>
     void append(const T& value);
 
-    void append_bytes(const void *ptr, uint16_t num);
-
+    //Replacing at a specific location
     template <class T>
     void replace(uint16_t loc, const T& value);
 
+    //Reading at a specific location
+    void readAtTo_bytes(uint16_t loc, void *ptr, uint16_t num);
     template <class T>
     void readAtTo(uint16_t loc, T& value);
 
-    void readAtTo_bytes(uint16_t loc, void *ptr, uint16_t num);
-
+    //Sequential reading using a read pointer
     void setReadIndex(uint16_t loc);
-
+    void readNextTo_bytes(void *ptr, uint16_t num);
     template <class T>
     void readNextTo(T& value);
-
-    void readNextTo_bytes(void *ptr, uint16_t num);
-
     uint16_t remainingBytes() { return length-read_index; };
 
-    void clear();
-
+    //Output the entire buffer to an array
     uint16_t outputTo(uint8_t dest[]);
 
     uint16_t checksum();
+
+    void clear();
 
     //insertion operator <<
     //Overloaded for appending and for stream output
@@ -93,7 +93,7 @@ class ByteString {
     friend ByteString& operator<<(ByteString& bs, const T& value);
     friend std::ostream& operator<<(std::ostream& os, ByteString& bs);
 
-    //extraction operator >>
+    //extraction operator >>, calls outputTo()
     friend uint16_t operator>>(ByteString& pk, uint8_t dest[]);
 };
 
@@ -104,6 +104,8 @@ class Packet : public ByteString {
   public:
     Packet();
     Packet(const uint8_t *ptr, uint16_t num);
+
+    //Checks for a valid checksum
     virtual bool valid();
 };
 
