@@ -8,8 +8,6 @@
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
-#define PAYLOAD_MAX 262                /* Longest payload */
-
 class UDPReceiver {
     protected:
         int sock;                       /* Socket */
@@ -17,7 +15,7 @@ class UDPReceiver {
         struct sockaddr_in senderAddr;  /* Sender address */
     
         unsigned int cliAddrLen;        /* Length of incoming message */
-        char payload[PAYLOAD_MAX];      /* Buffer for echo string */
+        char payload[PACKET_MAX_SIZE];  /* Buffer for echo string */
         unsigned short listeningPort;   /* The port to listen to */
         unsigned int recvMsgSize;                /* Size of received message */
 
