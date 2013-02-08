@@ -2,6 +2,14 @@
 
 #include "Telemetry.hpp"
 
+#define INDEX_TELEMETRY_TYPE 2
+#define INDEX_SOURCE_ID 3
+#define INDEX_PAYLOAD_LENGTH 4
+#define INDEX_CHECKSUM 6
+#define INDEX_NANOSECONDS 8
+#define INDEX_SECONDS 12
+#define INDEX_PAYLOAD 16
+
 class TelemetryPacketSizeException : public std::exception
 {
   virtual const char* what() const throw()
@@ -10,13 +18,18 @@ class TelemetryPacketSizeException : public std::exception
   }
 } tpSizeException;
 
-TelemetryPacket::TelemetryPacket(uint8_t i_typeID, uint8_t i_sourceID)
-  : typeID(i_typeID), sourceID(i_sourceID)
+TelemetryPacket::TelemetryPacket(uint8_t typeID, uint8_t sourceID)
 {
   //Zeros are payload length and checksum
   *this << typeID << sourceID << (uint16_t)0 << (uint16_t)0;
-  //Zeros are microseconds and seconds
+  //Zeros are nanoseconds and seconds
   *this << (uint32_t)0 << (uint32_t)0;
+}
+
+TelemetryPacket::TelemetryPacket(const uint8_t *ptr, uint16_t num)
+  : Packet(ptr, num)
+{
+  setReadIndex(INDEX_PAYLOAD);
 }
 
 void TelemetryPacket::finish()
@@ -28,20 +41,39 @@ void TelemetryPacket::finish()
 
 void TelemetryPacket::writePayloadLength()
 {
-  if(getLength()-16 > 1008) throw tpSizeException;
-  replace(4, (uint16_t)(getLength()-16));
+  if(getLength() > TELEMETRY_PACKET_MAX_SIZE) throw tpSizeException;
+  replace(INDEX_PAYLOAD_LENGTH, (uint16_t)(getLength()-INDEX_PAYLOAD));
 }
 
 void TelemetryPacket::writeChecksum()
 {
-  replace(6, (uint16_t)0);
-  replace(6, (uint16_t)checksum());
+  replace(INDEX_CHECKSUM, (uint16_t)0);
+  replace(INDEX_CHECKSUM, (uint16_t)checksum());
 }
 
 void TelemetryPacket::writeTime()
 {
   timeval now;
   gettimeofday(&now, NULL);
-  replace(8, (uint32_t)now.tv_usec);
-  replace(12, (uint32_t)now.tv_sec);
+  replace(INDEX_NANOSECONDS, (uint32_t)now.tv_usec*1000);
+  replace(INDEX_SECONDS, (uint32_t)now.tv_sec);
+}
+
+bool TelemetryPacket::valid()
+{
+  return Packet::valid();
+}
+
+uint8_t TelemetryPacket::getTypeID()
+{
+  uint8_t value;
+  this->readAtTo(INDEX_TELEMETRY_TYPE, value);
+  return value;
+}
+
+uint8_t TelemetryPacket::getSourceID()
+{
+  uint8_t value;
+  this->readAtTo(INDEX_SOURCE_ID, value);
+  return value;
 }
