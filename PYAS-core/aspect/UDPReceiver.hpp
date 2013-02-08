@@ -19,7 +19,7 @@ class UDPReceiver {
         unsigned int cliAddrLen;        /* Length of incoming message */
         char payload[PAYLOAD_MAX];      /* Buffer for echo string */
         unsigned short listeningPort;   /* The port to listen to */
-        unsigned int recvMsgSize;                /* Size of received message */
+        int recvMsgSize;                /* Size of received message */
 
     public:
         UDPReceiver( void );
@@ -36,5 +36,10 @@ class CommandReceiver: public UDPReceiver {
 
     public:
         CommandReceiver( unsigned short port );
-        CommandPacket *getCommandPacket( void );
+};
+
+class TelemetryReceiver: public UDPReceiver {
+
+    public:
+        TelemetryReceiver( unsigned short port );
 };

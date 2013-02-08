@@ -10,10 +10,16 @@ UDPReceiver::UDPReceiver( unsigned short port ){
 
 unsigned int UDPReceiver::listen( void ){
     /* Block until receive message from a client */
-    if ((recvMsgSize = recvfrom(sock, payload, sizeof(payload), 0,
-        (struct sockaddr *) &senderAddr, &cliAddrLen)) < 0){
-        printf("recvfrom() failed");} else {printf("received  %i bytes\n", recvMsgSize);}
-    return recvMsgSize;
+    recvMsgSize = recvfrom(sock, payload, sizeof(payload), 0,
+        (struct sockaddr *) &senderAddr, &cliAddrLen);
+        
+    if (recvMsgSize < 0){
+            printf("recvfrom() failed");
+            return 0;
+        } else {
+            printf("received  %u bytes\n", recvMsgSize);
+            return recvMsgSize;
+        }
 }
 
 void UDPReceiver::init_connection( void ){
@@ -43,11 +49,14 @@ void UDPReceiver::close_connection( void ){
     close( sock );
 }
 
-CommandPacket *CommandReceiver::getCommandPacket( void ){
-    return NULL;
-}
-
 CommandReceiver::CommandReceiver( unsigned short port ){
     listeningPort = port;
 }
+
+TelemetryReceiver::TelemetryReceiver( unsigned short port ){
+    listeningPort = port;
+}
+
+
+
 

@@ -11,8 +11,9 @@
 #include "Telemetry.hpp"
 
 unsigned int stop_message[NUM_THREADS];
-unsigned int command_count = 0;
+uint16_t command_count = 0;
 uint16_t latest_sas_command_key = 0x0000;
+uint32_t tm_frame_sequence_number = 0;
 
 CommandQueue *recvd_command_queue;
 
@@ -23,20 +24,25 @@ void *sendTelemetryThread(void *threadid)
     printf("Hello World! It's me, thread #%ld!\n", tid);
     TelemetrySender *telSender;
     char ip[] = "192.168.1.114";
-
+    
     telSender = new TelemetrySender( ip, (unsigned short) 5000);
     
 	while(1)    // run forever
 	{
 	    sleep(1);
 	
+	    tm_frame_sequence_number++;
 	    //Telemetry packet from SAS containing an array
-        uint8_t image[5] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
-        TelemetryPacket tp2(0x70, 0x30);
-        tp2 << (uint32_t)0xEFBEADDE;
-        tp2.append_bytes(image, 5);
+        //uint8_t image[5] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
+        TelemetryPacket tp(0x70, 0x30);
+        tp << (uint16_t)0xEB90;     // SAS-1 syncword
+        tp << tm_frame_sequence_number;
+        tp << command_count;
+        tp << latest_sas_command_key;
+        
+        //tp.append_bytes(image, 5);
         //std::cout << tp2 << std::endl;
-        telSender->send(&tp2);
+        telSender->send(&tp);
 
 	    if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
