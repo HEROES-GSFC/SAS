@@ -25,6 +25,7 @@ class TelemetryPacket : public Packet {
     void writeTime();
 
   public:
+    //Use this constructor when assembling a telemetry packet for sending
     TelemetryPacket(uint8_t i_typeID, uint8_t i_sourceID);
 };
 

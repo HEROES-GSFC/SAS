@@ -12,6 +12,14 @@ class CommandUnknownException : public std::exception
   }
 } cmUnknownException;
 
+class CommandInvalidException : public std::exception
+{
+  virtual const char* what() const throw()
+  {
+    return "Command object has an incorrect number of associated bytes";
+  }
+} cmInvalidException;
+
 class CommandPacketInvalidException : public std::exception
 {
   virtual const char* what() const throw()
@@ -56,8 +64,14 @@ Command::Command(const uint8_t *ptr)
 
 Command::Command(uint16_t heroes_c, uint16_t sas_c)
 {
-  if (heroes_c != 0) *this << heroes_c;
-  if(sas_c != 0) *this << sas_c;
+  if (heroes_c != 0) {
+    *this << heroes_c;
+    this->setReadIndex(2);
+    if(sas_c != 0) {
+      *this << sas_c;
+      this->setReadIndex(4);
+    }
+  }
 }
 
 uint16_t Command::lookup_payload_length(uint16_t heroes_cm, uint16_t sas_cm)
@@ -87,6 +101,8 @@ uint16_t Command::lookup_payload_length(uint16_t heroes_cm, uint16_t sas_cm)
 uint16_t Command::lookup_sas_payload_length(uint16_t sas_cm)
 {
   switch(sas_cm) {
+    case 0xffff:
+      return 2;
     default:
       return 0;
   }
@@ -108,14 +124,15 @@ uint16_t Command::get_sas_command()
   return value;
 }
 
-//This one's a bit weird to have to exist, but just roll with it
-ByteString &operator<<(ByteString &bs, const Command &cm)
+ByteString &operator<<(ByteString &bs, Command &cm)
 {
+  if(cm.getLength() != 2+cm.lookup_payload_length(cm.get_heroes_command(), cm.get_sas_command())) {
+    throw cmInvalidException;
+  }
   return (bs << (ByteString)cm);
 }
 
-CommandPacket::CommandPacket(uint8_t i_targetID, uint16_t i_number)
-  : targetID(i_targetID), number(i_number)
+CommandPacket::CommandPacket(uint8_t targetID, uint16_t number)
 {
   //Zeros are payload length and checksum
   *this << targetID << (uint8_t)0 << number << (uint16_t)0;
@@ -169,6 +186,13 @@ void CommandPacket::readNextCommandTo(Command &cm)
   cm = result;
 }
 
+uint16_t CommandPacket::getSequenceNumber()
+{
+  uint16_t value;
+  this->readAtTo(4, value);
+  return value;
+}
+
 CommandQueue::CommandQueue(CommandPacket &cp)
 {
   add_packet(cp);
@@ -176,10 +200,13 @@ CommandQueue::CommandQueue(CommandPacket &cp)
 
 int CommandQueue::add_packet(CommandPacket &cp)
 {
-  int count = 0;
-  Command cm;
-
   if(!cp.valid()) throw cpInvalidException;
+
+  Command cm(0x10ff, 0xffff);
+  cm << cp.getSequenceNumber();
+  *this << cm;
+
+  int count = 1;
 
   while(cp.remainingBytes() > 0) {
     cp.readNextCommandTo(cm);

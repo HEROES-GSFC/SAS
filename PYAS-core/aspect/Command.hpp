@@ -36,9 +36,14 @@ To interpret the command:
   c.get_heroes_command();
   c.get_sas_command(); //returns 0 if the HEROES command is not 0x10ff
 
+Read the first uint16_t from an individual command's payload (after the keys):
+  uint16_t x;
+  c.readNextTo(x);
+
 
 Notes:
-- Make sure to build exactly complete commands
+- Will throw an exception when a Command with an incorrect number of associated
+  bytes (its payload) is attempted to be added to a CommandPacket
 - Currently, all SAS commands have a zero-length payload
 - A proper checksum and payload length are written to the HEROES header of a
   packet when either outputted to an array or to an ostream
@@ -57,35 +62,41 @@ class Command : public ByteString {
   private:
 
   public:
-    Command(const char *str) : ByteString(str) {};
-    Command(const uint8_t *ptr);
     Command(uint16_t heroes_c = 0, uint16_t sas_c = 0);
 
+    //Unsupported constructors
+    Command(const char *str) : ByteString(str) {};
+    Command(const uint8_t *ptr);
+
+    //Retrieve the command keys
     uint16_t get_heroes_command();
     uint16_t get_sas_command();
 
     uint16_t lookup_payload_length(uint16_t heroes_cm, uint16_t sas_cm = 0);
     uint16_t lookup_sas_payload_length(uint16_t sas_cm);
 
-  friend ByteString &operator<<(ByteString &bs, const Command &cm);
+  //insertion operator << for adding a Command object to a CommandPacket object
+  friend ByteString &operator<<(ByteString &bs, Command &cm);
 };
 
 class CommandPacket : public Packet {
   private:
-    uint8_t targetID;
-    uint16_t number;
-
     virtual void finish();
     void writePayloadLength();
     void writeChecksum();
 
   public:
-    CommandPacket(uint8_t i_targetID, uint16_t i_number);
+    //Use this constuctor when assembling a command packet for sending
+    CommandPacket(uint8_t targetID, uint16_t number);
+
+    //Use this constructor when handling a received command packet
     CommandPacket(const uint8_t *ptr, uint16_t num);
 
+    //Checks for the HEROES sync word and a valid checksum
     virtual bool valid();
 
     void readNextCommandTo(Command &cm);
+    uint16_t getSequenceNumber();
 };
 
 class CommandQueue : public std::list<Command> {
@@ -94,12 +105,19 @@ class CommandQueue : public std::list<Command> {
     CommandQueue() {};
     CommandQueue(CommandPacket &cp);
 
+    //Returns the number of commands added
     int add_packet(CommandPacket &cp);
 
+  //insertion operator <<
+  //Overloaded to add Command objects or Command objects from a CommandQueue
+  //In the latter case, the source CommandQueue is emptied
   friend CommandQueue &operator<<(CommandQueue &cq, Command &c);
   friend CommandQueue &operator<<(CommandQueue &cq, CommandQueue &cq2);
+
+  //insertion operator << for ostream output
   friend std::ostream &operator<<(std::ostream &os, CommandQueue &cq);
 
+  //extraction operator >> for popping off the next Command object
   friend CommandQueue &operator>>(CommandQueue &cq, Command &c);
 };
 
