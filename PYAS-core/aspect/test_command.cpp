@@ -80,22 +80,5 @@ int main()
     std::cerr << e.what() << std::endl;
   }
 
-    printf("Creating and sending packet\n");
-    CommandSender *comSender;
-    char ip[] = "192.168.1.114";
-    comSender = new CommandSender( ip, (unsigned short) 5000);
-    comSender->init_connection();
-    
-    Command cm1(0x10ff, 0x0100);        // test
-    Command cm2(0x10ff, 0x0101);        // kill all threads
-    Command cm3(0x10ff, 0x0102);        // restart all threads
-    
-    CommandPacket cp(0x30, 100);
-    cp << cm1 << cm3;// << cm3;
-    
-    std::cout << cp << std::endl;
-    
-    comSender->send( &cp );
-    comSender->close_connection();
   return 0;
 }
