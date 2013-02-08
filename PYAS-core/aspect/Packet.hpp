@@ -12,11 +12,15 @@ operator <<, which can accept the following data types:
 For classes (*), the actual data inserted is customized.  To insert an array,
 you will need to use the append_bytes() method.
 
-Once the ByteString is built to satisfaction, you can extract the data.  The
-recommended approach is to use the extraction operator >> to a uint8_t array
-pointer.  It is your responsibility to allocate the space before calling the
-extraction; the necessary size can be retrieved by getLength(), or just use a
-large enough destination array.
+Once the ByteString is built to satisfaction, you can extract the data using
+the extraction operator >>.  If you extract to a uint8_t array pointer, the
+entire buffer is extracted.  Otherwise, only enough bytes are read out to
+fill the data type, and a read pointer is advanced.  Alternatively, you can use
+outputTo() and readNextTo().
+
+It is your responsibility to allocate the space before calling the extraction.
+The necessary size can be retrieved by getLength(), or just use a large enough
+destination array.
 
 For convenience when testing, the packet can be inserted into an ostream for
 hexadecimal output.
@@ -93,8 +97,11 @@ class ByteString {
     friend ByteString& operator<<(ByteString& bs, const T& value);
     friend std::ostream& operator<<(std::ostream& os, ByteString& bs);
 
-    //extraction operator >>, calls outputTo()
-    friend uint16_t operator>>(ByteString& pk, uint8_t dest[]);
+    //extraction operator >>
+    //If T is a uint8_t pointer, then calls outputTo()
+    //Otherwise, calls readNextTo()
+    template<class T>
+    friend ByteString& operator>>(ByteString& bs, T& dest);
 };
 
 class Packet : public ByteString {
