@@ -1,7 +1,7 @@
 /*
 
 TelemetryPacket and TelemetryPacketQueue
-  derived from Packet and std::list<TelemetryPacket>
+  derived from Packet and ByteStringQueue
 
 //Telemetry packet from SAS containing an array
 uint8_t image[5] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
@@ -12,7 +12,7 @@ std::cout << tp2 << std::endl;
 
 //Parsing telemetry packets from a static file
 TelemetryPacketQueue tpq;
-tpq.filterSourceID(0x70);
+tpq.filterSourceID(0x30);
 tpq.add_file("sample.dat");
 TelemetryPacket tp;
 if(!tpq.empty()) tpq >> tp;

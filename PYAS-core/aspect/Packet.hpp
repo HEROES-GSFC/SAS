@@ -3,7 +3,10 @@
 ByteString, Packet, and ByteStringQueue
 
 These are base classes used by Command* and Telemetry* classes.  See the
-documentation for those classes for examples of usage.
+documentation for those classes for examples of usage.  Private variables
+should not added when inheriting from ByteString to keep casting safe.  For
+example, *Queue classes only contain ByteString entries, but can be cast to the
+"proper" type upon extraction.
 
 The recommended approach to append data to a ByteString is to use the insertion
 operator <<, which can accept the following data types:
@@ -22,7 +25,7 @@ It is your responsibility to allocate the space before calling the extraction.
 The necessary size can be retrieved by getLength(), or just use a large enough
 destination array.
 
-For convenience when testing, the packet can be inserted into an ostream for
+For convenience when testing, the ByteString can be inserted into an ostream for
 hexadecimal output.
 
 A variety of exceptions, derived from std::exception, can be thrown.
