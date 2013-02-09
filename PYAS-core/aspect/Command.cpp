@@ -195,7 +195,7 @@ void CommandPacket::readNextCommandTo(Command &cm)
 uint8_t CommandPacket::getTargetID()
 {
   uint8_t value;
-  this->readAtTo(INDEX_TARGET_ID, value);
+  this->readAtTo( INDEX_TARGET_ID, value);
   return value;
 }
 

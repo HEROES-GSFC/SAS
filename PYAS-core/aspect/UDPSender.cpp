@@ -67,7 +67,7 @@ void TelemetrySender::send( TelemetryPacket *packet )
     /* Send the string to the server */
     if (sendto(sock, payload, packet->getLength(), 0, (struct sockaddr *)
                &sendAddr, sizeof(sendAddr)) != packet->getLength())
-        printf("TelemetrySender: sendto() sent a different number of bytes than expected\n");
+         printf("TelemetrySender: sendto() sent a different number of bytes than expected\n");
     close_connection();
 }
 

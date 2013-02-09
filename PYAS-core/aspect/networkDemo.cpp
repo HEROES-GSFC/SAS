@@ -15,6 +15,8 @@ uint16_t command_count = 0;
 uint16_t latest_sas_command_key = 0x0000;
 uint32_t tm_frame_sequence_number = 0;
 
+char ip[] = "192.168.10.254";
+
 CommandQueue *recvd_command_queue;
 
 void *sendTelemetryThread(void *threadid)
@@ -23,7 +25,7 @@ void *sendTelemetryThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
     TelemetrySender *telSender;
-    char ip[] = "192.168.1.114";
+    //char ip[] = "192.168.1.114";
     
     telSender = new TelemetrySender( ip, (unsigned short) 5000);
     
@@ -66,8 +68,8 @@ void *listenForCommandsThread(void *threadid)
     // send respond as soon as a good command is received
     // this thread needs its own command sender
     CommandSender *comSender;
-    char fdr_ip[] = "192.168.1.114";
-    comSender = new CommandSender( fdr_ip, (unsigned short) 5000);
+    //char fdr_ip[] = "192.168.1.114";
+    comSender = new CommandSender( ip, (unsigned short) 5000);
     
 	while(1)    // run forever
 	{
@@ -130,7 +132,7 @@ void *sendCTLCommands(void *threadid)
     printf("Hello World! It's me, thread #%ld!\n", tid);
     
     CommandSender *comSender;
-    char ip[] = "192.168.1.114";
+    //char ip[] = "192.168.1.114";
 
     comSender = new CommandSender( ip, (unsigned short) 5000);
  
