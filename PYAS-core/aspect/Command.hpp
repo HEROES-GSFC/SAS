@@ -1,7 +1,7 @@
 /*
 
-Command, CommandPacket, and CommandQueue
-  derived from ByteString, Packet, and std::list<Command>
+Command, CommandPacket, CommandQueue, and CommandPacketQueue
+  derived from ByteString, Packet, std::list<Command>, and std::list<CommandPacket>
 
 To create a command:
   Command cm1(0x1100);
@@ -115,14 +115,33 @@ class CommandQueue : public std::list<Command> {
   //insertion operator <<
   //Overloaded to add Command objects or Command objects from a CommandQueue
   //In the latter case, the source CommandQueue is emptied
-  friend CommandQueue &operator<<(CommandQueue &cq, Command &c);
-  friend CommandQueue &operator<<(CommandQueue &cq, CommandQueue &cq2);
+  friend CommandQueue &operator<<(CommandQueue &cq, const Command &c);
+  friend CommandQueue &operator<<(CommandQueue &cq, CommandQueue &other);
 
   //insertion operator << for ostream output
   friend std::ostream &operator<<(std::ostream &os, CommandQueue &cq);
 
   //extraction operator >> for popping off the next Command object
   friend CommandQueue &operator>>(CommandQueue &cq, Command &c);
+};
+
+class CommandPacketQueue : public std::list<CommandPacket> {
+
+  public:
+    CommandPacketQueue() {};
+
+  //insertion operator <<
+  //Overloaded to add CommandPacket objects
+  //  or CommandPacket objects from a CommandPacketQueue
+  //In the latter case, the source CommandPacketQueue is emptied
+  friend CommandPacketQueue &operator<<(CommandPacketQueue &cpq, const CommandPacket &cp);
+  friend CommandPacketQueue &operator<<(CommandPacketQueue &cpq, CommandPacketQueue &other);
+
+  //insertion operator << for ostream output
+  friend std::ostream &operator<<(std::ostream &os, CommandPacketQueue &cpq);
+
+  //extraction operator >> for popping off the next CommandPacket object
+  friend CommandPacketQueue &operator>>(CommandPacketQueue &cpq, CommandPacket &cp);
 };
 
 #endif
