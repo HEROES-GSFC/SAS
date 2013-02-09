@@ -38,7 +38,7 @@ To interpret the command:
 
 Read the first uint16_t from an individual command's payload (after the keys):
   uint16_t x;
-  c.readNextTo(x);
+  c >> x; //or c.readNextTo(x);
 
 
 Notes:
@@ -46,7 +46,7 @@ Notes:
   bytes (its payload) is attempted to be added to a CommandPacket
 - Currently, all SAS commands have a zero-length payload
 - A proper checksum and payload length are written to the HEROES header of a
-  packet when either outputted to an array or to an ostream
+  packet when and only when either outputted to an array or to an ostream
 
 */
 
