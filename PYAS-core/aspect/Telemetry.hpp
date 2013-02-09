@@ -31,9 +31,6 @@ if(!tpq.empty()) tpq >> tp;
 
 class TelemetryPacket : public Packet {
   private:
-    uint8_t typeID;
-    uint8_t sourceID;
-
     virtual void finish();
     void writePayloadLength();
     void writeChecksum();
@@ -41,7 +38,7 @@ class TelemetryPacket : public Packet {
 
   public:
     //Use this constructor when assembling a telemetry packet for sending
-    TelemetryPacket(uint8_t i_typeID, uint8_t i_sourceID);
+    TelemetryPacket(uint8_t typeID, uint8_t sourceID);
 
     //Use this constructor when handling a received telemetry packet
     TelemetryPacket(const uint8_t *ptr, uint16_t num);
