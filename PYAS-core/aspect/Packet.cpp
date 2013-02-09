@@ -88,7 +88,8 @@ void ByteString::setReadIndex(uint16_t loc)
 template <class T>
 void ByteString::readNextTo(T& value)
 {
-  readNextTo_bytes(&value, sizeof(value));
+  readAtTo(read_index, value);
+  read_index += sizeof(value);
 }
 
 void ByteString::readNextTo_bytes(void *ptr, uint16_t num)
@@ -121,7 +122,20 @@ ostream& operator<<(ostream& os, ByteString& bs)
   return os << pkt::reset;
 }
 
-uint16_t operator>>(ByteString& bs, uint8_t dest[]) { return bs.outputTo(dest); }
+template <class T>
+ByteString& operator>>(ByteString& bs, T& dest)
+{
+  bs.readNextTo(dest);
+  return bs;
+}
+
+template <>
+ByteString& operator>><uint8_t *>(ByteString& bs, uint8_t *&dest)
+{
+  bs.outputTo(dest);
+  return bs;
+}
+
 
 uint16_t ByteString::checksum()
 {
@@ -182,14 +196,9 @@ void _template_loader()
 
   double temp;
 
-  dummy.readNextTo(*(uint8_t *)(&temp));
-  dummy.readNextTo(*(uint16_t *)(&temp));
-  dummy.readNextTo(*(uint32_t *)(&temp));
-  dummy.readNextTo(*(int8_t *)(&temp));
-  dummy.readNextTo(*(int16_t *)(&temp));
-  dummy.readNextTo(*(int32_t *)(&temp));
-  dummy.readNextTo(*(float *)(&temp));
-  dummy.readNextTo(*(double *)(&temp));
+  dummy >> *(uint8_t *)(&temp) >> *(uint16_t *)(&temp) >> *(uint32_t *)(&temp);
+  dummy >> *(int8_t *)(&temp) >> *(int16_t *)(&temp) >> *(int32_t *)(&temp);
+  dummy >> *(float *)(&temp) >> *(double *)(&temp);
 
   dummy.replace(0, (uint8_t)0);
   dummy.replace(0, (uint16_t)0);
