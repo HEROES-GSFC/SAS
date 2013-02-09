@@ -1,6 +1,6 @@
 /*
 
-ByteString and Packet
+ByteString, Packet, and ByteStringQueue
 
 These are base classes used by Command* and Telemetry* classes.  See the
 documentation for those classes for examples of usage.
@@ -41,6 +41,7 @@ How to catch an exception:
 #define _PACKET_HPP_
 
 #include <iostream>
+#include <list>
 #include <stdint.h>
 
 #define PACKET_MAX_SIZE 1024
@@ -114,6 +115,23 @@ class Packet : public ByteString {
 
     //Checks for a valid checksum
     virtual bool valid();
+};
+
+class ByteStringQueue : public std::list<ByteString> {
+  public:
+    ByteStringQueue() {};
+
+  //insertion operator <<
+  //If a queue is inserted, the source queue will be emptied
+  friend ByteStringQueue &operator<<(ByteStringQueue &bq, const ByteString &bs);
+  friend ByteStringQueue &operator<<(ByteStringQueue &bq, ByteStringQueue &other);
+
+  //insertion operator << for ostream
+  friend std::ostream &operator<<(std::ostream &os, ByteStringQueue &bq);
+
+  //extraction operator >>
+  //Removes the entry from the queue
+  friend ByteStringQueue &operator>>(ByteStringQueue &bq, ByteString &bs);
 };
 
 namespace pkt

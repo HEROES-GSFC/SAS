@@ -30,6 +30,14 @@ class ByteStringAccessException : public std::exception
   }
 } bsAccessException;
 
+class ByteStringQueueEmptyException : public std::exception
+{
+  virtual const char* what() const throw()
+  {
+    return "ByteStringQueue has no more entries";
+  }
+} bqEmptyException;
+
 ByteString::ByteString() : length(0), read_index(0)
 {
 }
@@ -176,6 +184,36 @@ bool Packet::valid()
   this->replace(INDEX_CHECKSUM, alleged_checksum);
 
   return syncword_valid && checksum_valid;
+}
+
+ByteStringQueue &operator<<(ByteStringQueue &bq, const ByteString &bs)
+{
+  bq.push_back(bs);
+  return bq;
+}
+
+ByteStringQueue &operator<<(ByteStringQueue &bq, ByteStringQueue &other)
+{
+  bq.splice(bq.end(), other);
+  return bq;
+}
+
+ostream &operator<<(ostream &os, ByteStringQueue &bq)
+{
+  if(bq.empty()) throw bqEmptyException;
+  int i = 0;
+  for (ByteStringQueue::iterator it=bq.begin(); it != bq.end(); ++it) {
+    os << ++i << ": " << *it << std::endl;
+  }
+  return os;
+}
+
+ByteStringQueue &operator>>(ByteStringQueue &bq, ByteString &bs)
+{
+  if(bq.empty()) throw bqEmptyException;
+  bs = bq.front();
+  bq.pop_front();
+  return bq;
 }
 
 namespace pkt

@@ -50,7 +50,7 @@ class TelemetryPacket : public Packet {
     uint8_t getSourceID();
 };
 
-class TelemetryPacketQueue : public std::list<TelemetryPacket> {
+class TelemetryPacketQueue : public ByteStringQueue {
   private:
     uint8_t i_typeID;
     uint8_t i_sourceID;
@@ -66,19 +66,6 @@ class TelemetryPacketQueue : public std::list<TelemetryPacket> {
     void filterTypeID(uint8_t typeID);
     void filterSourceID(uint8_t typeID);
     void resetFilters();
-
-  //insertion operator <<
-  //Overloaded to add TelemetryPacket objects
-  //  or TelemetryPacket objects from a TelemetryPacketQueue
-  //In the latter case, the source TelemetryPacketQueue is emptied
-  friend TelemetryPacketQueue &operator<<(TelemetryPacketQueue &tpq, const TelemetryPacket &tp);
-  friend TelemetryPacketQueue &operator<<(TelemetryPacketQueue &tpq, TelemetryPacketQueue &other);
-
-  //insertion operator << for ostream output
-  friend std::ostream &operator<<(std::ostream &os, TelemetryPacketQueue &tpq);
-
-  //extraction operator >> for popping off the next TelemetryPacket object
-  friend TelemetryPacketQueue &operator>>(TelemetryPacketQueue &tpq, TelemetryPacket &tp);
 };
 
 #endif

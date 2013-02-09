@@ -23,14 +23,6 @@ class TelemetryPacketSizeException : public std::exception
   }
 } tpSizeException;
 
-class TelemetryPacketQueueEmptyException : public std::exception
-{
-  virtual const char* what() const throw()
-  {
-    return "TelemetryPacketQueue has no more telemetry packets";
-  }
-} tpqEmptyException;
-
 TelemetryPacket::TelemetryPacket(uint8_t typeID, uint8_t sourceID)
 {
   //Zeros are payload length and checksum
@@ -90,36 +82,6 @@ uint8_t TelemetryPacket::getSourceID()
   uint8_t value;
   this->readAtTo(INDEX_SOURCE_ID, value);
   return value;
-}
-
-TelemetryPacketQueue &operator<<(TelemetryPacketQueue &tpq, const TelemetryPacket &tp)
-{
-  tpq.push_back(tp);
-  return tpq;
-}
-
-TelemetryPacketQueue &operator<<(TelemetryPacketQueue &tpq, TelemetryPacketQueue &other)
-{
-  tpq.splice(tpq.end(), other);
-  return tpq;
-}
-
-TelemetryPacketQueue &operator>>(TelemetryPacketQueue &tpq, TelemetryPacket &tp)
-{
-  if(tpq.empty()) throw tpqEmptyException;
-  tp = tpq.front();
-  tpq.pop_front();
-  return tpq;
-}
-
-ostream &operator<<(ostream &os, TelemetryPacketQueue &tpq)
-{
-  if(tpq.empty()) throw tpqEmptyException;
-  int i = 0;
-  for (TelemetryPacketQueue::iterator it=tpq.begin(); it != tpq.end(); ++it) {
-    os << ++i << ": "<< *it << std::endl;
-  }
-  return os;
 }
 
 TelemetryPacketQueue::TelemetryPacketQueue() : filter_typeID(false), filter_sourceID(false)
