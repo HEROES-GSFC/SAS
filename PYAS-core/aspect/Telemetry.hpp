@@ -10,6 +10,13 @@ tp2 << (uint32_t)0xEFBEADDE;
 tp2.append_bytes(image, 5);
 std::cout << tp2 << std::endl;
 
+//Parsing telemetry packets from a static file
+TelemetryPacketQueue tpq;
+tpq.filterSourceID(0x70);
+tpq.add_file("sample.dat");
+TelemetryPacket tp;
+if(!tpq.empty()) tpq >> tp;
+
 */
 
 #ifndef _TELEMETRY_HPP_
@@ -47,9 +54,21 @@ class TelemetryPacket : public Packet {
 };
 
 class TelemetryPacketQueue : public std::list<TelemetryPacket> {
+  private:
+    uint8_t i_typeID;
+    uint8_t i_sourceID;
+    bool filter_typeID;
+    bool filter_sourceID;
 
   public:
-    TelemetryPacketQueue() {};
+    TelemetryPacketQueue();
+
+    //Adds the telemetry packets from a static file
+    void add_file(const char *file);
+
+    void filterTypeID(uint8_t typeID);
+    void filterSourceID(uint8_t typeID);
+    void resetFilters();
 
   //insertion operator <<
   //Overloaded to add TelemetryPacket objects
