@@ -19,10 +19,10 @@ class UDPSender {
     public:
         UDPSender( void );
         UDPSender( const char *ip, unsigned short port );
-	~UDPSender();
+	    ~UDPSender();
         
         virtual void send(  TelemetryPacket *packet  );
-        void init_connection( void );
+        int init_connection( void );
         void close_connection( void );
 };
 

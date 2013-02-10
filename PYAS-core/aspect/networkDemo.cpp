@@ -15,7 +15,7 @@ uint16_t command_count = 0;
 uint16_t latest_sas_command_key = 0x0000;
 uint32_t tm_frame_sequence_number = 0;
 
-char ip[] = "192.168.10.254";
+char ip[] = "192.168.1.114";
 
 CommandQueue *recvd_command_queue;
 
@@ -25,14 +25,11 @@ void *sendTelemetryThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
     TelemetrySender *telSender;
-    //char ip[] = "192.168.1.114";
-    
     telSender = new TelemetrySender( ip, (unsigned short) 5000);
     
 	while(1)    // run forever
 	{
 	    sleep(1);
-	
 	    tm_frame_sequence_number++;
 	    //Telemetry packet from SAS containing an array
         //uint8_t image[5] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
@@ -43,9 +40,8 @@ void *sendTelemetryThread(void *threadid)
         tp << latest_sas_command_key;
         
         //tp.append_bytes(image, 5);
-        //std::cout << tp2 << std::endl;
-        telSender->send(&tp);
-
+        std::cout << "sendTelemetryThread:" << tp << std::endl;
+        telSender->send( &tp );
 	    if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
     	    pthread_exit(NULL);
@@ -62,14 +58,14 @@ void *listenForCommandsThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
     CommandReceiver *comReceiver;
-    comReceiver = new CommandReceiver( (unsigned short) 5000);
+    comReceiver = new CommandReceiver( (unsigned short) 5001);
     comReceiver->init_connection();
     
     // send respond as soon as a good command is received
     // this thread needs its own command sender
     CommandSender *comSender;
     //char fdr_ip[] = "192.168.1.114";
-    comSender = new CommandSender( ip, (unsigned short) 5000);
+    comSender = new CommandSender( ip, (unsigned short) 5001);
     
 	while(1)    // run forever
 	{
@@ -89,11 +85,11 @@ void *listenForCommandsThread(void *threadid)
 	        
             // TODO: Send out correct telemetry received packet!
             // the packet below is not correct
-	        comSender->init_connection();
-            CommandPacket cp(0x01, 101);
-            cp << (uint16_t)0x1100;
-            comSender->send( &cp );
-            comSender->close_connection();
+	        //comSender->init_connection();
+            //CommandPacket cp(0x01, 101);
+            //cp << (uint16_t)0x1100;
+            //comSender->send( &cp );
+            //comSender->close_connection();
     
             // update the command count
             command_count++;
@@ -106,13 +102,6 @@ void *listenForCommandsThread(void *threadid)
 	    } else {
 	        printf("listenForCommandsThread: bad command packet\n");
 	    }
-	    //for(unsigned int i = 0; i < packet_length; i++){
-	    //    printf("%d\n", packet[i]);
-	    //}
-	    
-	    // listen for packet
-	    // parse packet
-
 	    
 	    if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
@@ -135,12 +124,13 @@ void *sendCTLCommands(void *threadid)
     //char ip[] = "192.168.1.114";
 
     comSender = new CommandSender( ip, (unsigned short) 5000);
- 
+    sleep(0.5);
 	while(1)    // run forever
 	{
         sleep(1);
         CommandPacket cp(0x01, 100);
         cp << (uint16_t)0x1100;
+        std::cout << "sendCTLCommands:" << cp << std::endl;
         comSender->send( &cp );
         	    
 	    if (stop_message[tid] == 1){

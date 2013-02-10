@@ -54,6 +54,9 @@ networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.
 test_command: test_command.cpp Packet.o Command.o lib_crc.o UDPSender.o
 	$(CC) $(CFLAGS) $^ -o $@
 
+test_sender: test_sender.cpp UDPSender.o Packet.o lib_crc.o Telemetry.o
+	$(CC) $(CFLAGS) $^ -o $@
+
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp
 	$(CC) -c $(CFLAGS) $< -o $@
