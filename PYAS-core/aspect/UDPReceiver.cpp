@@ -14,10 +14,10 @@ unsigned int UDPReceiver::listen( void ){
         (struct sockaddr *) &senderAddr, &cliAddrLen);
         
     if (recvMsgSize < 0){
-            printf("recvfrom() failed");
+            //printf("recvfrom() failed");
             return 0;
         } else {
-            printf("received  %u bytes\n", recvMsgSize);
+            //printf("received  %u bytes\n", recvMsgSize);
             return recvMsgSize;
         }
 }

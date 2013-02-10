@@ -90,6 +90,12 @@ void *listenForCommandsThread(void *threadid)
             //cp << (uint16_t)0x1100;
             //comSender->send( &cp );
             //comSender->close_connection();
+        
+            Command cm1(0x10ff, 0x0001);
+    
+            CommandPacket cp(0x30, 0x0001);
+            cp << cm1;
+
     
             // update the command count
             command_count++;
