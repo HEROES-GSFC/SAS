@@ -40,6 +40,7 @@ class TelemetryPacket : public Packet {
     uint8_t getSourceID();
     
     uint16_t getSync();
+    uint32_t getSeconds()
 };
 
 #endif

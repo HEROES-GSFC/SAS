@@ -84,4 +84,10 @@ uint16_t TelemetryPacket::getSync()
     uint16_t value;
     this->readAtTo(0, value);
     return value;
-}   
+}
+
+uint32_t TelemetryPacket::getSeconds(){
+    uint32_t value;
+    this->readAtTo(INDEX_SECONDS, value);
+    return value;
+}
