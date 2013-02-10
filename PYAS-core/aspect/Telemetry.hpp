@@ -38,6 +38,8 @@ class TelemetryPacket : public Packet {
 
     uint8_t getTypeID();
     uint8_t getSourceID();
+    
+    uint16_t getSync();
 };
 
 #endif

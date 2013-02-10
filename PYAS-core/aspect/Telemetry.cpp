@@ -78,3 +78,10 @@ uint8_t TelemetryPacket::getSourceID()
   this->readAtTo(INDEX_SOURCE_ID, value);
   return value;
 }
+
+uint16_t TelemetryPacket::getSync()
+{
+    uint16_t value;
+    this->readAtTo(0, value);
+    return value;
+}   

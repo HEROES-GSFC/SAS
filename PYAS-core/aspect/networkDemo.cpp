@@ -25,7 +25,7 @@ void *sendTelemetryThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
     TelemetrySender *telSender;
-    telSender = new TelemetrySender( ip, (unsigned short) 5000);
+    telSender = new TelemetrySender( ip, (unsigned short) 5002);
     
 	while(1)    // run forever
 	{
