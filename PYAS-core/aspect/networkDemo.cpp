@@ -15,7 +15,7 @@ uint16_t command_count = 0;
 uint16_t latest_sas_command_key = 0x0000;
 uint32_t tm_frame_sequence_number = 0;
 
-char ip[] = "192.168.1.114";
+char ip[] = "10.1.49.15";
 
 CommandQueue *recvd_command_queue;
 
@@ -96,9 +96,9 @@ void *listenForCommandsThread(void *threadid)
             CommandPacket cp(0x30, 0x0001);
             cp << cm1;
 
-    
             // update the command count
             command_count++;
+            printf("command count to %i", command_count);
             
             try { recvd_command_queue->add_packet(*command_packet); } 
             catch (std::exception& e) {
