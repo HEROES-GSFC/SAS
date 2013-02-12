@@ -50,14 +50,6 @@ class CommandPacketEndException : public std::exception
   }
 } cpEndException;
 
-class CommandQueueEmptyException : public std::exception
-{
-  virtual const char* what() const throw()
-  {
-    return "CommandQueue has no more commands";
-  }
-} cqEmptyException;
-
 Command::Command(const uint8_t *ptr)
 {
   uint16_t heroes_cm = *((uint16_t *)ptr);
@@ -228,34 +220,4 @@ int CommandQueue::add_packet(CommandPacket &cp)
   }
 
   return count;
-}
-
-CommandQueue &operator<<(CommandQueue &cq, Command &c)
-{
-  cq.push_back(c);
-  return cq;
-}
-
-CommandQueue &operator<<(CommandQueue &cq, CommandQueue &cq2)
-{
-  cq.splice(cq.end(), cq2);
-  return cq;
-}
-
-CommandQueue &operator>>(CommandQueue &cq, Command &c)
-{
-  if(cq.empty()) throw cqEmptyException;
-  c = cq.front();
-  cq.pop_front();
-  return cq;
-}
-
-ostream &operator<<(ostream &os, CommandQueue &cq)
-{
-  if(cq.empty()) throw cqEmptyException;
-  int i = 0;
-  for (CommandQueue::iterator it=cq.begin(); it != cq.end(); ++it) {
-    os << ++i << ": "<< *it << std::endl;
-  }
-  return os;
 }
