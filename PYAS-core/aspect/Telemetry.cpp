@@ -84,7 +84,6 @@ uint8_t TelemetryPacket::getSourceID()
   return value;
 }
 
-<<<<<<< HEAD
 uint16_t TelemetryPacket::getSync()
 {
     uint16_t value;
@@ -97,7 +96,8 @@ uint32_t TelemetryPacket::getSeconds()
     uint32_t value;
     this->readAtTo(INDEX_SECONDS, value);
     return value;
-=======
+}
+
 TelemetryPacketQueue::TelemetryPacketQueue() : filter_typeID(false), filter_sourceID(false)
 {
 }
@@ -181,5 +181,4 @@ void TelemetryPacketQueue::add_file(const char* file)
     std::cout << ct_typeID << " packets with with the filtered type ID\n";
   }
 
->>>>>>> d73e3d7b7353b6ff7ea20cbff46a8f6f58f174e4
 }
