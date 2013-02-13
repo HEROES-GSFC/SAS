@@ -117,14 +117,12 @@ void *listenForCommandsThread(void *threadid)
 	        command_sequence_number = command_packet->getSequenceNumber();
 	        	        
 	        // add tm ack packet
-	        TelemetryPacket ack_tp;
-            TelemetryPacket tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
-            ack_tp << command_sequence_number
-            tm_packet_queue << ack_tp;
+            TelemetryPacket ack_tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
+            ack_tp << command_sequence_number;
+            *tm_packet_queue << ack_tp;
      
             // update the command count
-            command_count++;
-            printf("command count to %i", command_count);
+            printf("command sequence number to %i", command_sequence_number);
             
             try { recvd_command_queue->add_packet(*command_packet); } 
             catch (std::exception& e) {
