@@ -28,6 +28,9 @@ destination array.
 For convenience when testing, the ByteString can be inserted into an ostream for
 hexadecimal output.
 
+The ByteStringQueue class protects the insertion and extraction operators with
+mutex locking and unlocking.
+
 A variety of exceptions, derived from std::exception, can be thrown.
 
 How to catch an exception:
@@ -46,6 +49,7 @@ How to catch an exception:
 #include <iostream>
 #include <list>
 #include <stdint.h>
+#include <pthread.h>
 
 #define PACKET_MAX_SIZE 1024
 #define PACKET_HEROES_SYNC_WORD (uint16_t)0xc39a
@@ -121,8 +125,16 @@ class Packet : public ByteString {
 };
 
 class ByteStringQueue : public std::list<ByteString> {
+  private:
+    pthread_mutex_t flag;
+
   public:
-    ByteStringQueue() {};
+    ByteStringQueue();
+    ~ByteStringQueue();
+
+    //Mutex-based locking of the queue (blocks execution)
+    int lock();
+    int unlock();
 
   //insertion operator <<
   //If a queue is inserted, the source queue will be emptied
