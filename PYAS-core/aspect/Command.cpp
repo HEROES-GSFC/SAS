@@ -133,6 +133,11 @@ CommandPacket::CommandPacket(const uint8_t *ptr, uint16_t num)
   setReadIndex(INDEX_PAYLOAD);
 }
 
+CommandPacket::CommandPacket(const void *ptr)
+{
+  //Assumes that NULL was passed in
+}
+
 void CommandPacket::finish()
 {
   writePayloadLength();

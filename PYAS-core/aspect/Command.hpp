@@ -90,6 +90,10 @@ class CommandPacket : public Packet {
     //Use this constructor when handling a received command packet
     CommandPacket(const uint8_t *ptr, uint16_t num);
 
+    //Use this constructor when needing to have an empty comamnd packet
+    //This packet is non-functional!  Be sure not to use without reassignment!
+    CommandPacket(const void *ptr);
+
     //Checks for the HEROES sync word and a valid checksum
     virtual bool valid();
 
