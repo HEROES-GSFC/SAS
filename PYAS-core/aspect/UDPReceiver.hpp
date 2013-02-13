@@ -22,7 +22,6 @@ class UDPReceiver {
     public:
         UDPReceiver( void );
         UDPReceiver( unsigned short port );
-        ~UDPReceiver();
         
         unsigned int listen( void );
         void get_packet( uint8_t *packet  );
