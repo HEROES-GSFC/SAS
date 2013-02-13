@@ -14,7 +14,7 @@ std::cout << tp2 << std::endl;
 TelemetryPacketQueue tpq;
 tpq.filterSourceID(0x30);
 tpq.add_file("sample.dat");
-TelemetryPacket tp;
+TelemetryPacket tp(NULL);
 if(!tpq.empty()) tpq >> tp;
 
 */
@@ -42,6 +42,10 @@ class TelemetryPacket : public Packet {
 
     //Use this constructor when handling a received telemetry packet
     TelemetryPacket(const uint8_t *ptr, uint16_t num);
+
+    //Use this constructor when needing to create an empty telemetry packet
+    //This packet is non-functional!  Be sure not to use without assignment!
+    TelemetryPacket(const void *ptr);
 
     //Checks for the HEROES sync word and a valid checksum
     virtual bool valid();

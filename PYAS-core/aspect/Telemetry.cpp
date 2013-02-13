@@ -38,6 +38,11 @@ TelemetryPacket::TelemetryPacket(const uint8_t *ptr, uint16_t num)
   setReadIndex(INDEX_PAYLOAD);
 }
 
+TelemetryPacket::TelemetryPacket(const void *ptr)
+{
+  //Assumes that NULL was passed in
+}
+
 void TelemetryPacket::finish()
 {
   writePayloadLength();
