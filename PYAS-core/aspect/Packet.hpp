@@ -29,7 +29,9 @@ For convenience when testing, the ByteString can be inserted into an ostream for
 hexadecimal output.
 
 The ByteStringQueue class protects the insertion and extraction operators with
-mutex locking and unlocking.
+mutex locking and unlocking.  If the queue is locked when attempting an
+operation, the operation will be blocked for up to 250 ms.  If the timeout is
+reach, an exception will be thrown.
 
 A variety of exceptions, derived from std::exception, can be thrown.
 
@@ -132,7 +134,7 @@ class ByteStringQueue : public std::list<ByteString> {
     ByteStringQueue();
     ~ByteStringQueue();
 
-    //Mutex-based locking of the queue (blocks execution)
+    //Mutex-based locking of the queue
     int lock();
     int unlock();
 
