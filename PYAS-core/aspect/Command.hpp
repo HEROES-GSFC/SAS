@@ -91,6 +91,7 @@ class CommandPacket : public Packet {
     CommandPacket(const uint8_t *ptr, uint16_t num);
 
     //Use this constructor when needing to have an empty comamnd packet
+    //Pass in NULL
     //This packet is non-functional!  Be sure not to use without reassignment!
     CommandPacket(const void *ptr);
 

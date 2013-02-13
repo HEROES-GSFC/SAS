@@ -44,6 +44,7 @@ class TelemetryPacket : public Packet {
     TelemetryPacket(const uint8_t *ptr, uint16_t num);
 
     //Use this constructor when needing to have an empty telemetry packet
+    //Pass in NULL
     //This packet is non-functional!  Be sure not to use without reassignment!
     TelemetryPacket(const void *ptr);
 
