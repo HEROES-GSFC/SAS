@@ -66,10 +66,6 @@ class Command : public ByteString {
   public:
     Command(uint16_t heroes_c = 0, uint16_t sas_c = 0);
 
-    //Unsupported constructors
-    Command(const char *str) : ByteString(str) {};
-    Command(const uint8_t *ptr);
-
     //Retrieve the command keys
     uint16_t get_heroes_command();
     uint16_t get_sas_command();
