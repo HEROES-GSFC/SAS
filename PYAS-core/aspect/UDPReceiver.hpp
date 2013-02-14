@@ -2,9 +2,7 @@
 #include <sys/socket.h> /* for socket(), connect(), sendto(), and recvfrom() */
 #include <arpa/inet.h>  /* for sockaddr_in and inet_addr() */
 #include <stdlib.h>     /* for atoi() and exit() */
-#include <string.h>     /* for memset() */
-#include <unistd.h>     /* for close() */
-#include "lib_crc/lib_crc.h"
+#include <arpa/inet.h>  /* for sockaddr_in and inet_addr() */
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
@@ -17,12 +15,11 @@ class UDPReceiver {
         unsigned int cliAddrLen;        /* Length of incoming message */
         char payload[PACKET_MAX_SIZE];  /* Buffer for echo string */
         unsigned short listeningPort;   /* The port to listen to */
-        unsigned int recvMsgSize;                /* Size of received message */
+        int recvMsgSize;                /* Size of received message */
 
     public:
         UDPReceiver( void );
         UDPReceiver( unsigned short port );
-        ~UDPReceiver();
         
         unsigned int listen( void );
         void get_packet( uint8_t *packet  );
@@ -34,5 +31,10 @@ class CommandReceiver: public UDPReceiver {
 
     public:
         CommandReceiver( unsigned short port );
-        CommandPacket *getCommandPacket( void );
+};
+
+class TelemetryReceiver: public UDPReceiver {
+
+    public:
+        TelemetryReceiver( unsigned short port );
 };

@@ -1,8 +1,7 @@
-#include <arpa/inet.h>  /* for sockaddr_in and inet_addr() */
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
-class UDPSender {
+class TCPSender {
     protected:
         int sock;                       /* Socket descriptor */
         struct sockaddr_in sendAddr;    /* Echo server address */
@@ -11,25 +10,25 @@ class UDPSender {
         unsigned short sendPort;        /* Port to send on*/
 
     public:
-        UDPSender( void );
-        UDPSender( const char *ip, unsigned short port );
-	    ~UDPSender();
+        TCPSender( void );
+        TCPSender( const char *ip, unsigned short port );
+	    ~TCPSender();
         
         virtual void send(  TelemetryPacket *packet  );
         int init_connection( void );
         void close_connection( void );
 };
 
-class TelemetrySender: public UDPSender {
-   
-    public:
-        TelemetrySender( const char *ip, unsigned short port );
-        virtual void send( TelemetryPacket *packet );
-};
-
-class CommandSender: public UDPSender {
-
-    public:
-        CommandSender( const char *ip, unsigned short port );
-        virtual void send( CommandPacket *packet );
-};
+// class TelemetrySender: public TCPSender {
+//    
+//     public:
+//         TelemetrySender( const char *ip, unsigned short port );
+//         virtual void send( TelemetryPacket *packet );
+// };
+// 
+// class CommandSender: public TCPSender {
+// 
+//     public:
+//         CommandSender( const char *ip, unsigned short port );
+//         virtual void send( CommandPacket *packet );
+// };
