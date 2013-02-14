@@ -85,6 +85,7 @@ void *TelemetryPackagerThread(void *threadid)
         tp << command_sequence_number;
         tp << latest_sas_command_key;
         
+        
         //add telemetry packet to the queue
         tm_packet_queue << tp;
                 
