@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <memory.h>
-#include <sys/time.h>
+#include <time.h>
 
 #include "Packet.hpp"
 #include "lib_crc/lib_crc.h"
@@ -37,6 +37,14 @@ class ByteStringQueueEmptyException : public std::exception
     return "ByteStringQueue has no more entries";
   }
 } bqEmptyException;
+
+class ByteStringQueueMutexException : public std::exception
+{
+  virtual const char* what() const throw()
+  {
+    return "ByteStringQueue has a problem with its mutex";
+  }
+} bqMutexException;
 
 ByteString::ByteString() : length(0), read_index(0)
 {
@@ -186,33 +194,104 @@ bool Packet::valid()
   return syncword_valid && checksum_valid;
 }
 
+ByteStringQueue::ByteStringQueue()
+{
+  if(pthread_mutex_init(&flag, NULL) != 0) {
+    throw bqMutexException;
+  }
+}
+
+ByteStringQueue::~ByteStringQueue()
+{
+  pthread_mutex_destroy(&flag);
+}
+
+int ByteStringQueue::lock()
+{
+  struct timespec interval;
+  interval.tv_sec = 0;
+  interval.tv_nsec = 5000000;
+
+  int status = -1;
+
+  int attempts = 1;
+  int result = pthread_mutex_trylock(&flag);
+
+  while ((result != 0) && (attempts < 50)) {
+    while (status == -1) status = nanosleep(&interval, NULL);
+    status = -1;
+
+    attempts++;
+    result = pthread_mutex_trylock(&flag);
+  }
+
+  if (result != 0) {
+    throw bqMutexException;
+  }
+
+  return result;
+}
+
+int ByteStringQueue::unlock()
+{
+  int result = pthread_mutex_unlock(&flag);
+
+  if(result != 0) {
+    throw bqMutexException;
+  }
+
+  return result;
+}
+
 ByteStringQueue &operator<<(ByteStringQueue &bq, const ByteString &bs)
 {
+  bq.lock();
+
   bq.push_back(bs);
+
+  bq.unlock();
+
   return bq;
 }
 
 ByteStringQueue &operator<<(ByteStringQueue &bq, ByteStringQueue &other)
 {
+  bq.lock();
+  other.lock();
+
   bq.splice(bq.end(), other);
+
+  other.unlock();
+  bq.unlock();
+
   return bq;
 }
 
 ostream &operator<<(ostream &os, ByteStringQueue &bq)
 {
+  bq.lock();
+
   if(bq.empty()) throw bqEmptyException;
   int i = 0;
   for (ByteStringQueue::iterator it=bq.begin(); it != bq.end(); ++it) {
     os << ++i << ": " << *it << std::endl;
   }
+
+  bq.unlock();
+
   return os;
 }
 
 ByteStringQueue &operator>>(ByteStringQueue &bq, ByteString &bs)
 {
+  bq.lock();
+
   if(bq.empty()) throw bqEmptyException;
   bs = bq.front();
   bq.pop_front();
+
+  bq.unlock();
+
   return bq;
 }
 
