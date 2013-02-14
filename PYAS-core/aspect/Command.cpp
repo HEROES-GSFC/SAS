@@ -50,16 +50,6 @@ class CommandPacketEndException : public std::exception
   }
 } cpEndException;
 
-Command::Command(const uint8_t *ptr)
-{
-  uint16_t heroes_cm = *((uint16_t *)ptr);
-  uint16_t sas_cm = 0;
-  if(heroes_cm == 0x10ff) sas_cm = *((uint16_t *)(ptr+2));
-
-  uint16_t len = lookup_payload_length(heroes_cm, sas_cm);
-  this->append_bytes(ptr, 2+len);
-}
-
 Command::Command(uint16_t heroes_c, uint16_t sas_c)
 {
   if (heroes_c != 0) {
@@ -141,6 +131,11 @@ CommandPacket::CommandPacket(const uint8_t *ptr, uint16_t num)
   : Packet(ptr, num)
 {
   setReadIndex(INDEX_PAYLOAD);
+}
+
+CommandPacket::CommandPacket(const void *ptr)
+{
+  //Assumes that NULL was passed in
 }
 
 void CommandPacket::finish()
