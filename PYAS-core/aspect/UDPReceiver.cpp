@@ -1,3 +1,7 @@
+#include <string.h>     /* for memset() */
+#include <unistd.h>     /* for close() */
+#include "lib_crc/lib_crc.h"
+
 #include "UDPReceiver.hpp"
 
 UDPReceiver::UDPReceiver(void){
