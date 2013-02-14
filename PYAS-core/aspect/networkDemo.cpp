@@ -1,4 +1,9 @@
-#define NUM_THREADS 3
+#define NUM_THREADS 4
+#define SAS_TARGET_ID 0x30
+#define SAS_TM_TYPE 0x70
+#define SAS_IMAGE_TYPE 0x82
+#define SAS_SYNC_WORD 0xEB90
+#define SAS_CM_ACK_TYPE 0x01
 
 #include <stdio.h>      /* for printf() and fprintf() */
 #include <pthread.h>    /* for multithreading */
@@ -11,41 +16,75 @@
 #include "Telemetry.hpp"
 
 unsigned int stop_message[NUM_THREADS];
-unsigned int command_count = 0;
+uint16_t command_sequence_number = 0;
 uint16_t latest_sas_command_key = 0x0000;
+uint32_t tm_frame_sequence_number = 0;
 
-CommandQueue *recvd_command_queue;
+// loopback IP, just talking to myself
+char ip[] = "127.0.0.1";
 
-void *sendTelemetryThread(void *threadid)
+CommandQueue recvd_command_queue;
+TelemetryPacketQueue tm_packet_queue;
+CommandPacketQueue cm_packet_queue;
+pthread_t threads[NUM_THREADS];
+
+void *TelemetrySenderThread(void *threadid)
 {
     long tid;
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
-    TelemetrySender *telSender;
-    char ip[] = "192.168.1.114";
 
-    telSender = new TelemetrySender( ip, (unsigned short) 5000);
-    
-	while(1)    // run forever
-	{
-	    sleep(1);
-	
-	    //Telemetry packet from SAS containing an array
-        uint8_t image[5] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
-        TelemetryPacket tp2(0x70, 0x30);
-        tp2 << (uint32_t)0xEFBEADDE;
-        tp2.append_bytes(image, 5);
-        //std::cout << tp2 << std::endl;
-        telSender->send(&tp2);
+    TelemetrySender telSender(ip, (unsigned short) 5002);
 
-	    if (stop_message[tid] == 1){
+    while(1)    // run forever
+    {
+        sleep(1);
+        
+        if( !tm_packet_queue.empty() ){
+            TelemetryPacket tp(0x70, 0x30);
+            tm_packet_queue >> tp;
+            telSender.send( &tp );
+            std::cout << "TelemetrySender:" << tp << std::endl;
+        }
+        
+        if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
-    	    pthread_exit(NULL);
-    	}
-	}
+            pthread_exit(NULL);
+        }
+    }
+}
+
+void *TelemetryPackagerThread(void *threadid)
+{
+    long tid;
+    tid = (long)threadid;
+    printf("Hello World! It's me, thread #%ld!\n", tid);
+    
+    sleep(1);      // delay a little compared to the TelemetrySenderThread
+    
+    while(1)    // run forever
+    {
+        sleep(1);
+        tm_frame_sequence_number++;
+        
+        //Telemetry packet from SAS containing an array
+        TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
+        tp << (uint16_t)SAS_SYNC_WORD;     // SAS-1 syncword
+        tp << tm_frame_sequence_number;
+        tp << command_sequence_number;
+        tp << latest_sas_command_key;
+        
+        //add telemetry packet to the queue
+        tm_packet_queue << tp;
+                
+        if (stop_message[tid] == 1){
+            printf("thread #%ld exiting\n", tid);
+            pthread_exit(NULL);
+        }
+    }
 
     /* NEVER REACHED */
-	return NULL;
+    return NULL;
 }
 
 void *listenForCommandsThread(void *threadid)
@@ -53,189 +92,198 @@ void *listenForCommandsThread(void *threadid)
     long tid;
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
-    CommandReceiver *comReceiver;
-    comReceiver = new CommandReceiver( (unsigned short) 5000);
-    comReceiver->init_connection();
-    
-    // send respond as soon as a good command is received
-    // this thread needs its own command sender
-    CommandSender *comSender;
-    char fdr_ip[] = "192.168.1.114";
-    comSender = new CommandSender( fdr_ip, (unsigned short) 5000);
-    
-	while(1)    // run forever
-	{
-	    unsigned int packet_length;
-	    //packet_length = new unsigned int;
-	    
-	    packet_length = comReceiver->listen( );
-	    printf("listenForCommandsThread: %i\n", packet_length);
-	    uint8_t *packet;
-	    packet = new uint8_t[packet_length];
-	    comReceiver->get_packet( packet );
-	    
-	    CommandPacket *command_packet;
-	    command_packet = new CommandPacket( packet, packet_length );
-	    if (command_packet->valid()){
-	        printf("listenForCommandsThread: good command packet\n");
-	        
-            // TODO: Send out correct telemetry received packet!
-            // the packet below is not correct
-	        comSender->init_connection();
-            CommandPacket cp(0x01, 101);
-            cp << (uint16_t)0x1100;
-            comSender->send( &cp );
-            comSender->close_connection();
-    
+    CommandReceiver comReceiver( (unsigned short) 5001);
+    comReceiver.init_connection();
+        
+    while(1)    // run forever
+    {
+        unsigned int packet_length;
+        
+        packet_length = comReceiver.listen( );
+        printf("listenForCommandsThread: %i\n", packet_length);
+        uint8_t *packet;
+        packet = new uint8_t[packet_length];
+        comReceiver.get_packet( packet );
+        
+        CommandPacket command_packet( packet, packet_length );
+        
+        if (command_packet.valid()){
+            printf("listenForCommandsThread: good command packet\n");
+            	        
+            command_sequence_number = command_packet.getSequenceNumber();
+            	        
+            // add tm ack packet
+            TelemetryPacket ack_tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
+            ack_tp << command_sequence_number;
+            tm_packet_queue << ack_tp;
+     
             // update the command count
-            command_count++;
+            printf("command sequence number to %i", command_sequence_number);
             
-            try { recvd_command_queue->add_packet(*command_packet); } 
+            try { recvd_command_queue.add_packet(command_packet); } 
             catch (std::exception& e) {
                 std::cerr << e.what() << std::endl;
             }
-	        
-	    } else {
-	        printf("listenForCommandsThread: bad command packet\n");
-	    }
-	    //for(unsigned int i = 0; i < packet_length; i++){
-	    //    printf("%d\n", packet[i]);
-	    //}
-	    
-	    // listen for packet
-	    // parse packet
-
-	    
-	    if (stop_message[tid] == 1){
-            printf("thread #%ld exiting\n", tid);
-            comReceiver->close_connection();
-    	    pthread_exit(NULL);
+            
+        } else {
+            printf("listenForCommandsThread: bad command packet\n");
         }
-	}
+        
+        if (stop_message[tid] == 1){
+            printf("thread #%ld exiting\n", tid);
+            comReceiver.close_connection();
+            pthread_exit(NULL);
+        }
+    }
 
     /* NEVER REACHED */
-	return NULL;
+    return NULL;
 }
 
-void *sendCTLCommands(void *threadid)
-{  
+void *CommandSenderThread( void *threadid )
+{
     long tid;
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
-    
-    CommandSender *comSender;
-    char ip[] = "192.168.1.114";
 
-    comSender = new CommandSender( ip, (unsigned short) 5000);
- 
-	while(1)    // run forever
-	{
+    CommandSender comSender( ip, (unsigned short) 5000);
+
+    while(1)    // run forever
+    {
+        sleep(1);
+        
+        if( !cm_packet_queue.empty() ){
+            CommandPacket cp(0x01, 100);
+            cm_packet_queue >> cp;
+            comSender.send( &cp );
+            std::cout << "CommandSender:" << cp << std::endl;
+        }
+
+        if (stop_message[tid] == 1){
+            printf("thread #%ld exiting\n", tid);
+            comSender.close_connection();
+            pthread_exit(NULL);
+        }
+    }
+      
+}
+
+void *sendCTLCommandsThread( void *threadid )
+{
+    long tid;
+    tid = (long)threadid;
+    printf("Hello World! It's me, thread #%ld!\n", tid);
+
+    sleep(0.2);      // delay a little compared to the SenderThread
+
+    while(1)    // run forever
+    {
         sleep(1);
         CommandPacket cp(0x01, 100);
         cp << (uint16_t)0x1100;
-        comSender->send( &cp );
+        cm_packet_queue << cp;
         	    
-	    if (stop_message[tid] == 1){
+        if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
-            comSender->close_connection();
-    	    pthread_exit(NULL);
+            pthread_exit(NULL);
         }
-	}
+    }
 
     /* NEVER REACHED */
-	return NULL;
+    return NULL;
 }
 
+void kill_all_threads( void ){
+    for(int i = 0; i < NUM_THREADS; i++ ){
+        stop_message[i] = 1;
+    }
+}
+
+void start_all_threads( void ){
+    int rc;
+    long t;
+    
+    // reset stop message
+    for(int i = 0; i < NUM_THREADS; i++ ){
+        stop_message[i] = 0;
+    }
+    
+    // restart them all
+    t = 0L;
+    rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
+    if (rc){
+         printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 1L;
+    rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
+    if (rc){
+         printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 2L;
+    rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
+    if (rc){
+         printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 3L;
+    rc = pthread_create(&threads[2],NULL, TelemetrySenderThread,(void *)t);
+    if (rc){
+         printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 4L;
+    rc = pthread_create(&threads[2],NULL, CommandSenderThread,(void *)t);
+    if (rc){
+         printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    
+}
 
 int main(void)
 {
-	pthread_t threads[NUM_THREADS];
-    int rc;
     
-    recvd_command_queue = new CommandQueue;
+    recvd_command_queue = CommandQueue();
+    tm_packet_queue = TelemetryPacketQueue();
+    cm_packet_queue = CommandPacketQueue();
     
-	/* Create worker threads */
-	printf("In main: creating threads\n");
-	long t;
-	
-	t = 0L;
-	rc = pthread_create(&threads[0],NULL, sendTelemetryThread,(void *)t);
-	if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
-         exit(-1);
-    }
-    t = 1L;
-	rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
-	if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
-         exit(-1);
-    }
-    t = 2L;
-	rc = pthread_create(&threads[2],NULL, sendCTLCommands,(void *)t);
-	if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
-         exit(-1);
-    }
+    /* Create worker threads */
+    printf("In main: creating threads\n");
 
-	while(1){
+    start_all_threads();
+
+    while(1){
 
         // check if new command have been added to command queue and service them
-        if (!recvd_command_queue->empty()){
-            printf("size of queue: %zu\n", recvd_command_queue->size());
-            Command *command;
-            command = new Command;
-            *recvd_command_queue >> *command;
-            //recvd_command_queue->pop_front();
+        if (!recvd_command_queue.empty()){
+            printf("size of queue: %zu\n", recvd_command_queue.size());
+            Command command;
+            command = Command();
+            recvd_command_queue >> command;
+            //recvd_command_queue.pop_front();
 
-            latest_sas_command_key = command->get_sas_command();
+            latest_sas_command_key = command.get_sas_command();
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
             
             switch( latest_sas_command_key ){
                 case 0x0100:     // test, do nothing
                     break;
                 case 0x0101:    // kill all worker threads
-                    for(int i = 0; i < NUM_THREADS; i++ ){
-                        stop_message[i] = 1;
-                    }
+                    kill_all_threads();
                     break;
                 case 0x0102:    // (re)start all worker threads
                     // kill them all just in case
-                    for(int i = 0; i < NUM_THREADS; i++ ){
-                        stop_message[i] = 1;
-                    }
+                    kill_all_threads();
                     sleep(1);
-                    // reset stop message
-                    for(int i = 0; i < NUM_THREADS; i++ ){
-                        stop_message[i] = 0;
-                    }
-                    // restart them all
-                    t = 0L;
-                    rc = pthread_create(&threads[0],NULL, sendTelemetryThread,(void *)t);
-                    if (rc){
-                         printf("ERROR; return code from pthread_create() is %d\n", rc);
-                    }
-                    t = 1L;
-                    rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
-                    if (rc){
-                         printf("ERROR; return code from pthread_create() is %d\n", rc);
-                    }
-                    t = 2L;
-                    rc = pthread_create(&threads[2],NULL, sendCTLCommands,(void *)t);
-                    if (rc){
-                         printf("ERROR; return code from pthread_create() is %d\n", rc);
-                    }
+                    start_all_threads();
                     break;
                 default:        // unknown command!
                     printf("Unknown command!\n");
             }
         }
         
-	} /* never stop */
+    } /* never stop */
 
    /* Last thing that main() should do */
-   pthread_exit(NULL);
-   
+    pthread_exit(NULL);
+    
     /* NEVER REACHED */
-	return 0;
+    return 0;
 }
-
