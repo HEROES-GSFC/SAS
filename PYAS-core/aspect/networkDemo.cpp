@@ -1,4 +1,4 @@
-#define NUM_THREADS 4
+#define NUM_THREADS 5
 #define SAS_TARGET_ID 0x30
 #define SAS_TM_TYPE 0x70
 #define SAS_IMAGE_TYPE 0x82
@@ -9,6 +9,7 @@
 #include <pthread.h>    /* for multithreading */
 #include <stdlib.h>     /* for atoi() and exit() */
 #include <unistd.h>     /* for sleep()  */
+#include <signal.h>     /* for signal() */
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
@@ -27,9 +28,19 @@ CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
 CommandPacketQueue cm_packet_queue;
 pthread_t threads[NUM_THREADS];
+pthread_attr_t attr;
+
+sig_atomic_t volatile g_running = 1;
+
+void sig_handler(int signum)
+{
+  if (signum == SIGINT){
+    g_running = 0;
+    }
+}
 
 void *TelemetrySenderThread(void *threadid)
-{
+{    
     long tid;
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
@@ -49,7 +60,7 @@ void *TelemetrySenderThread(void *threadid)
         
         if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
-            pthread_exit(NULL);
+            pthread_exit( NULL );
         }
     }
 }
@@ -79,7 +90,7 @@ void *TelemetryPackagerThread(void *threadid)
                 
         if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
-            pthread_exit(NULL);
+            pthread_exit( NULL );
         }
     }
 
@@ -132,7 +143,7 @@ void *listenForCommandsThread(void *threadid)
         if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
             comReceiver.close_connection();
-            pthread_exit(NULL);
+            pthread_exit( NULL );
         }
     }
 
@@ -162,7 +173,7 @@ void *CommandSenderThread( void *threadid )
         if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
             comSender.close_connection();
-            pthread_exit(NULL);
+            pthread_exit( NULL );
         }
     }
       
@@ -185,7 +196,7 @@ void *sendCTLCommandsThread( void *threadid )
         	    
         if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
-            pthread_exit(NULL);
+            pthread_exit( NULL );
         }
     }
 
@@ -197,18 +208,19 @@ void kill_all_threads( void ){
     for(int i = 0; i < NUM_THREADS; i++ ){
         stop_message[i] = 1;
     }
+    
 }
 
 void start_all_threads( void ){
     int rc;
     long t;
-    
+ 
     // reset stop message
     for(int i = 0; i < NUM_THREADS; i++ ){
         stop_message[i] = 0;
     }
     
-    // restart them all
+    // start all threads
     t = 0L;
     rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
     if (rc){
@@ -225,12 +237,12 @@ void start_all_threads( void ){
          printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 3L;
-    rc = pthread_create(&threads[2],NULL, TelemetrySenderThread,(void *)t);
+    rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
     if (rc){
          printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 4L;
-    rc = pthread_create(&threads[2],NULL, CommandSenderThread,(void *)t);
+    rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
     if (rc){
          printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
@@ -238,7 +250,9 @@ void start_all_threads( void ){
 }
 
 int main(void)
-{
+{  
+    // to catch a Ctrl-C and clean up
+    signal(SIGINT, &sig_handler);
     
     recvd_command_queue = CommandQueue();
     tm_packet_queue = TelemetryPacketQueue();
@@ -249,7 +263,7 @@ int main(void)
 
     start_all_threads();
 
-    while(1){
+    while(g_running){
 
         // check if new command have been added to command queue and service them
         if (!recvd_command_queue.empty()){
@@ -279,11 +293,16 @@ int main(void)
             }
         }
         
-    } /* never stop */
+    }
 
-   /* Last thing that main() should do */
+    /* Last thing that main() should do */
+    printf("Quitting and cleaning up.\n");
+    //    kill_all_threads();
+    /* wait for threads to finish */
+    for(int i = 0; i < NUM_THREADS; i++ ){
+        printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
+    }
     pthread_exit(NULL);
     
-    /* NEVER REACHED */
     return 0;
 }
