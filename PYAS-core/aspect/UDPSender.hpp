@@ -1,3 +1,4 @@
+#include <arpa/inet.h>  /* for sockaddr_in and inet_addr() */
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
