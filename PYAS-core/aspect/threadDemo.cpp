@@ -55,7 +55,7 @@ void stream_image()
 	    }
 	    enableMutex.unlock();
 	    
-	    camera.Snap(temp);
+	    camera.Snap(localFrame);
 
 	    frameMutex.lock();
 	    localFrame.copyTo(frame);
@@ -108,7 +108,7 @@ void process_image()
 	}
 
 	frameMutex.lock();
-	localFrame = frame.getMat();
+	frame.copyTo(localFrame);
 	frameMutex.unlock();
 	
 
@@ -177,9 +177,9 @@ int main()
     
     fine_wait(30,0,0,0);
     
-    en_mtx.lock();
-    en = 0;
-    en_mtx.unlock();
+    enableMutex.lock();
+    enable = 0;
+    enableMutex.unlock();
 
     stream.join();
     process.join();
