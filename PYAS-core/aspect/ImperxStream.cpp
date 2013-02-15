@@ -369,13 +369,13 @@ void ImperxStream::Disconnect()
     lDevice.Disconnect();
 }
 
-void ImperxStream::ConfigureSnap(int &width, int &height)
+void ImperxStream::ConfigureSnap(int &width, int &height, int exposure)
 {
     PvInt64 lWidth, lHeight;
     lDeviceParams->SetEnumValue("AcquisitionMode","SingleFrame");
     lDeviceParams->SetEnumValue("ExposureMode","Timed");
     lDeviceParams->SetEnumValue("PixelFormat","Mono8");
-    lDeviceParams->SetIntegerValue("ExposureTimeRaw",10000);
+    lDeviceParams->SetIntegerValue("ExposureTimeRaw",exposure);
     lDeviceParams->GetIntegerValue("Height", lHeight);
     lDeviceParams->GetIntegerValue("Width", lWidth);
     height = (int) lHeight;

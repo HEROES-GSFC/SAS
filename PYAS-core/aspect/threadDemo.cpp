@@ -10,8 +10,6 @@
 
 #define NUM_LOCS 20
 
-#define FRAME_PERIOD 500
-
 #include <opencv.hpp>
 #include <iostream>
 #include <string>
@@ -28,6 +26,8 @@ Semaphore frameReady, frameProcessed;
 cv::Point fiducialLocations[NUM_LOCS];
 int numFiducials;
 
+int runtime, exposure, frameRate;
+
 void stream_image()
 {    
     cv::Mat localFrame;
@@ -39,7 +39,7 @@ void stream_image()
     }
     else
     {
-	camera.ConfigureSnap(width, height);
+	camera.ConfigureSnap(width, height, exposure);
 	localFrame.create(height, width, CV_8UC1);
 	camera.Initialize();
 	do
@@ -62,7 +62,7 @@ void stream_image()
 	    frameMutex.unlock();
 
 	    frameReady.increment();
-	    fine_wait(0,FRAME_PERIOD,0,0);
+	    fine_wait(0,frameRate - exposure,0,0);
 
 	} while (true);
     }
@@ -103,7 +103,7 @@ void process_image()
 	    }
 	    catch(const char* e)
 	    {
-		fine_wait(0,10,0,0);
+		fine_wait(0,frameRate/10,0,0);
 	    }
 	}
 
@@ -148,6 +148,7 @@ void process_image()
 
 void display()
 {
+    bool validCenter;
     do
     {
 
@@ -169,31 +170,49 @@ void display()
 	    }
 	    catch(const char* e)
 	    {
-		fine_wait(0,10,0,0);
+		fine_wait(0,frameRate/10,0,0);
 	    }
 	}
 	
 	centerMutex.lock();
-	std::cout << "Image center at: " << center.x << ", " << center.y << "\n";
+	validCenter = (center.x != -1 && center.y != -1);
+	if (validCenter)
+	{
+	    std::cout << "Image center at: " << center.x << ", " << center.y << "\n";
+	}
 	centerMutex.unlock();
 	
 	fiducialMutex.unlock();
-	std::cout << "Found " << numFiducials << " fiducials\n";
+	if (validCenter)
+	{
+	    std::cout << "Found " << numFiducials << " fiducials\n";
+	    if (numFiducials > 0)
+	    {
+		std::cout << "First Fiducial at: " << fiducialLocations[0].x << ", " << fiducialLocations[0].y << "\n";
+	    }
+	}
+
 	fiducialMutex.unlock();
 	
     } while(true);
 }
 	
      
-
 int main()
 {
-
+    
+    std::cout << "Enter runtime (s): ";
+    std::cin >> runtime;
+    std::cout << "Enter exposure time (us): ";
+    std::cin >> exposure;
+    std::cout << "Enter frame period in ms (>= 250): ";
+    std::cin >> frameRate;
     std::thread stream(stream_image);
     std::thread process(process_image);
     std::thread show(display);
+
     
-    fine_wait(30,0,0,0);
+    fine_wait(runtime,0,0,0);
     
     enableMutex.lock();
     enable = 0;
