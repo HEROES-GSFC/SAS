@@ -180,6 +180,10 @@ void display()
 	{
 	    std::cout << "Image center at: " << center.x << ", " << center.y << "\n";
 	}
+	else
+	{
+	    std::cout << "No center found\n";
+	}
 	centerMutex.unlock();
 	
 	fiducialMutex.unlock();
