@@ -17,8 +17,8 @@
 #include <string>
 #include <thread>
 #include <mutex>
-#include <ImperxStream.hpp>
-#include <processing.hpp>
+#include "ImperxStream.hpp"
+#include "processing.hpp"
 
 cv::Mat frame;
 cv::Point center;
@@ -142,38 +142,56 @@ void process_image()
 	}
 	fiducialMutex.unlock();
 	
-	//frameProcessed.increment();
+	frameProcessed.increment();
     } while(true);		        
 }
 
-void display_image()
+void display()
 {
-    cv::Mat frame;
-
     do
     {
+
 	while(true)
 	{
-	    (enableMutex).lock();
+	    enableMutex.lock();
 	    if(!enable)
 	    {
-		(enableMutex).unlock();			     
-		std::cout << "Display thread stopped\n";
+		enableMutex.unlock();
+		std::cout << "Display thread stopped.\n";
 		return;
 	    }
-	    enableMutex.unlock();	
-
+	    enableMutex.unlock();
+	    
+	    try
+	    {
+		frameProcessed.decrement();
+		break;
+	    }
+	    catch(const char* e)
+	    {
+		fine_wait(0,10,0,0);
+	    }
 	}
-
+	
+	centerMutex.lock();
+	std::cout << "Image center at: " << center.x << ", " << center.y << "\n";
+	centerMutex.unlock();
+	
+	fiducialMutex.unlock();
+	std::cout << "Found " << numFiducials << " fiducials\n";
+	fiducialMutex.unlock();
+	
     } while(true);
 }
+	
+     
 
 int main()
 {
 
     std::thread stream(stream_image);
     std::thread process(process_image);
-    std::thread show(display_image);
+    std::thread show(display);
     
     fine_wait(30,0,0,0);
     
