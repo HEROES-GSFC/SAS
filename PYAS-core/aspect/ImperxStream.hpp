@@ -8,7 +8,7 @@
 #include <PvStreamRaw.h>
 
 #include <string>
-#include <utilities.hpp>
+#include "utilities.hpp"
 #include <opencv.hpp>
 
 class ImperxStream
