@@ -8,15 +8,13 @@ GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
 
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
-CCFITSDIR = /usr/local/include/CCfits/
-INCLUDE = -I$(OPENCVDIR) -I$(CCFITSDIR) -I$(PUREGEV_ROOT)/include/
+INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/
 
 CFLAGS = -Wall $(INCLUDE)
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CFLAGS += -std=gnu++0x
 endif
 
-#AVT = -lPvAPI
 IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 	-lPvBase             		\
 	-lPvDevice          		\
@@ -26,10 +24,9 @@ IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 	-lPvStreamRaw        		\
 	-lPvStream 
 OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
-CCFITS = -lCCfits
 THREAD = -lpthread
 
-EXEC = fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test test_command
+EXEC = fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test_command test_sender
 
 all: $(EXEC)
 
@@ -37,10 +34,10 @@ fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) -pg
 
 fidDemo: fidDemo.cpp processing.o compression.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS) -pg
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) -pg
 
-threadDemo: threadDemo.cpp processing.o utilities.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) -pg
+threadDemo: threadDemo.cpp processing.o utilities.o ImperxStream.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) -pg
 
 packetDemo: packetDemo.cpp TelemetrySender.o ImperxStream.o utilities.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(IMPERX) $(THREAD)
@@ -60,10 +57,6 @@ test_sender: test_sender.cpp UDPSender.o Packet.o lib_crc.o Telemetry.o
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp
 	$(CC) -c $(CFLAGS) $< -o $@
-
-#No longer relevant?
-#camera.o: camera.cpp
-#	$(CC) -c $(CFLAGS) $< -o $@ $(OBJ) $(AVT)
 
 lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
 	$(CC) -c $(CFLAGS) $< -o $@
