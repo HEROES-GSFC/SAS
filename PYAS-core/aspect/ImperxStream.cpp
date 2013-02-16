@@ -201,17 +201,12 @@ void ImperxStream::Snap(cv::Mat &frame)
 {
     // The pipeline is already "armed", we just have to tell the device
     // to start sending us images
-    printf( "Sending StartAcquisition command to device\n" );
     lDeviceParams->ExecuteCommand( "AcquisitionStart" );
-
-    char lDoodle[] = "|\\-|-/";
-    int lDoodleIndex = 0;
 
     PvInt64 lImageCountVal = 0;
     double lFrameRateVal = 0.0;
     double lBandwidthVal = 0.0;
 
-    std::cout << "here\n";
     // Retrieve next buffer		
     PvBuffer *lBuffer = NULL;
     PvResult lOperationResult;
@@ -233,7 +228,6 @@ void ImperxStream::Snap(cv::Mat &frame)
 		// Get image specific buffer interface
 		PvImage *lImage = lBuffer->GetImage();
 	      
-	      
 		// Read width, height
 		lWidth = (int) lImage->GetWidth();
 		lHeight = (int) lImage->GetHeight();
@@ -248,15 +242,11 @@ void ImperxStream::Snap(cv::Mat &frame)
 //			std::cout << (short int) img[n*lHeight +m] << " ";
 		    }
 		}
-
 	    }
 	    else
 	    {
 		std::cout << "No image\n";
 	    }
-	    
-	    std::cout << lWidth << " " << lHeight << "\n";
-	    
 	}
 	else
 	{
@@ -274,9 +264,8 @@ void ImperxStream::Snap(cv::Mat &frame)
     {
 	std::cout << "Timeout\n";
     }
-
-    ++lDoodleIndex %= 6;
 }
+
 void ImperxStream::Stream(unsigned char *frame, Semaphore &frame_semaphore, Flag &stream_flag)
 {
     // The pipeline is already "armed", we just have to tell the device
@@ -344,9 +333,9 @@ void ImperxStream::Stream(unsigned char *frame, Semaphore &frame_semaphore, Flag
 
     }
 }
+
 long long int ImperxStream::getTemperature()
-{
-			
+{		
     long long int lTempValue = 0.0;
     lDevice.GetGenParameters()->GetIntegerValue( "CurrentTemperature", lTempValue );
 	
@@ -380,13 +369,13 @@ void ImperxStream::Disconnect()
     lDevice.Disconnect();
 }
 
-void ImperxStream::ConfigureSnap(int &width, int &height)
+void ImperxStream::ConfigureSnap(int &width, int &height, int exposure)
 {
     PvInt64 lWidth, lHeight;
     lDeviceParams->SetEnumValue("AcquisitionMode","SingleFrame");
     lDeviceParams->SetEnumValue("ExposureMode","Timed");
     lDeviceParams->SetEnumValue("PixelFormat","Mono8");
-    lDeviceParams->SetIntegerValue("ExposureTimeRaw",10000);
+    lDeviceParams->SetIntegerValue("ExposureTimeRaw",exposure);
     lDeviceParams->GetIntegerValue("Height", lHeight);
     lDeviceParams->GetIntegerValue("Width", lWidth);
     height = (int) lHeight;
