@@ -70,7 +70,7 @@ Semaphore frameReady, frameProcessed;
 int runtime = 10;
 int exposure = 10000;
 int frameRate = 250;
-
+int cameraReady = 0;
 
 void sig_handler(int signum)
 {
@@ -134,6 +134,7 @@ void *CameraStreamThread( void * threadid)
         camera.ConfigureSnap(width, height, exposure);
         localFrame.create(height, width, CV_8UC1);
         camera.Initialize();
+        cameraReady = 1;
 	}
 	
 	while(1){
@@ -183,49 +184,51 @@ void *ImageProcessThread(void *threadid)
             printf("thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
-        	    
-	    try{
-		    frameReady.decrement();
-		    break;
-	    }
-	    catch(const char* e){
-		    fine_wait(0,frameRate/10,0,0);
-	    }
-
-        printf("ImageProcessThread: trying to lock\n");
-        if (pthread_mutex_trylock(&mutexImage) == 0){
-            printf("ImageProcessThread: got lock\n");
-            frame.copyTo(localFrame);
-            pthread_mutex_unlock(&mutexImage);
-        }
         
-        frameSize = localFrame.size();
-        height = frameSize.height;
-        width = frameSize.width;
-        printf("working on chords now\n");
-        chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
-           
-        center.x = chordOutput[0];
-        center.y = chordOutput[1];
+        if (cameraReady){
+            try{
+                frameReady.decrement();
+                break;
+            }
+            catch(const char* e){
+                fine_wait(0,frameRate/10,0,0);
+            }
     
-        if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
-        {
-            rowRange.end = (((int) chordOutput[1]) + SOLAR_RADIUS < height-1) ? (((int) chordOutput[1]) + SOLAR_RADIUS) : (height-1);
-            rowRange.start = (((int) chordOutput[1]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[1]) - SOLAR_RADIUS) : 0;
-            colRange.end = (((int) chordOutput[0]) + SOLAR_RADIUS < width) ? (((int) chordOutput[0]) + SOLAR_RADIUS) : (width-1);
-            colRange.start = (((int) chordOutput[0]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[0]) - SOLAR_RADIUS) : 0;
-            subImage = localFrame(rowRange, colRange);
-            localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
-        }
+            printf("ImageProcessThread: trying to lock\n");
+            if (pthread_mutex_trylock(&mutexImage) == 0){
+                printf("ImageProcessThread: got lock\n");
+                frame.copyTo(localFrame);
+                pthread_mutex_unlock(&mutexImage);
+            }
+            
+            frameSize = localFrame.size();
+            height = frameSize.height;
+            width = frameSize.width;
+            printf("working on chords now\n");
+            chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
+               
+            center.x = chordOutput[0];
+            center.y = chordOutput[1];
         
-        numFiducials = localNumFiducials;
-        for (int k = 0; k < localNumFiducials; k++)
-        {
-            fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
-            fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
+            if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
+            {
+                rowRange.end = (((int) chordOutput[1]) + SOLAR_RADIUS < height-1) ? (((int) chordOutput[1]) + SOLAR_RADIUS) : (height-1);
+                rowRange.start = (((int) chordOutput[1]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[1]) - SOLAR_RADIUS) : 0;
+                colRange.end = (((int) chordOutput[0]) + SOLAR_RADIUS < width) ? (((int) chordOutput[0]) + SOLAR_RADIUS) : (width-1);
+                colRange.start = (((int) chordOutput[0]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[0]) - SOLAR_RADIUS) : 0;
+                subImage = localFrame(rowRange, colRange);
+                localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
+            }
+            
+            numFiducials = localNumFiducials;
+            for (int k = 0; k < localNumFiducials; k++)
+            {
+                fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
+                fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
+            }
+            
+            frameProcessed.increment();
         }
-        
-        frameProcessed.increment();
     }
 }
 
