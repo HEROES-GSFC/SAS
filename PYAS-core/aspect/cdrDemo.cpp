@@ -206,9 +206,9 @@ void *ImageProcessThread(void *threadid)
             width = frameSize.width;
             printf("working on chords now\n");
             chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
-               
             center.x = chordOutput[0];
             center.y = chordOutput[1];
+            printf("done working on image %f %f\n", center.x, center.y);
         
             if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
             {
