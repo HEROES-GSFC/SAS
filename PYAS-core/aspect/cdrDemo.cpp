@@ -48,7 +48,7 @@ uint16_t latest_sas_command_key = 0x0000;
 uint32_t tm_frame_sequence_number = 0;
 
 // loopback IP, just talking to myself
-char ip[] = "127.0.0.1";
+char ip[] = "192.168.2.4";
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -63,7 +63,6 @@ pthread_mutex_t mutexImage;
 sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
-cv::Point center;
 cv::Point fiducialLocations[NUM_LOCS];
 int numFiducials;
 Semaphore frameReady, frameProcessed;
@@ -71,6 +70,8 @@ int runtime = 10;
 int exposure = 10000;
 int frameRate = 250;
 int cameraReady = 0;
+
+double chordOutput[6];
 
 void sig_handler(int signum)
 {
@@ -170,7 +171,6 @@ void *ImageProcessThread(void *threadid)
 
     cv::Size frameSize;
     cv::Mat localFrame;
-    double chordOutput[6];
 
     cv::Mat kernel;
     cv::Mat subImage;
@@ -210,9 +210,8 @@ void *ImageProcessThread(void *threadid)
                     width = frameSize.width;
                     printf("working on chords now\n");
                     chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
-                    center.x = chordOutput[0];
-                    center.y = chordOutput[1];
-                    printf("done working on image %f %f\n", center.x, center.y);
+
+                    printf("done working on image %d %d\n", chordOutput[0], chordOutput[1]);
                 
                     if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
                     {
@@ -290,8 +289,8 @@ void *TelemetryPackagerThread(void *threadid)
         //    printf("voltage is %d V\n", get_cpu_voltage(i));
         //}
         
-        //tp << (uint16_t)random_centerX;
-        //tp << (uint16_t)random_centerY;
+        tp << chordOutput[0];
+        tp << chordOutput[1];
         //for(int i = 0; i < 14; i++){
         //    tp << (uint16_t)chordsX[i];
          //   tp << (uint16_t)chordsY[i];
