@@ -10,6 +10,7 @@
 #include <stdlib.h>     /* for atoi() and exit() */
 #include <unistd.h>     /* for sleep()  */
 #include <signal.h>     /* for signal() */
+#include <math.h>       /* for testing only, remove when done */
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
@@ -84,7 +85,33 @@ void *TelemetryPackagerThread(void *threadid)
         tp << tm_frame_sequence_number;
         tp << command_sequence_number;
         tp << latest_sas_command_key;
+
+        double random_centerX = rand() / (double)RAND_MAX * 1024;
+        double random_centerY = rand() / (double)RAND_MAX * 1024;
+
+        double noiseX = rand() / (double)RAND_MAX * 3;
+        double noiseY = rand() / (double)RAND_MAX * 3;
+
+        double chordsX[14] = {-150., -100., -50., 0., 50., 100., 150., -150., -100., -50., 0., 50., 100., 150.};
+        double chordsY[14];
+        double radius = 200;
+        for(int i = 0; i < 7; i++){
+            chordsY[i] = sqrt( pow(radius, 2) + pow(chordsX[i], 2) ) + random_centerY;
+            chordsX[i] += random_centerX;
+        }
+        for(int i = 7; i < 14; i++){
+            chordsY[i] = -sqrt( pow(radius, 2) + pow(chordsX[i], 2) ) + random_centerY;
+            chordsX[i] += random_centerX;
+        }
+
+        //for(int i = 0; i < 7; i++){
         
+        tp << (uint16_t)random_centerX;
+        tp << (uint16_t)random_centerY;
+        for(int i = 0; i < 14; i++){
+            tp << (uint16_t)chordsX[i];
+            tp << (uint16_t)chordsY[i];
+        }
         
         //add telemetry packet to the queue
         tm_packet_queue << tp;
