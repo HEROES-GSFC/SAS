@@ -242,7 +242,7 @@ void *TelemetrySenderThread(void *threadid)
             TelemetryPacket tp(0x70, 0x30);
             tm_packet_queue >> tp;
             telSender.send( &tp );
-            std::cout << "TelemetrySender:" << tp << std::endl;
+            //std::cout << "TelemetrySender:" << tp << std::endl;
         }
         
         if (stop_message[tid] == 1){
@@ -386,7 +386,7 @@ void *CommandSenderThread( void *threadid )
             CommandPacket cp(0x01, 100);
             cm_packet_queue >> cp;
             comSender.send( &cp );
-            std::cout << "CommandSender:" << cp << std::endl;
+            //std::cout << "CommandSender:" << cp << std::endl;
         }
 
         if (stop_message[tid] == 1){
