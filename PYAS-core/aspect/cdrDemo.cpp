@@ -80,7 +80,8 @@ unsigned long get_cpu_voltage( int index )
             return inb( EC_DATA ) * 1600 / 255;
             break;
         default:
-            return -1;       
+            return -1; 
+            }      
 }
 
 void *TelemetrySenderThread(void *threadid)
