@@ -64,7 +64,6 @@ sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
 cv::Point center;
-bool enable = 1;
 cv::Point fiducialLocations[NUM_LOCS];
 int numFiducials;
 Semaphore frameReady, frameProcessed;
@@ -121,6 +120,10 @@ unsigned long get_cpu_voltage( int index )
 
 void *CameraStreamThread( void * threadid)
 {    
+    long tid;
+    tid = (long)threadid;
+    printf("Hello World! It's me, thread #%ld!\n", tid);
+
     cv::Mat localFrame;
     int width, height;
     ImperxStream camera;
@@ -155,6 +158,10 @@ void *CameraStreamThread( void * threadid)
 
 void *ImageProcessThread(void *threadid)
 {
+    long tid;
+    tid = (long)threadid;
+    printf("Hello World! It's me, thread #%ld!\n", tid);
+
     cv::Size frameSize;
     cv::Mat localFrame;
     double chordOutput[6];
