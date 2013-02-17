@@ -70,7 +70,7 @@ int numFiducials;
 Semaphore frameReady, frameProcessed;
 int runtime = 10;
 int exposure = 10000;
-frameRate = 250;
+int frameRate = 250;
 
 
 void sig_handler(int signum)
@@ -140,7 +140,7 @@ void *CameraStreamThread( void * threadid)
             camera.Stop();
             camera.Disconnect();
             std::cout << "Stream thread stopped\n";
-            return;
+            return NULL;
 	    }
 	    
 	    camera.Snap(localFrame);
@@ -177,9 +177,8 @@ void *ImageProcessThread(void *threadid)
 	{
 	    if(!enable)
 	    {
-            enableMutex.unlock();
             std::cout << "Chord thread stopped.\n";
-            return;
+            return NULL;
 	    }
 	    
 	    try
