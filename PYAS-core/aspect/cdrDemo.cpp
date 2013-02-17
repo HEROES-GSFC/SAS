@@ -147,7 +147,9 @@ void *CameraStreamThread( void * threadid)
             
 	    camera.Snap(localFrame);
 
+        printf("CameraStreamThread: trying to lock\n");
         pthread_mutex_lock(&mutexImage);
+        printf("CameraStreamThread: got lock, copying over\n");
 	    localFrame.copyTo(frame);
         pthread_mutex_unlock(&mutexImage);
 
@@ -190,7 +192,9 @@ void *ImageProcessThread(void *threadid)
 		    fine_wait(0,frameRate/10,0,0);
 	    }
 
+        printf("ImageProcessThread: trying to lock\n");
         if (pthread_mutex_trylock(&mutexImage) == 0){
+            printf("ImageProcessThread: got lock\n");
             frame.copyTo(localFrame);
             pthread_mutex_unlock(&mutexImage);
         }
