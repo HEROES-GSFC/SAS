@@ -190,7 +190,7 @@ void *ImageProcessThread(void *threadid)
 		    fine_wait(0,frameRate/10,0,0);
 	    }
 
-        if (pthread_mutex_trylock(&mutexImage)){
+        if (pthread_mutex_trylock(&mutexImage) == 0){
             frame.copyTo(localFrame);
             pthread_mutex_unlock(&mutexImage);
         }
@@ -275,33 +275,13 @@ void *TelemetryPackagerThread(void *threadid)
         //for(int i = 0; i < 5; i++){
         //    printf("voltage is %d V\n", get_cpu_voltage(i));
         //}
-
-        double random_centerX = rand() / (double)RAND_MAX * 1024;
-        double random_centerY = rand() / (double)RAND_MAX * 1024;
-
-        double noiseX = rand() / (double)RAND_MAX * 3;
-        double noiseY = rand() / (double)RAND_MAX * 3;
-
-        double chordsX[14] = {-150., -100., -50., 0., 50., 100., 150., -150., -100., -50., 0., 50., 100., 150.};
-        double chordsY[14];
-        double radius = 200;
-        for(int i = 0; i < 7; i++){
-            chordsY[i] = sqrt( pow(radius, 2) + pow(chordsX[i], 2) ) + random_centerY;
-            chordsX[i] += random_centerX;
-        }
-        for(int i = 7; i < 14; i++){
-            chordsY[i] = -sqrt( pow(radius, 2) + pow(chordsX[i], 2) ) + random_centerY;
-            chordsX[i] += random_centerX;
-        }
-
-        //for(int i = 0; i < 7; i++){
         
-        tp << (uint16_t)random_centerX;
-        tp << (uint16_t)random_centerY;
-        for(int i = 0; i < 14; i++){
-            tp << (uint16_t)chordsX[i];
-            tp << (uint16_t)chordsY[i];
-        }
+        //tp << (uint16_t)random_centerX;
+        //tp << (uint16_t)random_centerY;
+        //for(int i = 0; i < 14; i++){
+        //    tp << (uint16_t)chordsX[i];
+         //   tp << (uint16_t)chordsY[i];
+        //}
         
         //add telemetry packet to the queue
         tm_packet_queue << tp;
@@ -529,7 +509,7 @@ int main(void)
     //    kill_all_threads();
     /* wait for threads to finish */
     kill_all_threads();
-    sleep(1);
+    sleep(2);
     for(int i = 0; i < NUM_THREADS; i++ ){
         printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
     }
