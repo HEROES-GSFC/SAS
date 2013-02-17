@@ -131,6 +131,8 @@ void *CameraStreamThread( void * threadid)
 	    std::cout << "Error connecting to camera!\n";	
     }
     else{
+        // width and height are passed out while exposure is passed in!
+        // CRAZY!
         camera.ConfigureSnap(width, height, exposure);
         localFrame.create(height, width, CV_8UC1);
         camera.Initialize();
@@ -151,8 +153,8 @@ void *CameraStreamThread( void * threadid)
         printf("CameraStreamThread: trying to lock\n");
         pthread_mutex_lock(&mutexImage);
         printf("CameraStreamThread: got lock, copying over\n");
-        printf("%d\n", frame.at<uint8_t>(0,0));
 	    localFrame.copyTo(frame);
+        printf("%d\n", frame.at<uint8_t>(0,0));
         pthread_mutex_unlock(&mutexImage);
 
 	    frameReady.increment();
@@ -197,39 +199,42 @@ void *ImageProcessThread(void *threadid)
     
             printf("ImageProcessThread: trying to lock\n");
             if (pthread_mutex_trylock(&mutexImage) == 0){
-                printf("ImageProcessThread: got lock\n");
-                frame.copyTo(localFrame);
-                printf("%d\n", localFrame.at<uint8_t>(0,0));
-                pthread_mutex_unlock(&mutexImage);
+                if(!frame.empty()){
+                    printf("ImageProcessThread: got lock\n");
+                    frame.copyTo(localFrame);
+                    printf("%d\n", localFrame.at<uint8_t>(0,0));
+                    pthread_mutex_unlock(&mutexImage);        
+                    frameSize = localFrame.size();
+                    height = frameSize.height;
+                    width = frameSize.width;
+                    printf("working on chords now\n");
+                    chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
+                    center.x = chordOutput[0];
+                    center.y = chordOutput[1];
+                    printf("done working on image %f %f\n", center.x, center.y);
+                
+                    if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
+                    {
+                        rowRange.end = (((int) chordOutput[1]) + SOLAR_RADIUS < height-1) ? (((int) chordOutput[1]) + SOLAR_RADIUS) : (height-1);
+                        rowRange.start = (((int) chordOutput[1]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[1]) - SOLAR_RADIUS) : 0;
+                        colRange.end = (((int) chordOutput[0]) + SOLAR_RADIUS < width) ? (((int) chordOutput[0]) + SOLAR_RADIUS) : (width-1);
+                        colRange.start = (((int) chordOutput[0]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[0]) - SOLAR_RADIUS) : 0;
+                        subImage = localFrame(rowRange, colRange);
+                        localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
+                    }
+                    
+                    numFiducials = localNumFiducials;
+                    for (int k = 0; k < localNumFiducials; k++)
+                    {
+                        fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
+                        fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
+                    }
+                    
+                    frameProcessed.increment();
+                }
+                
+
             }
-            
-            frameSize = localFrame.size();
-            height = frameSize.height;
-            width = frameSize.width;
-            printf("working on chords now\n");
-            chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
-            center.x = chordOutput[0];
-            center.y = chordOutput[1];
-            printf("done working on image %f %f\n", center.x, center.y);
-        
-            if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
-            {
-                rowRange.end = (((int) chordOutput[1]) + SOLAR_RADIUS < height-1) ? (((int) chordOutput[1]) + SOLAR_RADIUS) : (height-1);
-                rowRange.start = (((int) chordOutput[1]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[1]) - SOLAR_RADIUS) : 0;
-                colRange.end = (((int) chordOutput[0]) + SOLAR_RADIUS < width) ? (((int) chordOutput[0]) + SOLAR_RADIUS) : (width-1);
-                colRange.start = (((int) chordOutput[0]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[0]) - SOLAR_RADIUS) : 0;
-                subImage = localFrame(rowRange, colRange);
-                localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
-            }
-            
-            numFiducials = localNumFiducials;
-            for (int k = 0; k < localNumFiducials; k++)
-            {
-                fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
-                fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
-            }
-            
-            frameProcessed.increment();
         }
     }
 }
