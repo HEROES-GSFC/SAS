@@ -124,25 +124,24 @@ void *CameraStreamThread( void * threadid)
     cv::Mat localFrame;
     int width, height;
     ImperxStream camera;
-    if (camera.Connect() != 0)
-    {
-	std::cout << "Error connecting to camera!\n";	
+    if (camera.Connect() != 0){
+	    std::cout << "Error connecting to camera!\n";	
     }
-    else
-    {
-	camera.ConfigureSnap(width, height, exposure);
-	localFrame.create(height, width, CV_8UC1);
-	camera.Initialize();
-	do
-	{
-	    if(!enable)
-	    {
+    else{
+        camera.ConfigureSnap(width, height, exposure);
+        localFrame.create(height, width, CV_8UC1);
+        camera.Initialize();
+	}
+	
+	while(1){
+
+        if (stop_message[tid] == 1){
+            printf("thread #%ld exiting\n", tid);
             camera.Stop();
             camera.Disconnect();
-            std::cout << "Stream thread stopped\n";
-            return NULL;
-	    }
-	    
+            pthread_exit( NULL );
+        }
+            
 	    camera.Snap(localFrame);
 
         pthread_mutex_lock(&mutexImage);
@@ -151,9 +150,7 @@ void *CameraStreamThread( void * threadid)
 
 	    frameReady.increment();
 	    fine_wait(0,frameRate - exposure,0,0);
-
-	} while (true);
-    }
+	}
 }
 
 void *ImageProcessThread(void *threadid)
@@ -171,59 +168,53 @@ void *ImageProcessThread(void *threadid)
     cv::Point localFiducialLocations[NUM_LOCS];
     int localNumFiducials;
     
-    do
-    {
-	while(true)
+	while(1)
 	{
-	    if(!enable)
-	    {
-            std::cout << "Chord thread stopped.\n";
-            return NULL;
+	    if (stop_message[tid] == 1){
+            printf("thread #%ld exiting\n", tid);
+            pthread_exit( NULL );
+        }
+        	    
+	    try{
+		    frameReady.decrement();
+		    break;
 	    }
-	    
-	    try
-	    {
-		frameReady.decrement();
-		break;
+	    catch(const char* e){
+		    fine_wait(0,frameRate/10,0,0);
 	    }
-	    catch(const char* e)
-	    {
-		fine_wait(0,frameRate/10,0,0);
-	    }
-	}
 
-    if (pthread_mutex_trylock(&mutexImage)){
-	frame.copyTo(localFrame);
-    pthread_mutex_unlock(&mutexImage);
-	}
-	
-	frameSize = localFrame.size();
-	height = frameSize.height;
-	width = frameSize.width;
-	chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
-       
-	center.x = chordOutput[0];
-	center.y = chordOutput[1];
-
-	if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
-	{
-	    rowRange.end = (((int) chordOutput[1]) + SOLAR_RADIUS < height-1) ? (((int) chordOutput[1]) + SOLAR_RADIUS) : (height-1);
-	    rowRange.start = (((int) chordOutput[1]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[1]) - SOLAR_RADIUS) : 0;
-	    colRange.end = (((int) chordOutput[0]) + SOLAR_RADIUS < width) ? (((int) chordOutput[0]) + SOLAR_RADIUS) : (width-1);
-	    colRange.start = (((int) chordOutput[0]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[0]) - SOLAR_RADIUS) : 0;
-	    subImage = localFrame(rowRange, colRange);
-	    localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
-	}
-	
-	numFiducials = localNumFiducials;
-	for (int k = 0; k < localNumFiducials; k++)
-	{
-	    fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
-	    fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
-	}
-	
-	frameProcessed.increment();
-    } while(true);		        
+        if (pthread_mutex_trylock(&mutexImage)){
+            frame.copyTo(localFrame);
+            pthread_mutex_unlock(&mutexImage);
+        }
+        
+        frameSize = localFrame.size();
+        height = frameSize.height;
+        width = frameSize.width;
+        chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
+           
+        center.x = chordOutput[0];
+        center.y = chordOutput[1];
+    
+        if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
+        {
+            rowRange.end = (((int) chordOutput[1]) + SOLAR_RADIUS < height-1) ? (((int) chordOutput[1]) + SOLAR_RADIUS) : (height-1);
+            rowRange.start = (((int) chordOutput[1]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[1]) - SOLAR_RADIUS) : 0;
+            colRange.end = (((int) chordOutput[0]) + SOLAR_RADIUS < width) ? (((int) chordOutput[0]) + SOLAR_RADIUS) : (width-1);
+            colRange.start = (((int) chordOutput[0]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[0]) - SOLAR_RADIUS) : 0;
+            subImage = localFrame(rowRange, colRange);
+            localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
+        }
+        
+        numFiducials = localNumFiducials;
+        for (int k = 0; k < localNumFiducials; k++)
+        {
+            fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
+            fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
+        }
+        
+        frameProcessed.increment();
+    }
 }
 
 void *TelemetrySenderThread(void *threadid)
