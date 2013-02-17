@@ -47,7 +47,7 @@ void sig_handler(int signum)
 
 signed char get_cpu_temperature( void )
 {
-    signed char;
+    signed char start;
     outb(0x40, EC_INDEX );
     start = 0x01 | inb( EC_DATA );
     outb( start, EC_DATA );
