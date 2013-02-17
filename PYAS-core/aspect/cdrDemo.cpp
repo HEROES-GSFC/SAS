@@ -189,7 +189,7 @@ void *ImageProcessThread(void *threadid)
         }
         
         if (cameraReady){
-            while(1)
+            while(1){
                 try{
                     frameReady.decrement();\
                     break;
