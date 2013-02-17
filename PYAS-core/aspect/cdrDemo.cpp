@@ -198,6 +198,7 @@ void *ImageProcessThread(void *threadid)
         frameSize = localFrame.size();
         height = frameSize.height;
         width = frameSize.width;
+        printf("working on chords now\n");
         chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
            
         center.x = chordOutput[0];
@@ -466,12 +467,12 @@ void start_all_threads( void ){
          printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 5L;
-    rc = pthread_create(&threads[4],NULL, CameraStreamThread,(void *)t);
+    rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
     if (rc){
          printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
-    rc = pthread_create(&threads[4],NULL, ImageProcessThread,(void *)t);
+    rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
     if (rc){
          printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
@@ -527,6 +528,8 @@ int main(void)
     printf("Quitting and cleaning up.\n");
     //    kill_all_threads();
     /* wait for threads to finish */
+    kill_all_threads();
+    sleep(1);
     for(int i = 0; i < NUM_THREADS; i++ ){
         printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
     }
