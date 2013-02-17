@@ -199,11 +199,10 @@ void *ImageProcessThread(void *threadid)
     
             printf("ImageProcessThread: trying to lock\n");
             if (pthread_mutex_trylock(&mutexImage) == 0){
+                printf("ImageProcessThread: got lock\n");
                 if(!frame.empty()){
-                    printf("ImageProcessThread: got lock\n");
                     frame.copyTo(localFrame);
                     printf("%d\n", localFrame.at<uint8_t>(0,0));
-                    pthread_mutex_unlock(&mutexImage);        
                     frameSize = localFrame.size();
                     height = frameSize.height;
                     width = frameSize.width;
@@ -232,8 +231,7 @@ void *ImageProcessThread(void *threadid)
                     
                     frameProcessed.increment();
                 }
-                
-
+            pthread_mutex_unlock(&mutexImage);        
             }
         }
     }
