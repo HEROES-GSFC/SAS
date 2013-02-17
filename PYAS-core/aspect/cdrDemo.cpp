@@ -181,20 +181,22 @@ void *ImageProcessThread(void *threadid)
     cv::Point localFiducialLocations[NUM_LOCS];
     int localNumFiducials;
     
-	while(1)
-	{
+    while(1)
+    {
 	    if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
         
         if (cameraReady){
-            try{
-                frameReady.decrement();
-                break;
-            }
-            catch(const char* e){
-                fine_wait(0,frameRate/10,0,0);
+            while(1)
+                try{
+                    frameReady.decrement();\
+                    break;
+                }
+                catch(const char* e){
+                    fine_wait(0,frameRate/10,0,0);
+                }
             }
     
             printf("ImageProcessThread: trying to lock\n");
