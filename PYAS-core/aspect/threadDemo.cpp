@@ -15,51 +15,63 @@
 #include <string>
 #include <thread>
 #include <mutex>
+#include "ImperxStream.hpp"
 #include "processing.hpp"
-#include "utilities.hpp"
 
-void load_image(std::mutex* en_mtx, bool* en, std::string* path, std::mutex* frame_mtx, cv::OutputArray _frame, Semaphore* outReady)
+cv::Mat frame;
+cv::Point center;
+bool enable = 1;
+std::mutex enableMutex, frameMutex, centerMutex, fiducialMutex;
+Semaphore frameReady, frameProcessed;
+cv::Point fiducialLocations[NUM_LOCS];
+int numFiducials;
+
+int runtime, exposure, frameRate;
+
+void stream_image()
 {    
-    int k = 0;
-    std::stringstream filename;
-    cv::Mat temp;
-    
-    do
+    cv::Mat localFrame;
+    int width, height;
+    ImperxStream camera;
+    if (camera.Connect() != 0)
     {
-	(*en_mtx).lock();
-	if(!(*en))
+	std::cout << "Error connecting to camera!\n";	
+    }
+    else
+    {
+	camera.ConfigureSnap(width, height, exposure);
+	localFrame.create(height, width, CV_8UC1);
+	camera.Initialize();
+	do
 	{
-	    (*en_mtx).unlock();
-	    std::cout << "Stream thread stopped\n";
-	    return;
-	}
-	(*en_mtx).unlock();
+	    enableMutex.lock();
+	    if(!enable)
+	    {
+		enableMutex.unlock();
+		camera.Stop();
+		camera.Disconnect();
+		std::cout << "Stream thread stopped\n";
+		return;
+	    }
+	    enableMutex.unlock();
+	    
+	    camera.Snap(localFrame);
 
-	filename.str("");
-	filename << *path << "/testframe";
-	filename.fill('0');
-	filename.width(2);
-	filename << k << ".png";
+	    frameMutex.lock();
+	    localFrame.copyTo(frame);
+	    frameMutex.unlock();
 
-	k++;
-	if (k >= 18)
-	    k = 0;
+	    frameReady.increment();
+	    fine_wait(0,frameRate - exposure,0,0);
 
-	temp = cv::imread(filename.str(), 0);
-
-	(*frame_mtx).lock();
-	temp.copyTo(_frame);
-	(*frame_mtx).unlock();
-	(*outReady).increment();
-	fine_wait(1,0,0,0);
-    } while (true);
+	} while (true);
+    }
 }
 
-
-void process_image(std::mutex* en_mtx, bool* en, std::mutex* frame_mtx, cv::InputArray _frame, std::mutex* center_mtx, cv::Point* center, Semaphore* inReady, Semaphore* outReady, cv::Point* _locs, int* _fidLocs, std::mutex* fid_mtx)
+void process_image()
 {
     cv::Size frameSize;
-    cv::Mat frame;
+    cv::Mat localFrame;
     double chordOutput[6];
 
     cv::Mat kernel;
@@ -68,46 +80,47 @@ void process_image(std::mutex* en_mtx, bool* en, std::mutex* frame_mtx, cv::Inpu
     cv::Range rowRange, colRange;
     matchKernel(kernel);
 
-    cv::Point locs[NUM_LOCS];
-    int fidLocs;
+    cv::Point localFiducialLocations[NUM_LOCS];
+    int localNumFiducials;
     
-
     do
     {
 	while(true)
 	{
-	    (*en_mtx).lock();
-	    if(!(*en))
+	    enableMutex.lock();
+	    if(!enable)
 	    {
-		(*en_mtx).unlock();
+		enableMutex.unlock();
 		std::cout << "Chord thread stopped.\n";
 		return;
 	    }
-	    (*en_mtx).unlock();
+	    enableMutex.unlock();
+	    
 	    try
 	    {
-		(*inReady).decrement();
+		frameReady.decrement();
 		break;
 	    }
 	    catch(const char* e)
 	    {
-		fine_wait(0,10,0,0);
+		fine_wait(0,frameRate/10,0,0);
 	    }
 	}
-	(*frame_mtx).lock();
-	frame = _frame.getMat();
-	(*frame_mtx).unlock();
+
+	frameMutex.lock();
+	frame.copyTo(localFrame);
+	frameMutex.unlock();
 	
 
-	frameSize = frame.size();
+	frameSize = localFrame.size();
 	height = frameSize.height;
 	width = frameSize.width;
-	chordCenter((const unsigned char*) frame.data, height, width, CHORDS, THRESHOLD, chordOutput);
+	chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
        
-	(*center_mtx).lock();
-	(*center).x = chordOutput[0];
-	(*center).y = chordOutput[1];
-	(*center_mtx).unlock();
+	centerMutex.lock();
+	center.x = chordOutput[0];
+	center.y = chordOutput[1];
+	centerMutex.unlock();
 
 	if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
 	{
@@ -115,149 +128,100 @@ void process_image(std::mutex* en_mtx, bool* en, std::mutex* frame_mtx, cv::Inpu
 	    rowRange.start = (((int) chordOutput[1]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[1]) - SOLAR_RADIUS) : 0;
 	    colRange.end = (((int) chordOutput[0]) + SOLAR_RADIUS < width) ? (((int) chordOutput[0]) + SOLAR_RADIUS) : (width-1);
 	    colRange.start = (((int) chordOutput[0]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[0]) - SOLAR_RADIUS) : 0;
-	    subImage = frame(rowRange, colRange);
-	    fidLocs = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, locs, NUM_LOCS);
+	    subImage = localFrame(rowRange, colRange);
+	    localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
 	}
 	
 	
-	(*fid_mtx).lock();
-	*_fidLocs = fidLocs;
-	for (int k = 0; k < fidLocs; k++)
+	fiducialMutex.lock();
+	numFiducials = localNumFiducials;
+	for (int k = 0; k < localNumFiducials; k++)
 	{
-	    _locs[k].x = locs[k].x + colRange.start;
-	    _locs[k].y = locs[k].y + rowRange.start;
+	    fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
+	    fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
 	}
-	(*fid_mtx).unlock();
+	fiducialMutex.unlock();
 	
-
-	(*outReady).increment();
+	frameProcessed.increment();
     } while(true);		        
 }
 
-void display_image(std::mutex* en_mtx, bool* en, std::mutex* frame_mtx, cv::InputArray _frame, std::mutex* center_mtx, cv::Point* center, Semaphore* inReady, cv::Point* locs, int* fidLocs, std::mutex* fid_mtx)
+void display()
 {
-    cv::namedWindow("Frame", CV_WINDOW_AUTOSIZE);
-    cv::Mat render, frame;
-    cv::Mat channels[] = {frame, frame, frame};
-    cv::Scalar color(0,0,192);
-    cv::Scalar color2(128,0,0);
-    cv::Point pt, pt1, pt2;
-
+    bool validCenter;
     do
     {
+
 	while(true)
 	{
-	    (*en_mtx).lock();
-	    if(!(*en))
+	    enableMutex.lock();
+	    if(!enable)
 	    {
-		(*en_mtx).unlock();
-		cv::destroyWindow("Frame");
-		cv::waitKey(1);				     
-		std::cout << "Display thread stopped\n";
+		enableMutex.unlock();
+		std::cout << "Display thread stopped.\n";
 		return;
 	    }
-	    (*en_mtx).unlock();	
+	    enableMutex.unlock();
+	    
 	    try
 	    {
-		(*inReady).decrement();
+		frameProcessed.decrement();
 		break;
 	    }
 	    catch(const char* e)
 	    {
-		fine_wait(0,10,0,0);
+		fine_wait(0,frameRate/10,0,0);
 	    }
 	}
-	(*frame_mtx).lock();
-	frame = _frame.getMat();
-	(*frame_mtx).unlock();
-
-	for (int q = 0; q < 3; q++)
-      	    channels[q] = frame;
-
-	cv::merge(channels, 3, render);
-
-	(*center_mtx).lock();
-	pt = *center;
-	(*center_mtx).unlock();
-	pt1.x = pt.x-5;
-	pt1.y = pt.y;
-	pt2.x = pt.x+5;
-	pt2.y = pt.y;
-	cv::line(render, pt1*128, pt2*128, color, 1, CV_AA, 7);
-				
-	pt1.x = pt.x;
-	pt1.y = pt.y-5;
-	pt2.x = pt.x;
-	pt2.y = pt.y+5;
-	cv::line(render, pt1*128, pt2*128, color, 1, CV_AA, 7);
 	
-	pt1.x = pt.x-15;
-	pt1.y = pt.y-15;
-	pt2.x = pt.x- 5;
-	pt2.y = pt.y- 5;
-	cv::line(render, pt1*128, pt2*128, color, 5, CV_AA, 7);
-	
-	pt1.x = pt.x+ 5;
-	pt1.y = pt.y+ 5;
-	pt2.x = pt.x+15;
-	pt2.y = pt.y+15;
-	cv::line(render, pt1*128, pt2*128, color, 5, CV_AA, 7);
-		
-	pt1.x = pt.x-15;
-	pt1.y = pt.y+15;
-	pt2.x = pt.x- 5;
-	pt2.y = pt.y+ 5;
-	cv::line(render, pt1*128, pt2*128, color, 5, CV_AA, 7);
-		
-	pt1.x = pt.x+ 5;
-	pt1.y = pt.y- 5;
-	pt2.x = pt.x+15;
-	pt2.y = pt.y-15;
-	cv::line(render, pt1*128, pt2*128, color, 5, CV_AA, 7);
-	(*fid_mtx).lock();
-	for(int k = 0; k < *fidLocs; k++)
+	centerMutex.lock();
+	validCenter = (center.x != -1 && center.y != -1);
+	if (validCenter)
 	{
-	    cv::circle(render, cv::Point(locs[k].x, locs[k].y), 10, color2, 2, CV_AA, 0);
+	    std::cout << "Image center at: " << center.x << ", " << center.y << "\n";
 	}
-	(*fid_mtx).unlock();
-	cv::imshow("Frame", render);
-	cv::waitKey(10);
+	else
+	{
+	    std::cout << "No center found\n";
+	}
+	centerMutex.unlock();
+	
+	fiducialMutex.unlock();
+	if (validCenter)
+	{
+	    std::cout << "Found " << numFiducials << " fiducials\n";
+	    if (numFiducials > 0)
+	    {
+		std::cout << "First Fiducial at: " << fiducialLocations[0].x << ", " << fiducialLocations[0].y << "\n";
+	    }
+	}
+
+	fiducialMutex.unlock();
+	
     } while(true);
 }
-
-int main( int argc, char** argv )
+	
+     
+int main()
 {
-    static std::string path;
-    int height = 960, width = 1280;
-    cv::Mat frame(height, width, CV_8UC1);
-    cv::Point center;
-    bool en = 1;
-    std::mutex en_mtx, frame_mtx, center_mtx, fid_mtx;
-    Semaphore frameReady, frameProcessed;
-    cv::Point locs[NUM_LOCS];
-    int fidLocs;
+    
+    std::cout << "Enter runtime (s): ";
+    std::cin >> runtime;
+    std::cout << "Enter exposure time (us): ";
+    std::cin >> exposure;
+    std::cout << "Enter frame period in ms (>= 250): ";
+    std::cin >> frameRate;
+    std::thread stream(stream_image);
+    std::thread process(process_image);
+    std::thread show(display);
 
-    if (argc != 2)
-    {
-	std::cout << "Grabbing frames from default directory: ./frames\n";
-	path = "./frames";
-    }
-    else
-    {
-	std::cout << "Grabbing frames from: " << argv[1] << "\n";
-	path = argv[1];
-    }
     
-    std::thread stream(load_image, &en_mtx, &en, &path, &frame_mtx, frame, &frameReady);
-    std::thread process(process_image, &en_mtx, &en, &frame_mtx, frame, &center_mtx, &center, &frameReady, &frameProcessed, locs, &fidLocs, &fid_mtx);
-    std::thread show(display_image, &en_mtx, &en, &frame_mtx, frame, &center_mtx, &center,&frameProcessed, locs, &fidLocs, &fid_mtx);
+    fine_wait(runtime,0,0,0);
     
-    sleep(30);
-    
-    en_mtx.lock();
-    en = 0;
-    en_mtx.unlock();
-    
+    enableMutex.lock();
+    enable = 0;
+    enableMutex.unlock();
+
     stream.join();
     process.join();
     show.join();

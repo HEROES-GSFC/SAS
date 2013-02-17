@@ -9,8 +9,8 @@
 #define FID_MATCH_THRESH 7
 
 #define DEBUG 0
-#define DISPLAY 1
-#define SAVE 0
+#define DISPLAY 0
+#define SAVE 1
 #define RATE 0
 #define FIDTYPE 1
 #include <string.h>
@@ -131,9 +131,11 @@ int main(int argc, char* agrv[])
 #if DEBUG
 	    std::cout << "No center found. Skipping frame\n";
 #endif
+#if DISPLAY
 	    cv::merge(list,3,image);
 	    imshow("Solar Solution", image );
 	    cv::waitKey(10);
+#endif	   
 	    continue;   
 	}
 	
