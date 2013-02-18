@@ -64,6 +64,8 @@ sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
 cv::Point fiducialLocations[NUM_LOCS];
+ImperxStream camera;
+
 int numFiducials;
 Semaphore frameReady, frameProcessed;
 int runtime = 10;
@@ -127,7 +129,6 @@ void *CameraStreamThread( void * threadid)
 
     cv::Mat localFrame;
     int width, height;
-    ImperxStream camera;
     if (camera.Connect() != 0){
 	    std::cout << "Error connecting to camera!\n";	
     }
@@ -283,6 +284,8 @@ void *TelemetryPackagerThread(void *threadid)
         tp << tm_frame_sequence_number;
         tp << command_sequence_number;
         tp << latest_sas_command_key;
+
+	    printf("camera temp is %lld\n", camera.getTemperature());
 
         //printf("cpu temp is %3d\n", get_cpu_temperature());
         //for(int i = 0; i < 5; i++){
