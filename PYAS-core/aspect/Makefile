@@ -39,8 +39,8 @@ fidDemo: fidDemo.cpp processing.o compression.o
 threadDemo: threadDemo.cpp processing.o utilities.o ImperxStream.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) -pg
 
-packetDemo: packetDemo.cpp TelemetrySender.o ImperxStream.o utilities.o lib_crc.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(IMPERX) $(THREAD)
+packetDemo: packetDemo.cpp ImperxStream.o
+	$(CC) $(CFLAGS) $^ -o $@ $(IMPERX)
 
 commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@
