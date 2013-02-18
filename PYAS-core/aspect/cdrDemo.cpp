@@ -64,7 +64,6 @@ sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
 cv::Point fiducialLocations[NUM_LOCS];
-ImperxStream camera;
 
 int numFiducials;
 Semaphore frameReady, frameProcessed;
@@ -128,6 +127,8 @@ void *CameraStreamThread( void * threadid)
     long tid;
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
+
+    ImperxStream camera;
 
     cv::Mat localFrame;
     int width, height;
