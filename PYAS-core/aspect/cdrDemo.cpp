@@ -73,6 +73,8 @@ int exposure = 10000;
 int frameRate = 250;
 int cameraReady = 0;
 
+long long double camera_temperature;
+
 double chordOutput[6];
 
 void sig_handler(int signum)
@@ -158,6 +160,8 @@ void *CameraStreamThread( void * threadid)
 	    localFrame.copyTo(frame);
         printf("%d\n", frame.at<uint8_t>(0,0));
         pthread_mutex_unlock(&mutexImage);
+
+	    printf("camera temp is %lld\n", camera.getTemperature());
 
 	    frameReady.increment();
 	    fine_wait(0,frameRate - exposure,0,0);
@@ -284,8 +288,6 @@ void *TelemetryPackagerThread(void *threadid)
         tp << tm_frame_sequence_number;
         tp << command_sequence_number;
         tp << latest_sas_command_key;
-
-	    printf("camera temp is %lld\n", camera.getTemperature());
 
         //printf("cpu temp is %3d\n", get_cpu_temperature());
         //for(int i = 0; i < 5; i++){
