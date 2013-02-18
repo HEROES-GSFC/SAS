@@ -10,7 +10,7 @@ PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
 INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/
 
-CFLAGS = -Wall $(INCLUDE)
+CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CFLAGS += -std=gnu++0x
 endif

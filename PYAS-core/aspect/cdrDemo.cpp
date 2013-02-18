@@ -63,7 +63,7 @@ pthread_mutex_t mutexImage;
 sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
-cv::Point fiducialLocations[NUM_LOCS];
+cv::Point2f fiducialLocations[NUM_LOCS];
 
 int numFiducials;
 Semaphore frameReady, frameProcessed;
@@ -185,7 +185,7 @@ void *ImageProcessThread(void *threadid)
     cv::Range rowRange, colRange;
     matchKernel(kernel);
 
-    cv::Point localFiducialLocations[NUM_LOCS];
+    cv::Point2f localFiducialLocations[NUM_LOCS];
     int localNumFiducials;
     
     while(1)

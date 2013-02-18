@@ -331,10 +331,10 @@ int matchFindFiducials(cv::InputArray _image, cv::InputArray _kernel, int thresh
 			minIdx = -1;
 			for(int k = 0; k < numLocs; k++)
 			{
-			    if (detect.at<float>((cv::Point) locs[k]) < min)
+			    if (detect.at<float>(locs[k]) < min)
 			    {
 				minIdx = k;
-				min = detect.at<float>((cv::Point) locs[k]);
+				min = detect.at<float>(locs[k]);
 			    }	
 			}
 			if (curVal > min)
