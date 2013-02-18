@@ -152,9 +152,9 @@ void *CameraStreamThread( void * threadid)
             
 	    camera.Snap(localFrame);
 
-        printf("CameraStreamThread: trying to lock\n");
+        //printf("CameraStreamThread: trying to lock\n");
         pthread_mutex_lock(&mutexImage);
-        printf("CameraStreamThread: got lock, copying over\n");
+        //printf("CameraStreamThread: got lock, copying over\n");
 	    localFrame.copyTo(frame);
         printf("%d\n", frame.at<uint8_t>(0,0));
         pthread_mutex_unlock(&mutexImage);
@@ -200,19 +200,19 @@ void *ImageProcessThread(void *threadid)
                 }
             }
     
-            printf("ImageProcessThread: trying to lock\n");
+            //printf("ImageProcessThread: trying to lock\n");
             if (pthread_mutex_trylock(&mutexImage) == 0){
-                printf("ImageProcessThread: got lock\n");
+                //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty()){
                     frame.copyTo(localFrame);
-                    printf("%d\n", localFrame.at<uint8_t>(0,0));
+                    //printf("%d\n", localFrame.at<uint8_t>(0,0));
                     frameSize = localFrame.size();
                     height = frameSize.height;
                     width = frameSize.width;
-                    printf("working on chords now\n");
+                    //printf("working on chords now\n");
                     chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
 
-                    printf("done working on image %d %d\n", chordOutput[0], chordOutput[1]);
+                    //printf("done working on image %d %d\n", chordOutput[0], chordOutput[1]);
                 
                     if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
                     {
