@@ -59,6 +59,7 @@ unsigned int stop_message[NUM_THREADS];
 pthread_t threads[NUM_THREADS];
 pthread_attr_t attr;
 pthread_mutex_t mutexImage;
+pthread_mutex_t mutexProcess;
 
 sig_atomic_t volatile g_running = 1;
 
@@ -191,6 +192,8 @@ void *ImageProcessThread(void *threadid)
 
     cv::Point2f localFiducialLocations[NUM_LOCS];
     int localNumFiducials;
+
+    CoordList localLimbs;
     
     while(1)
     {
@@ -220,15 +223,17 @@ void *ImageProcessThread(void *threadid)
                     height = frameSize.height;
                     width = frameSize.width;
                     //printf("working on chords now\n");
-                    chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, localChordOutput, limbs);
+
+
+                    chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, localChordOutput, localLimbs);
                     memcpy(chordOutput, localChordOutput, sizeof(double)*6);
 
-                    printf("sun center is %lf %lf, %d limbs\n", chordOutput[0], chordOutput[1], limbs.size());
+                    printf("sun center is %lf %lf, %d limbs\n", chordOutput[0], chordOutput[1], localLimbs.size());
 
                     std::cout << "Limb crossings: ";
 
-                    for (uint8_t l = 0; l < limbs.size(); l++) {
-                        std::cout << " (" << limbs[l].x << ", " << limbs[l].y << ")";
+                    for (uint8_t l = 0; l < localLimbs.size(); l++) {
+                        std::cout << " (" << localLimbs[l].x << ", " << localLimbs[l].y << ")";
                     }
 
                     std::cout << std::endl;
@@ -243,6 +248,10 @@ void *ImageProcessThread(void *threadid)
                         localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
                     }
                     
+                    pthread_mutex_lock(&mutexProcess);
+
+                    limbs = localLimbs;
+
                     numFiducials = localNumFiducials;
 
                     std::cout << "Fiducials:";
@@ -257,6 +266,8 @@ void *ImageProcessThread(void *threadid)
                     std::cout << std::endl;
                     
                     frameProcessed.increment();
+
+                    pthread_mutex_unlock(&mutexProcess);
                 }
             pthread_mutex_unlock(&mutexImage);        
             }
@@ -322,25 +333,25 @@ void *TelemetryPackagerThread(void *threadid)
         tp << chordOutput[0];
         tp << chordOutput[1];
 
-//        if(pthread_mutex_trylock(&mutexImage) == 0) {
-//            memcpy(localFiducialLocations, fiducialLocations, sizeof(cv::Point2f)*NUM_LOCS);
-//            localLimbs = limbs;
-//            pthread_mutex_unlock(&mutexImage);
-//        }
+        if(pthread_mutex_trylock(&mutexProcess) == 0) {
+            memcpy(localFiducialLocations, fiducialLocations, sizeof(cv::Point2f)*NUM_LOCS);
+            localLimbs = limbs;
+            pthread_mutex_unlock(&mutexProcess);
+        }
 
         for(int i = 0; i < NUM_LOCS; i++){
             if (i < numFiducials) {
-                tp << (float) fiducialLocations[i].x;
-                tp << (float) fiducialLocations[i].y;
+                tp << (float) localFiducialLocations[i].x;
+                tp << (float) localFiducialLocations[i].y;
             } else {
                 tp << (float)0 << (float)0;
             }
         }
 
         for(uint8_t j = 0; j < 20; j++) {
-            if (j < limbs.size()) {
-                tp << limbs[j].x;
-                tp << limbs[j].y;
+            if (j < localLimbs.size()) {
+                tp << localLimbs[j].x;
+                tp << localLimbs[j].y;
             } else {
                 tp << (float)0 << (float)0;
             }
@@ -479,6 +490,7 @@ void start_all_threads( void ){
     long t;
  
     pthread_mutex_init(&mutexImage, NULL);
+    pthread_mutex_init(&mutexProcess, NULL);
  
     // reset stop message
     for(int i = 0; i < NUM_THREADS; i++ ){
@@ -579,6 +591,7 @@ int main(void)
         printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
     }
     pthread_mutex_destroy(&mutexImage);
+    pthread_mutex_destroy(&mutexProcess);
     pthread_exit(NULL);
     
     return 0;
