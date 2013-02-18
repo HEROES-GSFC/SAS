@@ -73,7 +73,7 @@ int exposure = 10000;
 int frameRate = 250;
 int cameraReady = 0;
 
-long long double camera_temperature;
+long long camera_temperature;
 
 double chordOutput[6];
 
