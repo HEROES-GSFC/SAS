@@ -2,8 +2,6 @@
 
 int main()
 {
-    TelemetryStream *tStream;
-
 	ImperxStream *sweetThang;
 	sweetThang = new ImperxStream;
 
