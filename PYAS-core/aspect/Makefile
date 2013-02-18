@@ -10,7 +10,7 @@ PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
 INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/
 
-CFLAGS = -Wall $(INCLUDE)
+CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CFLAGS += -std=gnu++0x
 endif
@@ -39,8 +39,8 @@ fidDemo: fidDemo.cpp processing.o compression.o
 threadDemo: threadDemo.cpp processing.o utilities.o ImperxStream.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) -pg
 
-packetDemo: packetDemo.cpp TelemetrySender.o ImperxStream.o utilities.o lib_crc.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(IMPERX) $(THREAD)
+packetDemo: packetDemo.cpp ImperxStream.o utilities.o
+	$(CC) $(CFLAGS) $^ -o $@ $(IMPERX)
 
 commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@
@@ -48,8 +48,8 @@ commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
 networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-cdrDemo: cdrDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+cdrDemo: cdrDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) -pg
 
 test_command: test_command.cpp Packet.o Command.o lib_crc.o UDPSender.o
 	$(CC) $(CFLAGS) $^ -o $@
