@@ -4,8 +4,10 @@
 #include <vector>
 #include <math.h>
 
-int chordCenter(const unsigned char* image, int M, int N, int chords, int thresh, double* center)
+int chordCenter(const unsigned char* image, int M, int N, int chords, int thresh, double* center, CoordList &limbs)
 {
+    limbs.clear();
+
     int loc = 0;
     //CRAZINESS!
     int total[2] = {0};
@@ -20,7 +22,7 @@ int chordCenter(const unsigned char* image, int M, int N, int chords, int thresh
     {
 	loc = (int) ((float) l*M/chords + M/(2*chords));
 	//std::cout << "Trying row: " << loc << "\n";
-	if ((temp = chord(image, thresh, 4, loc, M, N, 0)) >= 0)
+	if ((temp = chord(image, thresh, 4, loc, M, N, 0, limbs)) >= 0)
 	{
 	    total[0]++;
 	    center[0] += temp;
@@ -30,7 +32,7 @@ int chordCenter(const unsigned char* image, int M, int N, int chords, int thresh
 		
 	loc = (int) ((float) l*N/chords + N/(2*chords));
 	//std::cout << "Trying col: " << loc << "\n";
-	if ((temp = chord(image, thresh, 2, loc, M, N, 1)) >=0)
+	if ((temp = chord(image, thresh, 2, loc, M, N, 1, limbs)) >=0)
 	{
 	    total[1]++;
 	    center[1] += temp;
@@ -57,7 +59,7 @@ int chordCenter(const unsigned char* image, int M, int N, int chords, int thresh
     return 0;
 }
 
-double chord(const unsigned char* image, int thresh, int width, int loc, int M, int N, bool mode)
+double chord(const unsigned char* image, int thresh, int width, int loc, int M, int N, bool mode, CoordList &limbs)
 {
     std::vector<bool> edge_dir;
     std::vector< std::vector<int> > idx;
@@ -160,6 +162,13 @@ double chord(const unsigned char* image, int thresh, int width, int loc, int M, 
 	    slope = (double) (Num*xy - x*y)/D;
 	    intercept = (double) (y*xx - xy*x)/D;
 	    center += .5*(thresh - intercept)/slope;
+
+            if (mode == 0) { //looking at rows
+              limbs.add((thresh - intercept)/slope, loc);
+            } else {
+              limbs.add(loc, (thresh - intercept)/slope);
+            }
+
 	}
     }
     return center;
@@ -272,7 +281,7 @@ int morphFindFiducials(cv::Mat image, morphParams rowParams, morphParams colPara
     return nLocs;
 }
 
-int matchFindFiducials(cv::InputArray _image, cv::InputArray _kernel, int threshold, cv::Point* locs, int numLocs)
+int matchFindFiducials(cv::InputArray _image, cv::InputArray _kernel, int threshold, cv::Point2f* locs, int numLocs)
 {
     cv::Scalar mean, stddev;
     cv::Size imSize, kerSize;
@@ -322,7 +331,7 @@ int matchFindFiducials(cv::InputArray _image, cv::InputArray _kernel, int thresh
 		{
 		    if (locIdx < numLocs)
 		    {
-			locs[locIdx] = cv::Point(n,m);
+			locs[locIdx] = cv::Point2f(n,m);
 			locIdx++;
 		    }
 		    else
@@ -339,7 +348,7 @@ int matchFindFiducials(cv::InputArray _image, cv::InputArray _kernel, int thresh
 			}
 			if (curVal > min)
 			{
-			    locs[minIdx] = cv::Point(n,m);
+			    locs[minIdx] = cv::Point2f(n,m);
 			}
 		    }
 		}
