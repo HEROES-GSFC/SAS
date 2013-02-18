@@ -163,6 +163,7 @@ void *CameraStreamThread( void * threadid)
         pthread_mutex_unlock(&mutexImage);
 
 	    //printf("camera temp is %lld\n", camera.getTemperature());
+		camera_temperature = camera.getTemperature();
 
 	    frameReady.increment();
 	    fine_wait(0,frameRate - exposure,0,0);
@@ -255,7 +256,7 @@ void *TelemetrySenderThread(void *threadid)
 
     while(1)    // run forever
     {
-        sleep(1);
+        usleep(50000);
         
         if( !tm_packet_queue.empty() ){
             TelemetryPacket tp(0x70, 0x30);
@@ -298,10 +299,12 @@ void *TelemetryPackagerThread(void *threadid)
         
         tp << chordOutput[0];
         tp << chordOutput[1];
-        //for(int i = 0; i < 14; i++){
-        //    tp << (uint16_t)chordsX[i];
-         //   tp << (uint16_t)chordsY[i];
-        //}
+        for(int i = 0; i < NUM_LOCS; i++){
+            tp << (float) fiducialLocations[i].x;
+            tp << (float) fiducialLocations[i].y;
+        }
+        
+        tp << (int) camera_temperature;
         
         //add telemetry packet to the queue
         tm_packet_queue << tp;
