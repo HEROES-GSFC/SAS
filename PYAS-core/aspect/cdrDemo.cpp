@@ -65,6 +65,8 @@ sig_atomic_t volatile g_running = 1;
 cv::Mat frame;
 cv::Point2f fiducialLocations[NUM_LOCS];
 
+CoordList limbs;
+
 int numFiducials;
 Semaphore frameReady, frameProcessed;
 int runtime = 10;
@@ -185,6 +187,8 @@ void *ImageProcessThread(void *threadid)
     cv::Range rowRange, colRange;
     matchKernel(kernel);
 
+    double localChordOutput[6];
+
     cv::Point2f localFiducialLocations[NUM_LOCS];
     int localNumFiducials;
     
@@ -216,9 +220,18 @@ void *ImageProcessThread(void *threadid)
                     height = frameSize.height;
                     width = frameSize.width;
                     //printf("working on chords now\n");
-                    chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
+                    chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, localChordOutput, limbs);
+                    memcpy(chordOutput, localChordOutput, sizeof(double)*6);
 
-                    printf("sun center is %lf %lf\n", chordOutput[0], chordOutput[1]);
+                    printf("sun center is %lf %lf, %d limbs\n", chordOutput[0], chordOutput[1], limbs.size());
+
+                    std::cout << "Limb crossings: ";
+
+                    for (uint8_t l = 0; l < limbs.size(); l++) {
+                        std::cout << " (" << limbs[l].x << ", " << limbs[l].y << ")";
+                    }
+
+                    std::cout << std::endl;
                 
                     if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
                     {
@@ -231,12 +244,17 @@ void *ImageProcessThread(void *threadid)
                     }
                     
                     numFiducials = localNumFiducials;
+
+                    std::cout << "Fiducials:";
+
                     for (int k = 0; k < localNumFiducials; k++)
                     {
                         fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
                         fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
-		                std::cout << "First Fiducial at: " << fiducialLocations[0].x << ", " << fiducialLocations[0].y << "\n";
+		                std::cout << " (" << fiducialLocations[k].x << ", " << fiducialLocations[k].y << ")";
                     }
+
+                    std::cout << std::endl;
                     
                     frameProcessed.increment();
                 }
@@ -279,10 +297,14 @@ void *TelemetryPackagerThread(void *threadid)
     printf("Hello World! It's me, thread #%ld!\n", tid);
     
     sleep(1);      // delay a little compared to the TelemetrySenderThread
+
+    cv::Point2f localFiducialLocations[NUM_LOCS];
+
+    CoordList localLimbs;
     
     while(1)    // run forever
     {
-        sleep(1);
+        usleep(250000);
         tm_frame_sequence_number++;
         
         //Telemetry packet from SAS containing an array
@@ -299,9 +321,29 @@ void *TelemetryPackagerThread(void *threadid)
         
         tp << chordOutput[0];
         tp << chordOutput[1];
+
+//        if(pthread_mutex_trylock(&mutexImage) == 0) {
+//            memcpy(localFiducialLocations, fiducialLocations, sizeof(cv::Point2f)*NUM_LOCS);
+//            localLimbs = limbs;
+//            pthread_mutex_unlock(&mutexImage);
+//        }
+
         for(int i = 0; i < NUM_LOCS; i++){
-            tp << (float) fiducialLocations[i].x;
-            tp << (float) fiducialLocations[i].y;
+            if (i < numFiducials) {
+                tp << (float) fiducialLocations[i].x;
+                tp << (float) fiducialLocations[i].y;
+            } else {
+                tp << (float)0 << (float)0;
+            }
+        }
+
+        for(uint8_t j = 0; j < 20; j++) {
+            if (j < limbs.size()) {
+                tp << limbs[j].x;
+                tp << limbs[j].y;
+            } else {
+                tp << (float)0 << (float)0;
+            }
         }
         
         tp << (int) camera_temperature;
