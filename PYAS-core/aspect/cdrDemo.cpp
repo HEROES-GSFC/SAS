@@ -162,7 +162,7 @@ void *CameraStreamThread( void * threadid)
         //printf("%d\n", frame.at<uint8_t>(0,0));
         pthread_mutex_unlock(&mutexImage);
 
-	    printf("camera temp is %lld\n", camera.getTemperature());
+	    //printf("camera temp is %lld\n", camera.getTemperature());
 
 	    frameReady.increment();
 	    fine_wait(0,frameRate - exposure,0,0);
@@ -234,6 +234,7 @@ void *ImageProcessThread(void *threadid)
                     {
                         fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
                         fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
+                        printf("Fiducial %i (%lf, %lf)", k, fiducialLocations[k].x, fiducialLocations[k].y);
                     }
                     
                     frameProcessed.increment();
