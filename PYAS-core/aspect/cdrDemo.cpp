@@ -159,10 +159,10 @@ void *CameraStreamThread( void * threadid)
         pthread_mutex_lock(&mutexImage);
         //printf("CameraStreamThread: got lock, copying over\n");
 	    localFrame.copyTo(frame);
-        printf("%d\n", frame.at<uint8_t>(0,0));
+        //printf("%d\n", frame.at<uint8_t>(0,0));
         pthread_mutex_unlock(&mutexImage);
 
-	    //printf("camera temp is %lld\n", camera.getTemperature());
+	    printf("camera temp is %lld\n", camera.getTemperature());
 
 	    frameReady.increment();
 	    fine_wait(0,frameRate - exposure,0,0);
@@ -217,7 +217,7 @@ void *ImageProcessThread(void *threadid)
                     //printf("working on chords now\n");
                     chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
 
-                    //printf("done working on image %d %d\n", chordOutput[0], chordOutput[1]);
+                    printf("sun center is %lf %lf\n", chordOutput[0], chordOutput[1]);
                 
                     if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
                     {

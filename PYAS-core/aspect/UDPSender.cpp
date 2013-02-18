@@ -75,7 +75,7 @@ void TelemetrySender::send( TelemetryPacket *packet )
 
     if( init_connection() >= 0){
         // update the frame number every time we send out a packet
-        printf("UDPSender: Sending to %s\n", sendtoIP);
+        //printf("UDPSender: Sending to %s\n", sendtoIP);
         
         uint8_t *payload = new uint8_t[packet->getLength()];
         packet->outputTo(payload);
@@ -99,7 +99,7 @@ void CommandSender::send( CommandPacket *packet )
     
     if( init_connection() >= 0){
         // update the frame number every time we send out a packet
-        printf("Sending to %s\n", sendtoIP);
+        //printf("Sending to %s\n", sendtoIP);
         
         uint8_t *payload = new uint8_t[packet->getLength()];
         packet->outputTo(payload);
