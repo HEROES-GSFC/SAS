@@ -59,11 +59,14 @@ unsigned int stop_message[NUM_THREADS];
 pthread_t threads[NUM_THREADS];
 pthread_attr_t attr;
 pthread_mutex_t mutexImage;
+pthread_mutex_t mutexProcess;
 
 sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
 cv::Point2f fiducialLocations[NUM_LOCS];
+
+CoordList limbs;
 
 int numFiducials;
 Semaphore frameReady, frameProcessed;
@@ -185,8 +188,12 @@ void *ImageProcessThread(void *threadid)
     cv::Range rowRange, colRange;
     matchKernel(kernel);
 
+    double localChordOutput[6];
+
     cv::Point2f localFiducialLocations[NUM_LOCS];
     int localNumFiducials;
+
+    CoordList localLimbs;
     
     while(1)
     {
@@ -216,9 +223,20 @@ void *ImageProcessThread(void *threadid)
                     height = frameSize.height;
                     width = frameSize.width;
                     //printf("working on chords now\n");
-                    chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, chordOutput);
 
-                    printf("sun center is %lf %lf\n", chordOutput[0], chordOutput[1]);
+
+                    chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, localChordOutput, localLimbs);
+                    memcpy(chordOutput, localChordOutput, sizeof(double)*6);
+
+                    printf("sun center is %lf %lf, %d limbs\n", chordOutput[0], chordOutput[1], localLimbs.size());
+
+                    std::cout << "Limb crossings: ";
+
+                    for (uint8_t l = 0; l < localLimbs.size(); l++) {
+                        std::cout << " (" << localLimbs[l].x << ", " << localLimbs[l].y << ")";
+                    }
+
+                    std::cout << std::endl;
                 
                     if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
                     {
@@ -230,15 +248,26 @@ void *ImageProcessThread(void *threadid)
                         localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
                     }
                     
+                    pthread_mutex_lock(&mutexProcess);
+
+                    limbs = localLimbs;
+
                     numFiducials = localNumFiducials;
+
+                    std::cout << "Fiducials:";
+
                     for (int k = 0; k < localNumFiducials; k++)
                     {
                         fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
                         fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
-		                std::cout << "Fiducial at: " << fiducialLocations[k].x << ", " << fiducialLocations[k].y << "\n";
+		                std::cout << " (" << fiducialLocations[k].x << ", " << fiducialLocations[k].y << ")";
                     }
+
+                    std::cout << std::endl;
                     
                     frameProcessed.increment();
+
+                    pthread_mutex_unlock(&mutexProcess);
                 }
             pthread_mutex_unlock(&mutexImage);        
             }
@@ -279,10 +308,14 @@ void *TelemetryPackagerThread(void *threadid)
     printf("Hello World! It's me, thread #%ld!\n", tid);
     
     sleep(1);      // delay a little compared to the TelemetrySenderThread
+
+    cv::Point2f localFiducialLocations[NUM_LOCS];
+
+    CoordList localLimbs;
     
     while(1)    // run forever
     {
-        sleep(1);
+        usleep(250000);
         tm_frame_sequence_number++;
         
         //Telemetry packet from SAS containing an array
@@ -299,9 +332,29 @@ void *TelemetryPackagerThread(void *threadid)
         
         tp << chordOutput[0];
         tp << chordOutput[1];
+
+        if(pthread_mutex_trylock(&mutexProcess) == 0) {
+            memcpy(localFiducialLocations, fiducialLocations, sizeof(cv::Point2f)*NUM_LOCS);
+            localLimbs = limbs;
+            pthread_mutex_unlock(&mutexProcess);
+        }
+
         for(int i = 0; i < NUM_LOCS; i++){
-            tp << (float) fiducialLocations[i].x;
-            tp << (float) fiducialLocations[i].y;
+            if (i < numFiducials) {
+                tp << (float) localFiducialLocations[i].x;
+                tp << (float) localFiducialLocations[i].y;
+            } else {
+                tp << (float)0 << (float)0;
+            }
+        }
+
+        for(uint8_t j = 0; j < 20; j++) {
+            if (j < localLimbs.size()) {
+                tp << localLimbs[j].x;
+                tp << localLimbs[j].y;
+            } else {
+                tp << (float)0 << (float)0;
+            }
         }
         
         tp << (int) camera_temperature;
@@ -437,6 +490,7 @@ void start_all_threads( void ){
     long t;
  
     pthread_mutex_init(&mutexImage, NULL);
+    pthread_mutex_init(&mutexProcess, NULL);
  
     // reset stop message
     for(int i = 0; i < NUM_THREADS; i++ ){
@@ -537,6 +591,7 @@ int main(void)
         printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
     }
     pthread_mutex_destroy(&mutexImage);
+    pthread_mutex_destroy(&mutexProcess);
     pthread_exit(NULL);
     
     return 0;

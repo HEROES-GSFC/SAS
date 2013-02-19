@@ -1,7 +1,14 @@
 #include <opencv.hpp>
+#include <vector>
 
-int chordCenter(const unsigned char*, int, int, int, int, double*);
-double chord(const unsigned char*, int, int, int, int, int, bool);
+class CoordList : public std::vector<cv::Point2f>
+{
+  public:
+    void add(float x, float y) { this->push_back(cv::Point2f(x, y)); }
+};
+
+int chordCenter(const unsigned char*, int, int, int, int, double*, CoordList&);
+double chord(const unsigned char*, int, int, int, int, int, bool, CoordList&);
 
 struct morphParams{
     bool dim;
