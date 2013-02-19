@@ -226,9 +226,7 @@ void *ImageProcessThread(void *threadid)
 
 
                     chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, localChordOutput, localLimbs);
-                    memcpy(chordOutput, localChordOutput, sizeof(double)*6);
-
-                    printf("sun center is %lf %lf, %d limbs\n", chordOutput[0], chordOutput[1], localLimbs.size());
+                    printf("sun center is %lf %lf, %d limbs\n", localChordOutput[0], localChordOutput[1], localLimbs.size());
 
                     std::cout << "Limb crossings: ";
 
@@ -238,17 +236,19 @@ void *ImageProcessThread(void *threadid)
 
                     std::cout << std::endl;
                 
-                    if (chordOutput[0] > 0 && chordOutput[1] > 0 && chordOutput[0] < width && chordOutput[1] < height)
+                    if (localChordOutput[0] > 0 && localChordOutput[1] > 0 && localChordOutput[0] < width && localChordOutput[1] < height)
                     {
-                        rowRange.end = (((int) chordOutput[1]) + SOLAR_RADIUS < height-1) ? (((int) chordOutput[1]) + SOLAR_RADIUS) : (height-1);
-                        rowRange.start = (((int) chordOutput[1]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[1]) - SOLAR_RADIUS) : 0;
-                        colRange.end = (((int) chordOutput[0]) + SOLAR_RADIUS < width) ? (((int) chordOutput[0]) + SOLAR_RADIUS) : (width-1);
-                        colRange.start = (((int) chordOutput[0]) - SOLAR_RADIUS > 0) ? (((int) chordOutput[0]) - SOLAR_RADIUS) : 0;
+                        rowRange.end = (((int) localChordOutput[1]) + SOLAR_RADIUS < height-1) ? (((int) localChordOutput[1]) + SOLAR_RADIUS) : (height-1);
+                        rowRange.start = (((int) localChordOutput[1]) - SOLAR_RADIUS > 0) ? (((int) localChordOutput[1]) - SOLAR_RADIUS) : 0;
+                        colRange.end = (((int) localChordOutput[0]) + SOLAR_RADIUS < width) ? (((int) localChordOutput[0]) + SOLAR_RADIUS) : (width-1);
+                        colRange.start = (((int) localChordOutput[0]) - SOLAR_RADIUS > 0) ? (((int) localChordOutput[0]) - SOLAR_RADIUS) : 0;
                         subImage = localFrame(rowRange, colRange);
                         localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
                     }
                     
                     pthread_mutex_lock(&mutexProcess);
+
+                    memcpy(chordOutput, localChordOutput, sizeof(double)*6);
 
                     limbs = localLimbs;
 
@@ -312,6 +312,7 @@ void *TelemetryPackagerThread(void *threadid)
     cv::Point2f localFiducialLocations[NUM_LOCS];
 
     CoordList localLimbs;
+    double localChordOutput[6];
     
     while(1)    // run forever
     {
@@ -330,14 +331,15 @@ void *TelemetryPackagerThread(void *threadid)
         //    printf("voltage is %d V\n", get_cpu_voltage(i));
         //}
         
-        tp << chordOutput[0];
-        tp << chordOutput[1];
-
         if(pthread_mutex_trylock(&mutexProcess) == 0) {
+            memcpy(localChordOutput, chordOutput, sizeof(double)*6);
             memcpy(localFiducialLocations, fiducialLocations, sizeof(cv::Point2f)*NUM_LOCS);
             localLimbs = limbs;
             pthread_mutex_unlock(&mutexProcess);
         }
+
+        tp << localChordOutput[0];
+        tp << localChordOutput[1];
 
         for(int i = 0; i < NUM_LOCS; i++){
             if (i < numFiducials) {
