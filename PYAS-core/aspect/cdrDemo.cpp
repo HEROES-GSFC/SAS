@@ -235,7 +235,7 @@ void *ImageProcessThread(void *threadid)
                     {
                         fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
                         fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
-		                std::cout << "First Fiducial at: " << fiducialLocations[0].x << ", " << fiducialLocations[0].y << "\n";
+		                std::cout << "Fiducial at: " << fiducialLocations[k].x << ", " << fiducialLocations[k].y << "\n";
                     }
                     
                     frameProcessed.increment();
