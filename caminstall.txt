@@ -2,7 +2,7 @@
 pacman -Syu
 
 run whatever.run   (what is this?)
-run sudo apt-get install expat  (pacpamn -S expat   ?)
+run sudo apt-get install expat  (pacman -S expat   ?)
 run mkdir ~/wherever/it/goes    (why?  backup?)
 run cp -rf /opt/pleora/ebus_sdk/share/samples/* ~/wherever/it/goes
 edit line 21 of sample.Makefile:
