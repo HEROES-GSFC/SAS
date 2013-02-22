@@ -1,6 +1,9 @@
-run whatever.run
-run sudo apt-get install expat
-run mkdir ~/wherever/it/goes
+;updated your database
+pacman -Syu
+
+run whatever.run   (what is this?)
+run sudo apt-get install expat  (pacpamn -S expat   ?)
+run mkdir ~/wherever/it/goes    (why?  backup?)
 run cp -rf /opt/pleora/ebus_sdk/share/samples/* ~/wherever/it/goes
 edit line 21 of sample.Makefile:
 	PUREGEV_ROOT ?= /opt/pleora/ebus_sdk
@@ -14,6 +17,13 @@ create /etc/ld.so.conf.d/imperx.conf with these lines:
 run sudo ldconfig
 run sudo chmod +x /opt/pleora/ebus_sdk/bin/set_puregev_env
 on startup run source /opt/pleora/ebus_sdk/bin/set_puregev_env
+
+;install opencv
+pacman -S opencv
+;install git
+pacman -S git
+;install ssh
+pacman -S openssh
 
 
 
