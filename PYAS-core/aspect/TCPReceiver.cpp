@@ -15,7 +15,7 @@ TCPReceiver::TCPReceiver( unsigned short port ){
     listeningPort = port;
 }
 
-unsigned int TCPReceiver::accept( void ){
+unsigned int TCPReceiver::accept_packet( void ){
     unsigned int bytes_received;
     
     struct sockaddr_in senderAddr; // Client address
