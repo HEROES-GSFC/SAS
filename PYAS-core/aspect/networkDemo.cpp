@@ -5,6 +5,9 @@
 #define SAS_SYNC_WORD 0xEB90
 #define SAS_CM_ACK_TYPE 0x01
 
+#define numXpixels 1392
+#define numYpixels 1090
+
 #include <stdio.h>      /* for printf() and fprintf() */
 #include <pthread.h>    /* for multithreading */
 #include <stdlib.h>     /* for atoi() and exit() */
@@ -320,8 +323,8 @@ int main(void)
                 case 0x0103:    // send TCP packet
                     {TCPSender tcpSender(ip, (unsigned short) 5010);
                     tcpSender.init_connection();
-                    int dimx = 1300;
-                    int dimy = 780;
+                    int dimx = numXpixels;
+                    int dimy = numYpixels;
                     uint8_t img[dimx * dimy];
                     for( int i = 0; i < (dimx * dimy); i++ ){ img[i] = i; }
                     uint32_t img_index;

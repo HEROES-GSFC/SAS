@@ -16,7 +16,8 @@ TCPReceiver::TCPReceiver( unsigned short port ){
 }
 
 unsigned int TCPReceiver::accept( void ){
-
+    unsigned int bytes_received;
+    
     struct sockaddr_in senderAddr; // Client address
     // Set length of client address structure (in-out parameter)
     socklen_t senderAddrLen = sizeof(senderAddr);
@@ -31,9 +32,11 @@ unsigned int TCPReceiver::accept( void ){
     { printf("Handling client %s/%d\n", sender_name, ntohs(senderAddr.sin_port)); }
     else {puts("Unable to get client address");}
     
-    handle_tcpclient( client_sock );
+    bytes_received = handle_tcpclient( client_sock );
   
     close_connection();
+    
+    return bytes_received;
 }
 
 void TCPReceiver::init_connection( void ){
@@ -65,7 +68,7 @@ void TCPReceiver::close_connection( void ){
     close( my_sock );
 }
 
-void TCPReceiver::handle_tcpclient( int client_socket ){
+unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
     char buffer[BUFSIZE]; // Buffer for incoming packet
     // Receive message from client
     ssize_t numBytesRcvd = recv(client_socket, buffer, BUFSIZE, 0);
@@ -78,6 +81,7 @@ void TCPReceiver::handle_tcpclient( int client_socket ){
         if (numBytesRcvd < 0){ printf("recv() failed"); }
     }
     close(client_socket); // Close client socket
+    return numBytesRcvd
 }
 
 
