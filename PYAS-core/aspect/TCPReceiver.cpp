@@ -32,7 +32,7 @@ unsigned int TCPReceiver::accept_packet( void ){
     { printf("Handling client %s/%d\n", sender_name, ntohs(senderAddr.sin_port)); }
     else {puts("Unable to get client address");}
     
-    bytes_received = handle_tcpclient( client_sock );
+    bytes_received = handle_tcpclient( sender_sock );
   
     close_connection();
     
@@ -41,7 +41,7 @@ unsigned int TCPReceiver::accept_packet( void ){
 
 void TCPReceiver::init_connection( void ){
     /* Create socket for sending/receiving datagrams */
-    if ((my_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) < 0)
+    if ((my_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
         printf("socket() failed");
 
     /* Construct local address structure */
@@ -55,13 +55,13 @@ void TCPReceiver::init_connection( void ){
         printf("bind() failed");
 
     // Mark the socket so it will listen for incoming connections
-    if ((listen(my_sock, MAXPENDING) < 0){
+    if (listen(my_sock, MAXPENDING) < 0){
         printf("Listen() failed\n");}
    
 }
 
 void TCPReceiver::get_packet( uint8_t *packet ){
-    memcpy( packet, payload, recvMsgSize);
+    memcpy( packet, payload, numBytesRcvd);
 }
 
 void TCPReceiver::close_connection( void ){
@@ -81,7 +81,7 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
         if (numBytesRcvd < 0){ printf("recv() failed"); }
     }
     close(client_socket); // Close client socket
-    return numBytesRcvd
+    return numBytesRcvd;
 }
 
 
