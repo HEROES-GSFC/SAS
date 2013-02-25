@@ -26,7 +26,7 @@ class TCPReceiver {
         
         void get_packet( uint8_t *packet  );
         unsigned int handle_tcpclient( int client_socket );
-        unsigned int accept_packet();
+        int accept_packet();
         void init_connection( void );
         void close_connection( void );
 };
