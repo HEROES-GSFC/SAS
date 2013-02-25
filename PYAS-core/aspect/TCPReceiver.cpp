@@ -24,7 +24,7 @@ unsigned int TCPReceiver::accept_packet( void ){
     
     // Wait for a client to connect
     int sender_sock = accept(my_sock, (struct sockaddr *) &senderAddr, &senderAddrLen);
-    if (client_sock < 0){ printf("Accept() failed\n"); }
+    if (sender_sock < 0){ printf("Accept() failed\n"); }
     
     // clntSock is connected to a client!
     char sender_name[INET_ADDRSTRLEN]; // String to contain client address
