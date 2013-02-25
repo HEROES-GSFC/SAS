@@ -24,16 +24,19 @@ unsigned int TCPReceiver::accept_packet( void ){
     
     // Wait for a client to connect
     int sender_sock = accept(my_sock, (struct sockaddr *) &senderAddr, &senderAddrLen);
-    if (sender_sock < 0){ printf("Accept() failed\n"); }
+    if (sender_sock < 0){ 
+        printf("Accept() failed\n");
+        return -1;
+    }
     
     // clntSock is connected to a client!
     char sender_name[INET_ADDRSTRLEN]; // String to contain client address
     if (inet_ntop(AF_INET, &senderAddr.sin_addr.s_addr, sender_name, sizeof(sender_name)) != NULL)
     { printf("Handling client %s/%d\n", sender_name, ntohs(senderAddr.sin_port)); }
-    else {puts("Unable to get client address");}
+    else {puts("Unable to get client address\n");}
     
     bytes_received = handle_tcpclient( sender_sock );
-  
+    printf("bytes received = %i\n", bytes_received);
     close_connection();
     
     return bytes_received;
@@ -42,7 +45,7 @@ unsigned int TCPReceiver::accept_packet( void ){
 void TCPReceiver::init_connection( void ){
     /* Create socket for sending/receiving datagrams */
     if ((my_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
-        printf("socket() failed");
+        printf("socket() failed\n");
 
     /* Construct local address structure */
     struct sockaddr_in myAddr;
@@ -53,7 +56,7 @@ void TCPReceiver::init_connection( void ){
 
     /* Bind to the local address */
     if (bind(my_sock, (struct sockaddr *) &myAddr, sizeof(myAddr)) < 0)
-        printf("bind() failed");
+        printf("bind() failed\n");
 
     // Mark the socket so it will listen for incoming connections
     if (listen(my_sock, MAXPENDING) < 0){
@@ -63,7 +66,7 @@ void TCPReceiver::init_connection( void ){
 }
 
 void TCPReceiver::get_packet( uint8_t *packet ){
-    memcpy( packet, payload, numBytesRcvd);
+    if( numBytesRcvd > 0 ){ memcpy( packet, payload, numBytesRcvd); }
 }
 
 void TCPReceiver::close_connection( void ){
@@ -71,16 +74,24 @@ void TCPReceiver::close_connection( void ){
 }
 
 unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
-    char buffer[BUFSIZE]; // Buffer for incoming packet
+    numBytesRcvd = 0;
+    
     // Receive message from client
-    ssize_t numBytesRcvd = recv(client_socket, buffer, BUFSIZE, 0);
-    if (numBytesRcvd < 0){ printf("recv() failed"); }
+    ssize_t bytes = recv(client_socket, payload, BUFSIZE, 0);
+    printf("received %i\n", bytes);
 
+    if (bytes < 0){ 
+        printf("recv() failed\n");
+        return numBytesRcvd;
+    }
+    numBytesRcvd += bytes;
     // Receive again until end of stream
-    while (numBytesRcvd > 0) { // 0 indicates end of stream
+    while (bytes > 0) { // 0 indicates end of stream
         // See if there is more data to receive
-        numBytesRcvd = recv(client_socket, buffer, BUFSIZE, 0);
-        if (numBytesRcvd < 0){ printf("recv() failed"); }
+        bytes = recv(client_socket, payload, BUFSIZE, 0);
+        printf("received %i\n", bytes);
+        numBytesRcvd += bytes;
+        if (numBytesRcvd < 0){ printf("recv() failed\n"); }
     }
     close(client_socket); // Close client socket
     return numBytesRcvd;
