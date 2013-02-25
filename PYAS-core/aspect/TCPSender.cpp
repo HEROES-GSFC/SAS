@@ -38,14 +38,13 @@ int TCPSender::init_connection( void )
     sendAddr.sin_family = AF_INET;                 /* Internet addr family */
     int rtnVal = inet_pton(AF_INET, sendtoIP, &sendAddr.sin_addr.s_addr);
     if (rtnVal <= 0){
-        printf("inet_pton() failed nvalid address string\n");
+        printf("inet_pton() failed invalid address string\n");
         return -1;
     }
-    sendAddr.sin_addr.s_addr = inet_addr(sendtoIP);  /* Server IP address */
     sendAddr.sin_port = htons(sendPort);     /* Server port */
-    
+    printf("%i\n", sendPort);
     if (connect(sock, (struct sockaddr *) &sendAddr, sizeof(sendAddr)) < 0){
-        printf("Connect() failed");
+        printf("Connect() failed\n");
         return -1;
     }
     

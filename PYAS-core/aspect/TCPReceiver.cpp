@@ -45,10 +45,11 @@ void TCPReceiver::init_connection( void ){
         printf("socket() failed");
 
     /* Construct local address structure */
-    memset(&myAddr, 0, sizeof(myAddr));   /* Zero out structure */
-    myAddr.sin_family = AF_INET;                /* Internet address family */
-    myAddr.sin_addr.s_addr = htonl(INADDR_ANY); /* Any incoming interface */
-    myAddr.sin_port = htons(listeningPort);      /* Local port */
+    struct sockaddr_in myAddr;
+    memset(&myAddr, 0, sizeof(myAddr));
+    servAddr.sin_family = AF_INET;
+    servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servAddr.sin_port = htons(listeningPort);
 
     /* Bind to the local address */
     if (bind(my_sock, (struct sockaddr *) &myAddr, sizeof(myAddr)) < 0)
@@ -56,7 +57,8 @@ void TCPReceiver::init_connection( void ){
 
     // Mark the socket so it will listen for incoming connections
     if (listen(my_sock, MAXPENDING) < 0){
-        printf("Listen() failed\n");}
+        printf("Listen() failed\n");
+    }
    
 }
 
