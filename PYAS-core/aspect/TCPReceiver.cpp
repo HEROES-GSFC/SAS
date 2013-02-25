@@ -4,8 +4,8 @@
 
 #include "TCPReceiver.hpp"
 
-#define MAXPENDING 5; // Maximum outstanding connection requests
-#define BUFSIZE 100;
+#define MAXPENDING 5 // Maximum outstanding connection requests
+#define BUFSIZE 100
 
 TCPReceiver::TCPReceiver(void){
     listeningPort = 5010;
@@ -23,7 +23,7 @@ unsigned int TCPReceiver::accept( void ){
     
     // Wait for a client to connect
     int sender_sock = accept(my_sock, (struct sockaddr *) &senderAddr, &senderAddrLen);
-    if (clntSock < 0){ printf("Accept() failed\n"); }
+    if (client_sock < 0){ printf("Accept() failed\n"); }
     
     // clntSock is connected to a client!
     char sender_name[INET_ADDRSTRLEN]; // String to contain client address
@@ -31,14 +31,14 @@ unsigned int TCPReceiver::accept( void ){
     { printf("Handling client %s/%d\n", sender_name, ntohs(senderAddr.sin_port)); }
     else {puts("Unable to get client address");}
     
-    HandleTCPClient( client_sock );
+    handle_tcpclient( client_sock );
   
     close_connection();
 }
 
 void TCPReceiver::init_connection( void ){
     /* Create socket for sending/receiving datagrams */
-    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) < 0)
+    if ((my_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) < 0)
         printf("socket() failed");
 
     /* Construct local address structure */
@@ -48,11 +48,11 @@ void TCPReceiver::init_connection( void ){
     myAddr.sin_port = htons(listeningPort);      /* Local port */
 
     /* Bind to the local address */
-    if (bind(sock, (struct sockaddr *) &myAddr, sizeof(myAddr)) < 0)
+    if (bind(my_sock, (struct sockaddr *) &myAddr, sizeof(myAddr)) < 0)
         printf("bind() failed");
 
     // Mark the socket so it will listen for incoming connections
-    if (listen(my_sock, MAXPENDING) < 0){
+    if ((listen(my_sock, MAXPENDING) < 0){
         printf("Listen() failed\n");}
    
 }

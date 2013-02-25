@@ -24,9 +24,9 @@ class TCPReceiver {
         TCPReceiver( void );
         TCPReceiver( unsigned short port );
         
-        unsigned int listen( void );
         void get_packet( uint8_t *packet  );
         void handle_tcpclient( int client_socket );
+        void accept();
         void init_connection( void );
         void close_connection( void );
 };
