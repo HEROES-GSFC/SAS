@@ -28,7 +28,7 @@ TCPSender::~TCPSender()
 int TCPSender::init_connection( void )
 {
     /* Create a datagram/TCP socket */
-    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) < 0){
+    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) < 0)){
         printf("TCPSender: socket() failed\n");
         return -1;
     }
@@ -38,7 +38,7 @@ int TCPSender::init_connection( void )
     sendAddr.sin_family = AF_INET;                 /* Internet addr family */
     int rtnVal = inet_pton(AF_INET, sendtoIP, &sendAddr.sin_addr.s_addr);
     if (rtnVal <= 0){
-        printf("inet_pton() failed", "invalid address string");
+        printf("inet_pton() failed nvalid address string\n");
         return -1;
     }
     sendAddr.sin_addr.s_addr = inet_addr(sendtoIP);  /* Server IP address */
@@ -57,7 +57,7 @@ void TCPSender::close_connection( void )
     close(sock);
 }
 
-void TCPSender::send( TelemetryPacket *packet )
+void TCPSender::send_packet( TelemetryPacket *packet )
 {    
     int bytesSent;
 
@@ -77,53 +77,3 @@ void TCPSender::send( TelemetryPacket *packet )
     }
     close_connection();
 }
-
-// TelemetrySender::TelemetrySender( const char *ip, unsigned short port )
-//   : TCPSender(ip, port) { }
-// 
-// void TelemetrySender::send( TelemetryPacket *packet )
-// {
-//     int bytesSent;
-// 
-//     if( init_connection() >= 0){
-//         // update the frame number every time we send out a packet
-//         printf("TCPSender: Sending to %s\n", sendtoIP);
-//         
-//         uint8_t *payload = new uint8_t[packet->getLength()];
-//         packet->outputTo(payload);
-//     
-//         bytesSent = sendto(sock, payload, packet->getLength(), 0, (struct sockaddr *)
-//                    &sendAddr, sizeof(sendAddr));
-//         if (bytesSent != packet->getLength()){
-//                 printf("CommandSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
-//             }
-//         if (bytesSent == -1){ printf("CommandSender: sendto() failed!\n"); }
-//     }
-//     close_connection();
-// }
-// 
-// CommandSender::CommandSender( const char *ip, unsigned short port )
-//   : TCPSender(ip, port) { }
-// 
-// void CommandSender::send( CommandPacket *packet )
-// {
-//     int bytesSent;
-//     
-//     if( init_connection() >= 0){
-//         // update the frame number every time we send out a packet
-//         printf("Sending to %s\n", sendtoIP);
-//         
-//         uint8_t *payload = new uint8_t[packet->getLength()];
-//         packet->outputTo(payload);
-//     
-//         /* Send the string to the server */
-//         
-//         bytesSent = sendto(sock, payload, packet->getLength(), 0, (struct sockaddr *)
-//                    &sendAddr, sizeof(sendAddr));
-//         if (bytesSent != packet->getLength()){
-//                 printf("CommandSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
-//             }
-//         if (bytesSent == -1){ printf("CommandSender: sendto() failed!\n"); }
-//         close_connection();
-//     }      
-// }

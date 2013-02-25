@@ -6,11 +6,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "Practical.h"
 
 int main(int argc, char *argv[]) {
-    if (argc < 3 || argc > 4) // Test for correct number of arguments
-    printf("Parameter(s)", "<Server Address> <Echo Word> [<Server Port>]");
+    if (argc < 3 || argc > 4){ // Test for correct number of arguments
+        printf("Parameter(s) <Server Address> <Echo Word> [<Server Port>]");
+        exit(0);
+    }
     
     char *servIP = argv[1]; // First arg: server IP address (dotted quad)
     char *echoString = argv[2]; // Second arg: string to echo

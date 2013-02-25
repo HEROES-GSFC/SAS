@@ -14,21 +14,7 @@ class TCPSender {
         TCPSender( const char *ip, unsigned short port );
 	    ~TCPSender();
         
-        virtual void send(  TelemetryPacket *packet  );
+        virtual void send_packet(  TelemetryPacket *packet  );
         int init_connection( void );
         void close_connection( void );
 };
-
-// class TelemetrySender: public TCPSender {
-//    
-//     public:
-//         TelemetrySender( const char *ip, unsigned short port );
-//         virtual void send( TelemetryPacket *packet );
-// };
-// 
-// class CommandSender: public TCPSender {
-// 
-//     public:
-//         CommandSender( const char *ip, unsigned short port );
-//         virtual void send( CommandPacket *packet );
-// };

@@ -14,6 +14,7 @@
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
+#include "TCPSender.hpp"
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
@@ -316,6 +317,23 @@ int main(void)
                     sleep(1);
                     start_all_threads();
                     break;
+                case 0x0103:    // send TCP packet
+                    {TCPSender tcpSender(ip, (unsigned short) 5010);
+                    tcpSender.init_connection();
+                    int dimx = 1300;
+                    int dimy = 780;
+                    uint8_t img[dimx * dimy];
+                    for( int i = 0; i < (dimx * dimy); i++ ){ img[i] = i; }
+                    uint32_t img_index;
+                    for( int i = 0; i < (dimx * dimy)/10; i++ ){
+                        img_index = i * (dimx * dimy)/10;                    
+                        TelemetryPacket tp(0x70, 0x30);
+                        tp << (uint16_t)img_index;
+                        for( int j = 0; j < 50; j++){ tp << img[j]; }
+                        tcpSender.send_packet( &tp );
+                    }
+                    break;
+                    }
                 default:        // unknown command!
                     printf("Unknown command!\n");
             }
