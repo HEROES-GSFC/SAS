@@ -47,9 +47,9 @@ void TCPReceiver::init_connection( void ){
     /* Construct local address structure */
     struct sockaddr_in myAddr;
     memset(&myAddr, 0, sizeof(myAddr));
-    servAddr.sin_family = AF_INET;
-    servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servAddr.sin_port = htons(listeningPort);
+    myAddr.sin_family = AF_INET;
+    myAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    myAddr.sin_port = htons(listeningPort);
 
     /* Bind to the local address */
     if (bind(my_sock, (struct sockaddr *) &myAddr, sizeof(myAddr)) < 0)
