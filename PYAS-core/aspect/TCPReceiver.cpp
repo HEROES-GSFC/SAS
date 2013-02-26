@@ -50,7 +50,7 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
     while (bytes > 0) { // 0 indicates end of stream
         // See if there is more data to receive
         bytes = recv(client_socket, payload, BUFSIZE, 0);
-        //printf("received %i\n", bytes);
+        printf("received %i\n", bytes);
         if (bytes < 0){ printf("recv() failed\n"); } else { numBytesRcvd += bytes; }
     }
     //close(client_socket); // Close client socket
