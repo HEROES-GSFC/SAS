@@ -139,11 +139,16 @@ void *CameraStreamThread( void * threadid)
 	    std::cout << "Error connecting to camera!\n";	
     }
     else{
-        // width and height are passed out while exposure is passed in!
-        // CRAZY!
-        camera.ConfigureSnap(width, height, exposure);
-        localFrame.create(height, width, CV_8UC1);
-        camera.Initialize();
+        camera.ConfigureSnap();
+	camera.SetROISize(966,966);
+	camera.SetROIOrigin(165,0);
+	camera.SetExposure(exposure);
+	
+	width = camera.GetROIWidth();
+	height = camera.GetROIHeight();
+	localFrame.create(height, width, CV_8UC1);
+	camera.Initialize();
+
         cameraReady = 1;
 	}
 	

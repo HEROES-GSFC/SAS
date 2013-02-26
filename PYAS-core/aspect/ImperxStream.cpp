@@ -8,6 +8,12 @@ ImperxStream::ImperxStream()
     lDeviceInfo = 0;
 }
 
+ImperxStream::~ImperxStream()
+{
+    Stop();
+    Disconnect();
+}
+
 int ImperxStream::Connect()
 {
     PvResult lResult;	
@@ -157,7 +163,7 @@ int ImperxStream::Connect(const std::string &IP)
 	printf( "No device found\n" );
     }
     // Get device parameters need to control streaming
-    PvGenParameterArray *lDeviceParams = lDevice.GetGenParameters();
+    lDeviceParams = lDevice.GetGenParameters();
 
     return 0;
 }
@@ -202,11 +208,7 @@ void ImperxStream::Snap(cv::Mat &frame)
     // The pipeline is already "armed", we just have to tell the device
     // to start sending us images
     lDeviceParams->ExecuteCommand( "AcquisitionStart" );
-
-    PvInt64 lImageCountVal = 0;
-    double lFrameRateVal = 0.0;
-    double lBandwidthVal = 0.0;
-
+    int lWidth, lHeight;
     // Retrieve next buffer		
     PvBuffer *lBuffer = NULL;
     PvResult lOperationResult;
@@ -217,12 +219,7 @@ void ImperxStream::Snap(cv::Mat &frame)
 	if ( lOperationResult.IsOK() )
 	{
 	    // Process Buffer
-	    lStreamParams->GetIntegerValue( "ImagesCount", lImageCountVal );
-	    lStreamParams->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
-	    lStreamParams->GetFloatValue( "BandwidthAverage", lBandwidthVal );
             
-	    // If the buffer contains an image, display width and height
-	    int lWidth = 0, lHeight = 0;
 	    if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
 	    {
 		// Get image specific buffer interface
@@ -254,9 +251,6 @@ void ImperxStream::Snap(cv::Mat &frame)
 	}
 	// We have an image - do some processing (...) and VERY IMPORTANT,
 	// release the buffer back to the pipeline
-	//semaphore thing
-	//get all in there.
-	//a semaphore thing
 
 	lPipeline.ReleaseBuffer( lBuffer );
     }
@@ -266,73 +260,6 @@ void ImperxStream::Snap(cv::Mat &frame)
     }
 }
 
-void ImperxStream::Stream(unsigned char *frame, Semaphore &frame_semaphore, Flag &stream_flag)
-{
-    // The pipeline is already "armed", we just have to tell the device
-    // to start sending us images
-    printf( "Sending StartAcquisition command to device\n" );
-    lDeviceParams->ExecuteCommand( "AcquisitionStart" );
-
-    char lDoodle[] = "|\\-|-/";
-    int lDoodleIndex = 0;
-    PvInt64 lImageCountVal = 0;
-    double lFrameRateVal = 0.0;
-    double lBandwidthVal = 0.0;
-
-    // Acquire images until the user instructs us to stop
-    printf( "\n<press a key to stop streaming>\n" );
-    while ( stream_flag.check() )
-    {
-	std::cout << "here\n";
-	// Retrieve next buffer		
-	PvBuffer *lBuffer = NULL;
-	PvResult  lOperationResult;
-	PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
-        
-	if ( lResult.IsOK() )
-        {
-	    if ( lOperationResult.IsOK() )
-            {
-		// Process Buffer
-		lStreamParams->GetIntegerValue( "ImagesCount", lImageCountVal );
-		lStreamParams->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
-		lStreamParams->GetFloatValue( "BandwidthAverage", lBandwidthVal );
-            
-		// If the buffer contains an image, display width and height
-		PvUInt32 lWidth = 0, lHeight = 0;
-		if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
-		{
-		    // Get image specific buffer interface
-		    PvImage *lImage = lBuffer->GetImage();
-
-		    // Read width, height
-		    lWidth = lBuffer->GetImage()->GetWidth();
-		    lHeight = lBuffer->GetImage()->GetHeight();
-		    stream_flag.raise();	    
-
-		}
-
-		std::cout << lWidth << " " << lHeight << "\n";
-	    
-            }
-	    // We have an image - do some processing (...) and VERY IMPORTANT,
-	    // release the buffer back to the pipeline
-	    //semaphore thing
-	    //get all in there.
-	    //a semaphore thing
-    	
-	    lPipeline.ReleaseBuffer( lBuffer );
-        }
-	else
-        {
-	    // Timeout
-	    printf( "%c Timeout\r", lDoodle[ lDoodleIndex ] );
-        }
-
-	++lDoodleIndex %= 6;
-
-    }
-}
 
 long long int ImperxStream::getTemperature()
 {		
@@ -369,16 +296,85 @@ void ImperxStream::Disconnect()
     lDevice.Disconnect();
 }
 
-void ImperxStream::ConfigureSnap(int &width, int &height, int exposure)
+void ImperxStream::ConfigureSnap()
 {
-    PvInt64 lWidth, lHeight;
     lDeviceParams->SetEnumValue("AcquisitionMode","SingleFrame");
     lDeviceParams->SetEnumValue("ExposureMode","Timed");
-    lDeviceParams->SetEnumValue("PixelFormat","Mono8");
-    lDeviceParams->SetIntegerValue("ExposureTimeRaw",exposure);
-    lDeviceParams->GetIntegerValue("Height", lHeight);
-    lDeviceParams->GetIntegerValue("Width", lWidth);
-    height = (int) lHeight;
-    width = (int) lWidth;
+    lDeviceParams->SetEnumValue("PixelFormat","Mono8");    
 }
 
+void ImperxStream::SetExposure(int exposureTime)
+{
+    lDeviceParams->SetIntegerValue("ExposureTimeRaw",exposureTime);
+}
+
+void ImperxStream::SetROISize(cv::Size size)
+{
+    lDeviceParams->SetIntegerValue("Height", size.height);
+    lDeviceParams->SetIntegerValue("Width", size.width);
+}
+
+void ImperxStream::SetROISize(int width, int height)
+{
+    lDeviceParams->SetIntegerValue("Height", height);
+    lDeviceParams->SetIntegerValue("Width", width);
+}
+
+void ImperxStream::SetROIHeight(int height)
+{
+    lDeviceParams->SetIntegerValue("Height", height);
+}
+
+void ImperxStream::SetROIWidth(int width)
+{
+    lDeviceParams->SetIntegerValue("Width", width);
+}
+
+void ImperxStream::SetROIOrigin(cv::Point origin)
+{
+    lDeviceParams->SetIntegerValue("OffsetX", origin.x);
+    lDeviceParams->SetIntegerValue("OffsetY", origin.y);
+}
+
+void ImperxStream::SetROIOrigin(int x, int y)
+{
+    lDeviceParams->SetIntegerValue("OffsetX", x);
+    lDeviceParams->SetIntegerValue("OffsetY", y);
+}
+
+int ImperxStream::GetExposure()
+{
+    PvInt64 exposure;
+    lDeviceParams->GetIntegerValue("ExposureTimeRaw", exposure);
+    return (int) exposure;
+}
+
+cv::Size ImperxStream::GetROISize()
+{
+    PvInt64 height, width;
+    lDeviceParams->GetIntegerValue("Height", height);
+    lDeviceParams->GetIntegerValue("Width", width);
+    return cv::Size(width, height);
+}
+
+cv::Point ImperxStream::GetROIOrigin()
+{
+    PvInt64 x, y;
+    lDeviceParams->SetIntegerValue("OffsetX", x);
+    lDeviceParams->SetIntegerValue("OffsetY", y);
+    return cv::Point(x,y);
+}
+
+int ImperxStream::GetROIHeight()
+{
+    PvInt64 height;
+    lDeviceParams->GetIntegerValue("Height", height);
+    return (int) height;
+}
+
+int ImperxStream::GetROIWidth()
+{
+    PvInt64 width;
+    lDeviceParams->GetIntegerValue("Width", width);
+    return (int) width;
+}

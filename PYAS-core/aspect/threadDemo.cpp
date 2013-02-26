@@ -17,6 +17,7 @@
 #include <mutex>
 #include "ImperxStream.hpp"
 #include "processing.hpp"
+#include "utilities.hpp"
 
 cv::Mat frame;
 cv::Point center;
@@ -39,7 +40,13 @@ void stream_image()
     }
     else
     {
-	camera.ConfigureSnap(width, height, exposure);
+	camera.ConfigureSnap();
+	camera.SetROISize(966,966);
+	camera.SetROIOrigin(165,0);
+	camera.SetExposure(exposure);
+	
+	width = camera.GetROIWidth();
+	height = camera.GetROIHeight();
 	localFrame.create(height, width, CV_8UC1);
 	camera.Initialize();
 	do
@@ -67,7 +74,7 @@ void stream_image()
 	} while (true);
     }
 }
-
+/*
 void process_image()
 {
     cv::Size frameSize;
@@ -145,7 +152,7 @@ void process_image()
 	frameProcessed.increment();
     } while(true);		        
 }
-
+*/
 void display()
 {
     bool validCenter;
@@ -212,7 +219,7 @@ int main()
     std::cout << "Enter frame period in ms (>= 250): ";
     std::cin >> frameRate;
     std::thread stream(stream_image);
-    std::thread process(process_image);
+    //  std::thread process(process_image);
     std::thread show(display);
 
     
@@ -223,7 +230,7 @@ int main()
     enableMutex.unlock();
 
     stream.join();
-    process.join();
+//    process.join();
     show.join();
 
     std::cout << "All threads stopped. Exiting\n";

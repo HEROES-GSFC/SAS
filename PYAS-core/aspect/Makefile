@@ -7,7 +7,7 @@ CC=g++
 GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
 
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
-OPENCVDIR = /usr/include/opencv2/
+OPENCVDIR = /usr/local/include/opencv2/
 INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/
 
 CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas

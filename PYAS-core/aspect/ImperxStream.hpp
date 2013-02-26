@@ -8,22 +8,36 @@
 #include <PvStreamRaw.h>
 
 #include <string>
-#include "utilities.hpp"
 #include <opencv.hpp>
 
 class ImperxStream
 {
 public:
     ImperxStream();
+    ~ImperxStream();
     int Connect();
     int Connect(const std::string &IP);
     //get/set parameters(name, value);
     void Initialize();
-    void ConfigureSnap(int &width, int &height, int exposure);
-    void Stream(unsigned char *frame, Semaphore &frame_semaphore, Flag &stream_flag);
+    void ConfigureSnap();
     void Snap(cv::Mat &frame);
     void Stop();
     void Disconnect();
+    
+    void SetExposure(int exposureTime);
+    void SetROISize(cv::Size size);
+    void SetROISize(int width, int height);
+    void SetROIOrigin(cv::Point origin);
+    void SetROIOrigin(int x, int y);
+    void SetROIHeight(int height);
+    void SetROIWidth(int width);
+    
+    int GetExposure();
+    cv::Size GetROISize();
+    cv::Point GetROIOrigin();
+    int GetROIHeight();
+    int GetROIWidth();
+
     long long int getTemperature( void );
 
 private:
