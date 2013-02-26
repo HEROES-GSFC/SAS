@@ -14,8 +14,8 @@ class TCPReceiver {
         int my_sock;                /* My Socket */
         struct sockaddr_in myAddr;      /* Local address */
         struct sockaddr_in senderAddr;  /* Sender address */
-    
-        unsigned int senderAddrLen;        /* Length of incoming message */
+        socklen_t senderAddrLen;
+
         char payload[PACKET_MAX_SIZE];  /* Buffer for echo string */
         unsigned short listeningPort;   /* The port to listen to */
         unsigned int numBytesRcvd;                /* Size of received message */

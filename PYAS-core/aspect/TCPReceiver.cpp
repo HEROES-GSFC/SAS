@@ -51,8 +51,7 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
         // See if there is more data to receive
         bytes = recv(client_socket, payload, BUFSIZE, 0);
         //printf("received %i\n", bytes);
-        numBytesRcvd += bytes;
-        if (numBytesRcvd < 0){ printf("recv() failed\n"); }
+        if (bytes < 0){ printf("recv() failed\n"); } else { numBytesRcvd += bytes; }
     }
     //close(client_socket); // Close client socket
     return numBytesRcvd;
@@ -71,7 +70,7 @@ void TCPReceiver::init_connection( void ){
     myAddr.sin_port = htons(listeningPort);
 
     // Set length of client address structure (in-out parameter)
-    socklen_t senderAddrLen = sizeof(senderAddr);
+    senderAddrLen = sizeof(senderAddr);
 
     /* Bind to the local address */
     if (bind(my_sock, (struct sockaddr *) &myAddr, sizeof(myAddr)) < 0)

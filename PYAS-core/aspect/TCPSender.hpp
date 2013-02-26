@@ -7,7 +7,7 @@ class TCPSender {
         struct sockaddr_in sendAddr;    /* Echo server address */
         unsigned int fromSize;          /* In-out of address size for recvfrom() */
         char *sendtoIP;                 /* IP address to send to */
-        unsigned short sendPort;        /* Port to send on*/
+        in_port_t sendPort;        /* Port to send on*/
 
     public:
         TCPSender( void );

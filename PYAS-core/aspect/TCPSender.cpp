@@ -27,27 +27,25 @@ TCPSender::~TCPSender()
 
 int TCPSender::init_connection( void )
 {
-    /* Create a datagram/TCP socket */
-    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) < 0)){
-        printf("TCPSender: socket() failed\n");
-        return -1;
-    }
-
-    /* Construct the server address structure */
-    memset(&sendAddr, 0, sizeof(sendAddr));    /* Zero out structure */
-    sendAddr.sin_family = AF_INET;                 /* Internet addr family */
-    int rtnVal = inet_pton(AF_INET, sendtoIP, &sendAddr.sin_addr.s_addr);
-    if (rtnVal <= 0){
-        printf("inet_pton() failed invalid address string\n");
-        return -1;
-    }
-    sendAddr.sin_port = htons(sendPort);     /* Server port */
-    printf("%i\n", sendPort);
-    if (connect(sock, (struct sockaddr *) &sendAddr, sizeof(sendAddr)) < 0){
-        printf("Connect() failed\n");
-        return -1;
-    }
     
+    // Create a reliable, stream socket using TCP
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock < 0){ printf("socket() failed"); }
+    
+    // Construct the server address structure
+    struct sockaddr_in servAddr; // Server address
+    memset(&servAddr, 0, sizeof(servAddr)); // Zero out structure
+    servAddr.sin_family = AF_INET; // IPv4 address family
+    // Convert address
+    int rtnVal = inet_pton(AF_INET, sendtoIP, &servAddr.sin_addr.s_addr);
+    if (rtnVal == 0){ printf("inet_pton() failed", "invalid address string"); }
+    else if (rtnVal < 0){ printf("inet_pton() failed"); }
+    servAddr.sin_port = htons(sendPort); // Server port
+    
+    // Establish the connection to the echo server
+    if (connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0)
+    { printf("connect() failed"); }
+
     return sock;
 }
 
@@ -60,7 +58,7 @@ void TCPSender::send_packet( TelemetryPacket *packet )
 {    
     int bytesSent;
 
-    if( init_connection() >= 0){
+    if( sock > 0){
         // update the frame number every time we send out a packet
         printf("TCPSender: Sending to %s\n", sendtoIP);
         
@@ -74,5 +72,4 @@ void TCPSender::send_packet( TelemetryPacket *packet )
             }
         if (bytesSent == -1){ printf("CommandSender: sendto() failed!\n"); }
     }
-    close_connection();
 }

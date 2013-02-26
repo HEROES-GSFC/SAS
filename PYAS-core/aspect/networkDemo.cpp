@@ -27,7 +27,7 @@ uint16_t latest_sas_command_key = 0x0000;
 uint32_t tm_frame_sequence_number = 0;
 
 // loopback IP, just talking to myself
-char ip[] = "10.1.48.136";
+char ip[] = "192.168.1.114";
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -248,19 +248,24 @@ void *sendImageHandler( void *threadid )
     uint32_t dimy = numYpixels;
 
     uint32_t img_index;  
-
-    for( uint32_t i = 0; i < (dimx * dimy)/10; i++ ){
+    
+    for( int i = 0; i < 100; i++ ){
+        printf("%d\n", i);
         img_index = i * (dimx * dimy)/10;
         TelemetryPacket tp(0x70, 0x30);
-        tp << (uint16_t)img_index;
-        for( int j = 0; j < 50; j++){ tp << (uint8_t) j; }
-        //tcpSender.send_packet( &tp );
-        
+        //tp << (uint16_t)img_index;
+        //for( int j = 0; j < 50; j++){ tp << (uint8_t) j; }
+        //std::cout << tp << std::endl;
+        tcpSender.send_packet( &tp );
+        sleep(1);
         if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
-    }          	    
+    }
+    tcpSender.close_connection();
+    printf("Done\n");
+    pthread_exit( NULL );
     return NULL;
 }
 
@@ -346,7 +351,6 @@ int main(void)
             Command command;
             command = Command();
             recvd_command_queue >> command;
-            //recvd_command_queue.pop_front();
 
             latest_sas_command_key = command.get_sas_command();
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
