@@ -168,8 +168,14 @@ int ImperxStream::Connect(const std::string &IP)
     return 0;
 }
 
-void ImperxStream::Initialize()
+int ImperxStream::Initialize()
 {
+    if(lDeviceInfo == NULL)
+    {
+	std::cout << "No device connected!\n";
+	return -1;
+    }
+
     // Negotiate streaming packet size
     lDevice.NegotiatePacketSize();
 
@@ -201,6 +207,7 @@ void ImperxStream::Initialize()
 
     printf( "Resetting timestamp counter...\n" );
     lDeviceParams->ExecuteCommand( "GevTimestampControlReset" );
+    return 0;
 }
     
 void ImperxStream::Snap(cv::Mat &frame)
@@ -273,21 +280,28 @@ long long int ImperxStream::getTemperature()
 void ImperxStream::Stop()
 {
     // Tell the device to stop sending images
-    printf( "Sending AcquisitionStop command to the device\n" );
+    std::cout << "Stop: Send AcquisitionStop\n";
     lDeviceParams->ExecuteCommand( "AcquisitionStop" );
-
+    
     // If present reset TLParamsLocked to 0. Must be done AFTER the 
     // streaming has been stopped
+    std::cout << "Stop: set TLParamsLocked to 0\n";
     lDeviceParams->SetIntegerValue( "TLParamsLocked", 0 );
-
+    
     // We stop the pipeline - letting the object lapse out of 
     // scope would have had the destructor do the same, but we do it anyway
-    printf( "Stop pipeline\n" );
-    lPipeline.Stop();
+    std::cout << "Stop: Stop pipeline\n";
+    if(lPipeline.IsStarted())
+    {
+	lPipeline.Stop();
+    }
 
     // Now close the stream. Also optionnal but nice to have
-    printf( "Closing stream\n" );
-    lStream.Close();
+    std::cout << "Stop: Closing stream\n";
+    if(lStream.IsOpen())
+    {
+	lStream.Close();
+    }
 }
 
 void ImperxStream::Disconnect()

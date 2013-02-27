@@ -18,7 +18,7 @@ public:
     int Connect();
     int Connect(const std::string &IP);
     //get/set parameters(name, value);
-    void Initialize();
+    int Initialize();
     void ConfigureSnap();
     void Snap(cv::Mat &frame);
     void Stop();

@@ -37,6 +37,7 @@ void stream_image()
     if (camera.Connect() != 0)
     {
 	std::cout << "Error connecting to camera!\n";	
+	return;
     }
     else
     {
@@ -48,7 +49,11 @@ void stream_image()
 	width = camera.GetROIWidth();
 	height = camera.GetROIHeight();
 	localFrame.create(height, width, CV_8UC1);
-	camera.Initialize();
+	if(camera.Initialize() != 0)
+	{
+	    std::cout << "Error initializing camera!\n";
+	    return;
+	}
 	do
 	{
 	    enableMutex.lock();
@@ -156,6 +161,8 @@ void process_image()
 void display()
 {
     bool validCenter;
+    cv::Mat localFrame;
+    cv::namedWindow("Current Frame", CV_WINDOW_AUTOSIZE);
     do
     {
 
@@ -180,7 +187,13 @@ void display()
 		fine_wait(0,frameRate/10,0,0);
 	    }
 	}
+	frameMutex.lock();
+	frame.copyTo(localFrame);
+	frameMutex.unlock();
 	
+	cv::imshow("Current Frame", localFrame);
+	cv::waitKey(10);
+/*	
 	centerMutex.lock();
 	validCenter = (center.x != -1 && center.y != -1);
 	if (validCenter)
@@ -204,6 +217,7 @@ void display()
 	}
 
 	fiducialMutex.unlock();
+*/
 	
     } while(true);
 }
