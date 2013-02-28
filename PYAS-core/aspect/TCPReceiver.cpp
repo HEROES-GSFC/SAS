@@ -36,10 +36,10 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
     else {puts("Unable to get client address\n");}
     
     numBytesRcvd = 0;
-    
+    printf("here now");
     // Receive message from client
     ssize_t bytes = recv(client_socket, payload, BUFSIZE, 0);
-    //printf("received %i\n", bytes);
+    printf("received %ld\n", bytes);
 
     if (bytes < 0){ 
         printf("recv() failed\n");
@@ -50,7 +50,7 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
     while (bytes > 0) { // 0 indicates end of stream
         // See if there is more data to receive
         bytes = recv(client_socket, payload, BUFSIZE, 0);
-        printf("received %i\n", bytes);
+        printf("received %ld\n", bytes);
         if (bytes < 0){ printf("recv() failed\n"); } else { numBytesRcvd += bytes; }
     }
     //close(client_socket); // Close client socket
