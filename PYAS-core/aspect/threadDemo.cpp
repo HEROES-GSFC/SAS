@@ -169,7 +169,7 @@ void display()
 {
     bool validCenter;
     cv::Mat localFrame;
-    cv::namedWindow("Current Frame", CV_WINDOW_AUTOSIZE);
+ //   cv::namedWindow("Current Frame", CV_WINDOW_AUTOSIZE);
     do
     {
 
@@ -199,9 +199,9 @@ void display()
 	frame.copyTo(localFrame);
 	frameMutex.unlock();
 	
-	cv::imshow("Current Frame", localFrame);
-	cv::waitKey(10);
-/*	
+//	cv::imshow("Current Frame", localFrame);
+//	cv::waitKey(10);
+	
 	centerMutex.lock();
 	validCenter = (center.x != -1 && center.y != -1);
 	if (validCenter)
@@ -225,7 +225,7 @@ void display()
 	}
 
 	fiducialMutex.unlock();
-*/
+
 	
     } while(true);
 }
