@@ -24,19 +24,27 @@ public:
     void Stop();
     void Disconnect();
     
-    void SetExposure(int exposureTime);
-    void SetROISize(cv::Size size);
-    void SetROISize(int width, int height);
-    void SetROIOrigin(cv::Point origin);
-    void SetROIOrigin(int x, int y);
-    void SetROIHeight(int height);
-    void SetROIWidth(int width);
+    /* Set-functions for camera values
+       returns 0 for a successful set,
+       returns -1 otherwise
+    */
+    int SetExposure(int exposureTime);
+    int SetROISize(cv::Size size);
+    int SetROISize(int width, int height);
+    int SetROIOffset(cv::Point offset);
+    int SetROIOffset(int x, int y);
+    int SetROIOffsetX(int x);
+    int SetROIOffsetY(int y);
+    int SetROIHeight(int height);
+    int SetROIWidth(int width);
     
     int GetExposure();
     cv::Size GetROISize();
-    cv::Point GetROIOrigin();
+    cv::Point GetROIOffset();
     int GetROIHeight();
     int GetROIWidth();
+    int GetROIOffsetX();
+    int GetROIOffsetY();
 
     long long int getTemperature( void );
 

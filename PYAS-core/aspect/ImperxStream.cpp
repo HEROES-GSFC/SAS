@@ -5,7 +5,9 @@ ImperxStream::ImperxStream()
     : lStream()
     , lPipeline( &lStream )
 {
-    lDeviceInfo = 0;
+    lDeviceInfo = NULL;
+    lDeviceParams = NULL;
+    lStreamParams = NULL;
 }
 
 ImperxStream::~ImperxStream()
@@ -71,6 +73,7 @@ int ImperxStream::Connect()
 	{
 	    printf( "Unable to connect to %s\n", 
 		    lDeviceInfo->GetMACAddress().GetAscii() );
+	    return -1;
 	}
 	else
 	{
@@ -81,6 +84,7 @@ int ImperxStream::Connect()
     else
     {
 	printf( "No device found\n" );
+	return -1;
     }
 
     // Get device parameters need to control streaming
@@ -151,6 +155,7 @@ int ImperxStream::Connect(const std::string &IP)
 	{
 	    printf( "Unable to connect to %s\n", 
 		    lDeviceInfo->GetMACAddress().GetAscii() );
+	    return -1;
 	}
 	else
 	{
@@ -161,6 +166,7 @@ int ImperxStream::Connect(const std::string &IP)
     else
     {
 	printf( "No device found\n" );
+	return -1;
     }
     // Get device parameters need to control streaming
     lDeviceParams = lDevice.GetGenParameters();
@@ -279,35 +285,42 @@ long long int ImperxStream::getTemperature()
 
 void ImperxStream::Stop()
 {
-    // Tell the device to stop sending images
-    std::cout << "Stop: Send AcquisitionStop\n";
-    lDeviceParams->ExecuteCommand( "AcquisitionStop" );
+    if (lDeviceParams != NULL)
+    {
+	// Tell the device to stop sending images
+	std::cout << "Stop: Send AcquisitionStop\n";
+	lDeviceParams->ExecuteCommand( "AcquisitionStop" );
     
-    // If present reset TLParamsLocked to 0. Must be done AFTER the 
-    // streaming has been stopped
-    std::cout << "Stop: set TLParamsLocked to 0\n";
-    lDeviceParams->SetIntegerValue( "TLParamsLocked", 0 );
-    
+	// If present reset TLParamsLocked to 0. Must be done AFTER the 
+	// streaming has been stopped
+	std::cout << "Stop: set TLParamsLocked to 0\n";
+	lDeviceParams->SetIntegerValue( "TLParamsLocked", 0 );
+    }
+
     // We stop the pipeline - letting the object lapse out of 
-    // scope would have had the destructor do the same, but we do it anyway
-    std::cout << "Stop: Stop pipeline\n";
+    // scope would have had the destructor do the same, but we do it anyway    
     if(lPipeline.IsStarted())
     {
+	std::cout << "Stop: Stop pipeline\n";
 	lPipeline.Stop();
     }
 
     // Now close the stream. Also optionnal but nice to have
-    std::cout << "Stop: Closing stream\n";
+    
     if(lStream.IsOpen())
     {
+	std::cout << "Stop: Closing stream\n";
 	lStream.Close();
     }
 }
 
 void ImperxStream::Disconnect()
 {
-    printf( "Disconnecting device\n" );
-    lDevice.Disconnect();
+    if(lDevice.IsConnected())
+    {
+	printf( "Disconnecting device\n" );
+	lDevice.Disconnect();
+    }
 }
 
 void ImperxStream::ConfigureSnap()
@@ -317,43 +330,111 @@ void ImperxStream::ConfigureSnap()
     lDeviceParams->SetEnumValue("PixelFormat","Mono8");    
 }
 
-void ImperxStream::SetExposure(int exposureTime)
+int ImperxStream::SetExposure(int exposureTime)
 {
-    lDeviceParams->SetIntegerValue("ExposureTimeRaw",exposureTime);
+    PvResult outcome;
+    if (exposureTime >= 5 && exposureTime <= 38221)
+    {
+	outcome = lDeviceParams->SetIntegerValue("ExposureTimeRaw",exposureTime);
+	if (outcome.IsSuccess())
+	{
+	    return 0;
+	}
+    }
+    return -1;
 }
 
-void ImperxStream::SetROISize(cv::Size size)
+int ImperxStream::SetROISize(cv::Size size)
 {
-    lDeviceParams->SetIntegerValue("Height", size.height);
-    lDeviceParams->SetIntegerValue("Width", size.width);
+    return SetROISize(size.width, size.height);
 }
 
-void ImperxStream::SetROISize(int width, int height)
+int ImperxStream::SetROISize(int width, int height)
 {
-    lDeviceParams->SetIntegerValue("Height", height);
-    lDeviceParams->SetIntegerValue("Width", width);
+    int outcomes[2];
+    outcomes[0] = SetROIHeight(height);
+    outcomes[1] = SetROIWidth(width);   
+    if (outcomes[0] == 0 && outcomes[1] == 0)
+    {
+	return 0;
+    }
+    return -1;
 }
 
-void ImperxStream::SetROIHeight(int height)
+int ImperxStream::SetROIHeight(int height)
 {
-    lDeviceParams->SetIntegerValue("Height", height);
+    PvResult outcome;
+    if (height >= 1 && height <= 966)
+    {
+	outcome = lDeviceParams->SetIntegerValue("Height", height);
+	if (outcome.IsSuccess())
+	{
+	    return 0;
+	}
+    }
+    return -1;
+}
+    
+int ImperxStream::SetROIWidth(int width)
+{
+    PvResult outcome;
+    if (width >= 8 && width <= 1296 && (width % 8) == 0)
+    {
+	outcome = lDeviceParams->SetIntegerValue("Width", width);
+	if (outcome.IsSuccess())
+	{
+	    return 0;
+	}
+    }
+    return -1;   
 }
 
-void ImperxStream::SetROIWidth(int width)
+int ImperxStream::SetROIOffset(cv::Point offset)
 {
-    lDeviceParams->SetIntegerValue("Width", width);
+    return SetROIOffset(offset.x, offset.y);
 }
 
-void ImperxStream::SetROIOrigin(cv::Point origin)
+int ImperxStream::SetROIOffset(int x, int y)
 {
-    lDeviceParams->SetIntegerValue("OffsetX", origin.x);
-    lDeviceParams->SetIntegerValue("OffsetY", origin.y);
+    int outcomes[2];
+    outcomes[0] = SetROIOffsetX(x);
+    outcomes[1] = SetROIOffsetY(y);   
+    if (outcomes[0] == 0 && outcomes[1] == 0)
+    {
+	return 0;
+    }
+    else
+    {
+	return -1;
+    }
 }
 
-void ImperxStream::SetROIOrigin(int x, int y)
+int ImperxStream::SetROIOffsetX(int x)
 {
-    lDeviceParams->SetIntegerValue("OffsetX", x);
-    lDeviceParams->SetIntegerValue("OffsetY", y);
+    PvResult outcome;
+    if (x >= 0 && x <= 965)
+    {
+	outcome = lDeviceParams->SetIntegerValue("OffsetX", x);
+	if (outcome.IsSuccess())
+	{
+	    return 0;
+	}
+    }
+    return -1;
+}
+
+int ImperxStream::SetROIOffsetY(int y)
+{
+    PvResult outcome;
+    if (y >= 0 && y <= 1295)
+    {
+	outcome = lDeviceParams->SetIntegerValue("OffsetY", y);
+	if (outcome.IsSuccess())
+	{
+	    return 0;
+	}
+    }
+    return -1;
 }
 
 int ImperxStream::GetExposure()
@@ -365,17 +446,17 @@ int ImperxStream::GetExposure()
 
 cv::Size ImperxStream::GetROISize()
 {
-    PvInt64 height, width;
-    lDeviceParams->GetIntegerValue("Height", height);
-    lDeviceParams->GetIntegerValue("Width", width);
+    int width, height;
+    width = GetROIWidth();
+    height = GetROIHeight();
     return cv::Size(width, height);
 }
 
-cv::Point ImperxStream::GetROIOrigin()
+cv::Point ImperxStream::GetROIOffset()
 {
-    PvInt64 x, y;
-    lDeviceParams->SetIntegerValue("OffsetX", x);
-    lDeviceParams->SetIntegerValue("OffsetY", y);
+    int x, y;
+    x = GetROIOffsetX();
+    y = GetROIOffsetY();
     return cv::Point(x,y);
 }
 
@@ -391,4 +472,18 @@ int ImperxStream::GetROIWidth()
     PvInt64 width;
     lDeviceParams->GetIntegerValue("Width", width);
     return (int) width;
+}
+
+int ImperxStream::GetROIOffsetX()
+{
+    PvInt64 x;
+    lDeviceParams->GetIntegerValue("OffsetX", x);
+    return (int) x;
+}
+
+int ImperxStream::GetROIOffsetY()
+{
+    PvInt64 y;
+    lDeviceParams->GetIntegerValue("OffsetY", y);
+    return (int) y;
 }

@@ -32,7 +32,7 @@ int runtime, exposure, frameRate;
 void stream_image()
 {    
     cv::Mat localFrame;
-    int width, height;
+    int width = 0, height = 0;
     ImperxStream camera;
     if (camera.Connect() != 0)
     {
@@ -42,13 +42,20 @@ void stream_image()
     else
     {
 	camera.ConfigureSnap();
-	camera.SetROISize(966,966);
-	camera.SetROIOrigin(165,0);
+	camera.SetROISize(960,960);
+	camera.SetROIOffset(165,0);
 	camera.SetExposure(exposure);
 	
 	width = camera.GetROIWidth();
 	height = camera.GetROIHeight();
+	if ( height == 0 || width == 0)
+	{
+	    std::cout << "Attempting to allocate frame of size 0\n";
+	    return;
+	}
+	
 	localFrame.create(height, width, CV_8UC1);
+	
 	if(camera.Initialize() != 0)
 	{
 	    std::cout << "Error initializing camera!\n";
@@ -179,7 +186,8 @@ void display()
 	    
 	    try
 	    {
-		frameProcessed.decrement();
+//		frameProcessed.decrement();
+		frameReady.decrement();
 		break;
 	    }
 	    catch(const char* e)
