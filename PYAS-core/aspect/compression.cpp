@@ -22,66 +22,52 @@ int writeFITSImage(cv::InputArray _image, const std::string fileName)
       
     try
     {                
-        // Create a new FITS object, specifying the data type and axes for the primary
-        // image. Simultaneously create the corresponding file.
-        
-        // this image is unsigned short data, demonstrating the cfitsio extension
-        // to the FITS standard.
-        
-        pFits.reset( new FITS(fileName , BYTE_IMG , naxis , naxes ) );
+        pFits.reset( new FITS(fileName , BYTE_IMG , 0 , 0 ) );
     }
     catch (FITS::CantCreate)
     {
           // ... or not, as the case may be.
           return -1;       
     }
-    
-    // references for clarity.
-    
+
     long nelements(1); 
     
-    
-    // Find the total size of the array. 
-    // this is a little fancier than necessary ( It's only
-    // calculating naxes[0]*naxes[1]) but it demonstrates  use of the 
-    // C++ standard library accumulate algorithm.
-    
-    nelements = size.width*size.height;
-           
-    // create a dummy row with a ramp. Create an array and copy the row to 
-    // row-sized slices. [also demonstrates the use of valarray slices].   
-    // also demonstrate implicit type conversion when writing to the image:
-    // input array will be of type float.
-
-    std::valarray<unsigned char> array(nelements);
-    for (int m = 0; m < size.height; m++)
-    {
-	for (int n = 0; n < size.width; n++)
-	{
-	    array[size.width*m + n] = image.at<unsigned char>(m,n);     
-	}
-    }
+    std::vector<long int> extAx;
+    extAx.push_back(size.width);
+    extAx.push_back(size.height);
+    string newName ("Raw Frame");
    
+    pFits->setCompressionType(RICE_1);
+
+    ExtHDU* imageExt;
+    try
+    {
+	imageExt = pFits->addImage(newName,BYTE_IMG,extAx, 1);
+    }
+    catch(FitsError e)
+    {
+	std::cout << e.message() << "\n";
+    }
+    
+    nelements = size.width*size.height*sizeof(unsigned char);
+           
+    std::valarray<unsigned char> array(image.data, nelements);
+
     long  fpixel(1);
        
     //add two keys to the primary header, one long, one complex.
-    
     long exposure(1500);
-    std::complex<float> omega(std::cos(2*M_PI/3.),std::sin(2*M_PI/3));
     pFits->pHDU().addKey("EXPOSURE", exposure,"Total Exposure Time"); 
-    pFits->pHDU().addKey("OMEGA",omega," Complex cube root of 1 ");  
 
-    
-    // The function PHDU& FITS::pHDU() returns a reference to the object representing 
-    // the primary HDU; PHDU::write( <args> ) is then used to write the data.
-    
-    pFits->pHDU().write(fpixel,nelements,array);
-     
-    // PHDU's friend ostream operator. Doesn't print the entire array, just the
-    // required & user keywords, and is provided largely for testing purposes [see 
-    // readImage() for an example of how to output the image array to a stream].
-    
-    std::cout << pFits->pHDU() << std::endl;
+
+    try
+    {
+	imageExt->write(fpixel,nelements,array);   
+    }
+    catch(FitsException e)
+    {
+	std::cout << e.message();
+    }
 
     return 0;
 }

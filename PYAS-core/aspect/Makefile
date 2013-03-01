@@ -62,6 +62,9 @@ test_sender: test_sender.cpp UDPSender.o Packet.o lib_crc.o Telemetry.o
 compressTest: compressTest.cpp compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(CCFITS) $(OPENCV)
 
+saveTest: saveTest.cpp compression.o utilities.o
+	$(CC) $(CFLAGS) $^ -o $@ $(CCFITS) $(OPENCV)
+
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp
 	$(CC) -c $(CFLAGS) $< -o $@

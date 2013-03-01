@@ -1,4 +1,5 @@
 #include <mutex>
+#include <chrono>
 
 class Semaphore 
 {
@@ -26,3 +27,5 @@ private:
 };
 
 void fine_wait(int sec, int msec, int usec, int nsec);
+
+double GetSystemTime();

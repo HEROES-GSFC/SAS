@@ -1,6 +1,7 @@
 #include <mutex>
 #include <time.h>
 #include "utilities.hpp"
+
 Semaphore::Semaphore()
 {
     count = 0;
@@ -62,3 +63,13 @@ void fine_wait(int sec, int msec, int usec, int nsec)
     waittime.tv_nsec = (long) 1000*(1000*msec + usec) + nsec;
     nanosleep(&waittime, NULL);
 }
+
+double GetSystemTime()
+{
+    using namespace std::chrono;
+
+    system_clock::time_point tp = system_clock::now();
+    system_clock::duration dtn = tp.time_since_epoch();
+    return (double) dtn.count() * system_clock::period::num / system_clock::period::den;
+}
+
