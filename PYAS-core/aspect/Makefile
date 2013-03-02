@@ -64,8 +64,9 @@ compressTest: compressTest.cpp compression.o
 
 saveTest: saveTest.cpp compression.o utilities.o
 	$(CC) $(CFLAGS) $^ -o $@ $(CCFITS) $(OPENCV)
-AspectTest: AspectTest.cpp processing.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV)
+
+AspectTest: AspectTest.cpp processing.o utilities.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp
