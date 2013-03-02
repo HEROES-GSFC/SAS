@@ -35,8 +35,14 @@ void Aspect::LoadFrame(cv::Mat inputFrame)
 void Aspect::FindPixelCenter()
 {
     std::vector<int> rows, cols;
-    int rowStep, rowStart, colStep, colStart, limit, N;
+    std::vector<float> crossings, midpoints;
+    int rowStep, rowStart, colStep, colStart, limit, K, M;
+    float mean, std;
 
+    rows.clear();
+    cols.clear();
+
+    //SANITIZE
     if(pixelCenter.x < 0 || pixelCenter.y < 0)
     {
 	limit = initialNumChords;
@@ -63,16 +69,59 @@ void Aspect::FindPixelCenter()
 	cols.push_back(colStart + k*colStep);
     }
 
-    FindLimbCrossings(rows, cols);
-    N = limbCrossings.size();
     pixelCenter = cv::Point2f(0.0,0.0);
-    for (int k = 0; k < N; k++)
-    {
-	pixelCenter.x += limbCrossings[k].x/N;
-	pixelCenter.y += limbCrossings[k].y/N;
-    }
+    limbCrossings.clear();
 
+    for (int dim = 0; dim < 2; dim++)
+    {
+	if (dim) K = rows.size();
+	else K = cols.size();
+
+	midpoints.clear();
+	for (int k = 0; k < K; k++)
+	{
+	    crossings.clear();
+	    if (dim) EvaluateChord(frame.row(rows[k]), crossings);
+	    else EvaluateChord(frame.col(cols[k]), crossings);
+	    
+	    if (crossings.size() != 2) continue;
+	    else
+	    {
+		for (int l = 0; l < crossings.size(); l++)
+		{
+		    if (dim) limbCrossings.add(crossings[l], rows[k]);
+		    else limbCrossings.add(cols[k], crossings[l]);
+		}
+		midpoints.push_back((crossings[0] + crossings[1])/2);
+	    }
+	}
+
+		mean = 0;
+	M = midpoints.size();
+	for (int m = 0; m < M; m++)
+	    mean += midpoints[m];
+	mean = (float)mean/M;
+	
+	std = 0;
+	for (int m = 0; m < M; m++)
+	    std += pow(midpoints[m]-mean,2);
+	std = sqrt(std/M);
+	
+	std::cout << mean << " " << std << "\n";
+
+	if (dim)
+	{
+	    pixelCenter.x = mean;
+	    pixelError.x = std;
+	}
+	else
+	{
+	    pixelCenter.y = mean;
+	    pixelError.y = std;
+	}	
+    }
     std::cout << "Center: " << pixelCenter.x << " " << pixelCenter.y << "\n";	
+    std::cout << "Spread: " << pixelError.x << " " << pixelError.y << "\n";
 }
 
 void Aspect::FindLimbCrossings(std::vector<int> rows, std::vector<int> cols)
