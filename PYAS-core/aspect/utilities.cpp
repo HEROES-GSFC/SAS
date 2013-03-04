@@ -1,58 +1,65 @@
-#include <mutex>
 #include <time.h>
 #include "utilities.hpp"
 
 Semaphore::Semaphore()
 {
+    pthread_mutex_init(&mutex, NULL);
     count = 0;
 }
 
-Semaphore::~Semaphore(){};
+Semaphore::~Semaphore()
+{
+    pthread_mutex_destroy(&mutex);
+}
 
 void Semaphore::increment()
 {
-    mutex.lock();
+    pthread_mutex_lock(&mutex);
     count++;
-    mutex.unlock();
+    pthread_mutex_unlock(&mutex);
 }
 void Semaphore::decrement()
 {
-    mutex.lock();
+    pthread_mutex_lock(&mutex);;
     if (count == 0)
     {
-	mutex.unlock();
+	pthread_mutex_unlock(&mutex);
 	throw "Counter empty";
     }
     count--;
-    mutex.unlock();
+    pthread_mutex_unlock(&mutex);
 }
     
 Flag::Flag()
 {
+    pthread_mutex_init(&mutex, NULL);
     value = 0;
 }
 
-Flag::~Flag(){};
+Flag::~Flag()
+{
+    pthread_mutex_destroy(&mutex);
+}
 
 void Flag::raise()
 {
-    mutex.lock();
+    pthread_mutex_lock(&mutex);
     value = 0;
-    mutex.unlock();
+    pthread_mutex_unlock(&mutex);
 }
 void Flag::lower()
 {
-    mutex.lock();
+    pthread_mutex_lock(&mutex);
     value = 1;
-    mutex.unlock();
+    pthread_mutex_unlock(&mutex);
 }
 
 bool Flag::check()
 {
     bool temp;
-    mutex.lock();
+    pthread_mutex_lock(&mutex);
     temp = value;
-    mutex.unlock();
+    pthread_mutex_unlock(&mutex);
     return temp;
 }
 

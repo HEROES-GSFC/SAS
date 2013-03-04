@@ -2,35 +2,57 @@
 #include <iostream>
 #include <chrono>
 
-#include <time.h>       /* time_t, struct tm, time, gmtime */
+#include <ctime>       /* time_t, struct tm, time, gmtime */
 
 main ()
 {
+    
     using namespace std::chrono;
 
-      time_t rawtime;
-      struct tm * ptm;
-
+    timespec clocktime;
+    int useconds, mseconds, seconds, minutes, hours, days;
+    std::cout.fill('0');
+    std::cout.width(3);
+    std::cout << "\n\n";
+    std::cout.flush();
+    timespec waittime;
+    waittime.tv_sec = 1;
+    waittime.tv_nsec = 0L;
+    while(true)
+    {
+	
+    nanosleep(&waittime, NULL);
     system_clock::time_point tp = system_clock::now();
-    time ( &rawtime );
     system_clock::duration dtn = tp.time_since_epoch();
-
-    std::cout << "numerator: " << system_clock::period::num << "\n";
-    std::cout << "denominator: " << system_clock::period::den <<"\n";
-    ptm = gmtime ( &rawtime );
-    int seconds = dtn.count() * system_clock::period::num / system_clock::period::den;
-    int minutes = seconds/60;
-    int hours = minutes/60;
-    int days = hours/24;
-    std::cout << "UTC Epoch (ntp): " << seconds << "\n";
+    clock_gettime(CLOCK_REALTIME, &clocktime);
+    std::cout << "\x1b[A\x1b[A\r";
+    useconds = dtn.count() ;
+    mseconds = dtn.count()/1000L;
+    seconds = dtn.count()/1000000L;
+    minutes = seconds/60;
+    hours = minutes/60;
+    days = hours/24;
     std::cout << days << " " 
 	      << hours - 24*days << ":"
 	      << minutes - 60*hours << ":"
-	      << seconds - 60*minutes << "\n";
+	      << seconds - 60*minutes << "."
+	      << mseconds -1000*seconds << "."
+	      << useconds - 1000*mseconds << "\n";
+	      
 
-    std::cout << (ptm->tm_hour)%24 << ":" 
-	      << ptm->tm_min << ":"
-	      << ptm->tm_sec << "\n";
-
+    minutes = clocktime.tv_sec/60;
+    hours = minutes/60;
+    days = hours/24;
+    std::cout << days << " " 
+	      << hours - 24*days << ":"
+	      << minutes - 60*hours << ":"
+	      << clocktime.tv_sec - 60*minutes << "."
+	      << clocktime.tv_nsec/1000000 << "."
+	      << (clocktime.tv_nsec/1000)%1000 << "."
+	      << (clocktime.tv_nsec/1000000) << "\n";
+    std::cout.flush();
+    
+    }
     return 0;
 }
+	

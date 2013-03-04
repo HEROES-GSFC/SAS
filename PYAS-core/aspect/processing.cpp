@@ -30,6 +30,8 @@ void Aspect::LoadFrame(cv::Mat inputFrame)
 {
     inputFrame.copyTo(frame);
     frameSize = frame.size();
+    centerValid = false;
+    fiducialsValid = false;
 }
 
 void Aspect::FindPixelCenter()
@@ -120,8 +122,7 @@ void Aspect::FindPixelCenter()
 	    pixelError.y = std;
 	}	
     }
-    std::cout << "Center: " << pixelCenter.x << " " << pixelCenter.y << "\n";	
-    std::cout << "Spread: " << pixelError.x << " " << pixelError.y << "\n";
+    centerValid = true;
 }
 
 void Aspect::FindLimbCrossings(std::vector<int> rows, std::vector<int> cols)
@@ -368,11 +369,7 @@ void Aspect::FindPixelFiducials()
 	pixelFiducials[k].x += (float) fiducialOffset.x;
 	pixelFiducials[k].y += (float) fiducialOffset.y;
     }
-
-    //Take a dump
-    for (int k = 0; k < pixelFiducials.size(); k++)
-	std::cout << "Fiducial: " << pixelFiducials[k].x << " " 
-		  << pixelFiducials[k].y << "\n";
+    fiducialsValid = true;
     return;
 }
 
@@ -420,23 +417,34 @@ cv::Range Aspect::GetSafeRange(int start, int stop, int size)
 
 void Aspect::GetPixelCenter(cv::Point2f &center)
 {
-    FindPixelCenter();
+    if (centerValid == false)
+	FindPixelCenter();
     center = pixelCenter;
 }
 
-void Aspect::GetPixelCrossings(PointList& crossings)
+void Aspect::GetPixelError(cv::Point2f &error)
 {
+    if (centerValid == false)
+	FindPixelCenter();
+    error = pixelError;
+}
+
+void Aspect::GetPixelCrossings(CoordList& crossings)
+{
+    if (centerValid == false)
+	FindPixelCenter();
     crossings.clear();
-    FindPixelCenter();
     for (int k = 0; k < limbCrossings.size(); k++)
 	crossings.push_back(limbCrossings[k]);
+    
     return;
 }
 
-void Aspect::GetPixelFiducials(PointList& fiducials)
+void Aspect::GetPixelFiducials(CoordList& fiducials)
 {
+    if(fiducialsValid == false)
+	FindPixelFiducials();
     fiducials.clear();
-    FindPixelFiducials();
     for (int k = 0; k < pixelFiducials.size(); k++)
 	fiducials.push_back(pixelFiducials[k]);
     return;

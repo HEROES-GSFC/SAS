@@ -2,7 +2,7 @@
 #include <vector>
 #include <opencv.hpp>
 
-class PointList : public std::vector<cv::Point2f>
+class CoordList : public std::vector<cv::Point2f>
 {
   public:
     void add(float x, float y) { this->push_back(cv::Point2f(x, y)); }
@@ -15,9 +15,10 @@ public:
     ~Aspect();
 
     void LoadFrame(cv::Mat inputFrame);
-    void GetPixelCrossings(PointList& crossings);
+    void GetPixelCrossings(CoordList& crossings);
     void GetPixelCenter(cv::Point2f& center);
-    void GetPixelFiducials(PointList& fiducials);
+    void GetPixelError(cv::Point2f& error);
+    void GetPixelFiducials(CoordList& fiducials);
 
 private:
     int initialNumChords;
@@ -48,17 +49,18 @@ private:
     cv::Mat frame;
     cv::Size frameSize;
 
-    PointList limbCrossings;
-
-    cv::Point2f pixelCenter;
-    cv::Point2f pixelError;
-    
-    cv::Mat solarImage;
-    cv::Size solarSize;
     cv::Mat kernel;
     cv::Size kernelSize;
 
-    PointList pixelFiducials;
+    bool centerValid;
+    CoordList limbCrossings;
+    cv::Point2f pixelCenter;
+    cv::Point2f pixelError;
+    
+    bool fiducialsValid;
+    CoordList pixelFiducials;
+    cv::Mat solarImage;
+    cv::Size solarSize;
 };
 
     

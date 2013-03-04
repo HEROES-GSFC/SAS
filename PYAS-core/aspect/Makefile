@@ -11,7 +11,7 @@ OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/local/include/CCfits/
 INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR)
 
-CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
+CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas -lrt
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CFLAGS += -std=gnu++0x
 endif
@@ -50,8 +50,8 @@ commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
 networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-cdrDemo: cdrDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) -pg
+cdrDemo: cdrDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
 test_command: test_command.cpp Packet.o Command.o lib_crc.o UDPSender.o
 	$(CC) $(CFLAGS) $^ -o $@
