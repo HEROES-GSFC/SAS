@@ -1,18 +1,6 @@
-#define CHORDS 50
-#define THRESHOLD 50
-
-#define FID_WIDTH 5
-#define FID_LENGTH 23
-#define SOLAR_RADIUS 105
-#define FID_ROW_THRESH 5
-#define FID_COL_THRESH 0
-#define FID_MATCH_THRESH 7
-
-#define DEBUG 0
-#define DISPLAY 0
+#define DISPLAY 1
 #define SAVE 1
-#define RATE 0
-#define FIDTYPE 1
+#define DEBUG 1
 #include <string.h>
 #include <iostream>
 #include <time.h>
@@ -23,25 +11,54 @@
 #include "processing.hpp"
 #include "compression.hpp"
  
+void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
+{
+    cv::Point2f pt1, pt2;
+    length = (length+1)/2;
+    pt1.x = point.x-length;
+    pt1.y = point.y-length;
+    pt2.x = point.x+length;
+    pt2.y = point.y+length;
+    cv::line(image, pt1*128, pt2*128, color, thickness, CV_AA, 7);
+    pt1.x = point.x+length;
+    pt1.y = point.y-length;
+    pt2.x = point.x-length;
+    pt2.y = point.y+length;
+    cv::line(image, pt1*128, pt2*128, color, thickness, CV_AA, 7);
+}
+
 int main(int argc, char* agrv[])
 {
     int startTime, endTime, framesCapped = 0;
-    float duration = 0;
-    double center[6];
-    cv::Scalar color(0,0,192);
-    cv::Scalar color2(128,0,0);
-    cv::Point2d pt;
-    cv::Point2d pt1,pt2;
-    
-#if SAVE == 1
-    char number[4] = "000";
-    std::string savefile;
-#endif
     ImperxStream camera;
     int exposure = 15000;
     cv::Mat frame;
     int width, height;
     Aspect aspect;
+
+
+#if SAVE == 1
+    char number[4] = "000";
+    std::vector<int> pngstuff;
+    std::string savefile;
+    pngstuff.push_back(CV_IMWRITE_PNG_COMPRESSION);
+    pngstuff.push_back(0);
+				
+#endif
+    
+
+#if DISPLAY == 1
+    cv::Mat image; //contains RGB version of image
+    cv::Scalar color(0,0,192);
+    cv::Scalar color2(128,0,0);
+    cv::Scalar crossingColor(0,128,0);
+    cv::Scalar centerColor(0,0,192);
+    cv::Scalar fiducialColor(128,0,0);
+#endif
+
+    cv::Point2f center, error;
+
+    CoordList fiducials, crossings;
     if (camera.Connect() != 0)
     {
 	std::cout << "Error connecting to camera!\n";	
@@ -72,42 +89,56 @@ int main(int argc, char* agrv[])
 	std::cout << "CameraStart Done. Running CameraSnap loop\n";
 	std::cout << "Run for how many seconds: ";
 	std::cin >> duration;
-	cv::Mat frame(height, width, CV_8UC1);
-	
-	cv::Mat subImage;
-	cv::Range rowRange, colRange;
 					
-	cv::Mat image; //contains RGB version of image
-	cv::Point2f center;
-	CoordList fiducials;
+
 
 					
 #if DISPLAY
 	cv::Mat list[] = {frame,frame,frame};
 	cv::namedWindow("Solar Solution", CV_WINDOW_AUTOSIZE);
 #endif
-					
+			
+	std::cout << "\n\n";
+	std::cout.flush();
 	startTime = time(NULL);
 	while ( time(NULL) < startTime + duration)
 	{
 	    camera.Snap(frame);
 	    aspect.LoadFrame(frame);
+	    aspect.GetPixelCrossings(crossings);
 	    aspect.GetPixelCenter(center);
+	    aspect.GetPixelError(error);
 	    aspect.GetPixelFiducials(fiducials);
+	    
+	    std::cout << "\x1b[A\x1b[A\r";
+#if DEBUG
+	    std::cout << "Center: " << center.x << " " << center.y << "\n";
+	    std::cout << "Error:  " << error.x << " " << error.y << "\n";
+	    std::cout.flush();
+#endif
 
 #if DISPLAY
+	    cv::merge(list,3,image);
+	    DrawCross(image, center, centerColor, 20, 1);
+	    for (int k = 0; k < crossings.size(); k++)
+		DrawCross(image, crossings[k], crossingColor, 10, 1);
+	    
+	    for (int k = 0; k < fiducials.size(); k++)
+		DrawCross(image, fiducials[k], fiducialColor, 15, 1);
 	    imshow("Solar Solution", frame);
 	    cv::waitKey(10);
 #endif
 						
 #if SAVE					
-	    sprintf(number, "%d", framesCapped);
-												
+	    sprintf(number, "%03d", framesCapped);
+	    
 	    savefile = "./frames/frame";
 	    savefile += number;
-	    savefile += ".fits";
-	
-	    writeFITSImage(frame, savefile);
+//	    savefile += ".fits";
+	    savefile += ".png";
+	    cv::imwrite(savefile, frame, pngstuff);
+	    
+//	    writeFITSImage(frame, savefile);
 #endif
 	    framesCapped++;
 	}

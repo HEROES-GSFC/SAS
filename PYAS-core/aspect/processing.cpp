@@ -449,4 +449,3 @@ void Aspect::GetPixelFiducials(CoordList& fiducials)
 	fiducials.push_back(pixelFiducials[k]);
     return;
 }
-
