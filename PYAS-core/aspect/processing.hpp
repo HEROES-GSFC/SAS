@@ -37,8 +37,7 @@ private:
     int numFiducials;
     
     
-    void FindLimbCrossings(std::vector<int> rows, std::vector<int> cols);
-    int EvaluateChord(cv::Mat chord, std::vector<float> &crossings);    
+    int FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings);
     void FindPixelCenter();
     void FindPixelFiducials();
     void IdentifyFiducials();
@@ -62,10 +61,6 @@ private:
     cv::Mat solarImage;
     cv::Size solarSize;
 };
-
-    
-
-
 
 int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
 void matchKernel(cv::OutputArray);

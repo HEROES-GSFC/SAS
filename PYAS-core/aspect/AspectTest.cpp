@@ -36,17 +36,18 @@ int main(int argc, char* argv[])
     cv::Scalar fiducialColor(128,0,0);
 
     CoordList crossings, fiducials;
-    
+   
     cv::imshow("Do it.",frame);
     cv::waitKey();
     Aspect thingy;
+    while(1){
     thingy.LoadFrame(frame);
     cv::Mat list[] = {frame,frame,frame};
     double start = GetSystemTime();
     thingy.GetPixelCrossings(crossings);
     thingy.GetPixelCenter(center);
     thingy.GetPixelFiducials(fiducials);
-
+    
     // writeFITSImage(frame, "./Stuff.fits");
     double end = GetSystemTime();
     
@@ -66,7 +67,7 @@ int main(int argc, char* argv[])
 
     cv::imshow("Do it.", image);
     cv::waitKey();
-
+    }
     return 0;
 }
 

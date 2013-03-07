@@ -1,4 +1,23 @@
-/*
+/* This code should encapsulate all the code necessary for generating solar aspect.
+   It generates and stores all the variables needed for determining limb crossings,
+   center, fiducials, etc, as well as a local copy of the current frame. 
+
+   The idea would be to call "LoadFrame" once, at which point this module would
+   reset all its values. Requests for data are made with the Get functions, and
+   the necessary data is calculated and provided, usually as a CoordList or a
+   cv::Point. All the functions doing real computation are private. If the desired
+   data is already up to date when a Get function is called, then it won't be
+   re-calculated.
+
+   Remains to be added:
+   -Configuration Set functions. Right now all the parameters are hard-coded in the
+    constructor
+   -Fiducial ID's
+   -Coordinate transforms
+   -Ignore close fiducials in FindPixelFiducials
+   -Catch bad center in FindPixelCenter
+   -Use GetSafeRange in setting chord placement in FindPixelCenter
+   -Test on frame100 again, seemed to be catching chords on a fiducial.
  */
 #include "processing.hpp"
 #include <iostream>
@@ -21,6 +40,8 @@ Aspect::Aspect()
     numFiducials = 10;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
+    
+    matchKernel(kernel);
 }
 
 Aspect::~Aspect()
@@ -48,7 +69,8 @@ void Aspect::FindPixelCenter()
     rows.clear();
     cols.clear();
 
-    //SANITIZE
+    //Determine new row and column locations for chords
+    //If the past center was invalid, search the whole frame
     if(pixelCenter.x < 0 || pixelCenter.y < 0)
     {
 	limit = initialNumChords;
@@ -59,6 +81,7 @@ void Aspect::FindPixelCenter()
 	rowStart = rowStep/2;
 	colStart = colStep/2;
     }
+    //Otherwise, only use the solar subimage
     else
     {
 	limit = chordsPerAxis;
@@ -69,52 +92,62 @@ void Aspect::FindPixelCenter()
 	colStart = pixelCenter.x - solarRadius + colStep/2;
     }
 
+    //Generate vectors of chord locations
     for (int k = 0; k < limit; k++)
     {
 	rows.push_back(rowStart + k*rowStep);
 	cols.push_back(colStart + k*colStep);
     }
 
+    //Initialize
     pixelCenter = cv::Point2f(0.0,0.0);
     limbCrossings.clear();
 
+    //For each dimension
     for (int dim = 0; dim < 2; dim++)
     {
 	if (dim) K = rows.size();
 	else K = cols.size();
 
+	//Find the midpoints of the chords.
+	//For each chord
 	midpoints.clear();
 	for (int k = 0; k < K; k++)
 	{
+	    //Determine the limb crossings in that chord
 	    crossings.clear();
-	    if (dim) EvaluateChord(frame.row(rows[k]), crossings);
-	    else EvaluateChord(frame.col(cols[k]), crossings);
+	    if (dim) FindLimbCrossings(frame.row(rows[k]), crossings);
+	    else FindLimbCrossings(frame.col(cols[k]), crossings);
 	    
+	    //If there seems to be a pair of crossings
 	    if (crossings.size() != 2) continue;
 	    else
 	    {
+		//Save the crossings
 		for (int l = 0; l < crossings.size(); l++)
 		{
 		    if (dim) limbCrossings.add(crossings[l], rows[k]);
 		    else limbCrossings.add(cols[k], crossings[l]);
 		}
+		//Compute and store the midpoint
 		midpoints.push_back((crossings[0] + crossings[1])/2);
 	    }
 	}
 
-		mean = 0;
+	//Determine the mean of the midpoints for this dimension
+	mean = 0;
 	M = midpoints.size();
 	for (int m = 0; m < M; m++)
 	    mean += midpoints[m];
 	mean = (float)mean/M;
 	
+	//Determine the std dev of the midpoints
 	std = 0;
 	for (int m = 0; m < M; m++)
 	    std += pow(midpoints[m]-mean,2);
 	std = sqrt(std/M);
 	
-	std::cout << mean << " " << std << "\n";
-
+	//Store the Center and RMS Error for this dimension
 	if (dim)
 	{
 	    pixelCenter.x = mean;
@@ -126,33 +159,13 @@ void Aspect::FindPixelCenter()
 	    pixelError.y = std;
 	}	
     }
+
+    //Add a test here for valid center
+    
     centerValid = true;
 }
 
-void Aspect::FindLimbCrossings(std::vector<int> rows, std::vector<int> cols)
-{
-    limbCrossings.clear();
-    std::vector<float> crossings;
-    //Search rows
-    for (int m = 0; m < rows.size(); m++)
-    {
-	crossings.clear();
-	EvaluateChord(frame.row(rows[m]), crossings);
-	for (int k = 0; k < crossings.size(); k++)
-	    limbCrossings.add(crossings[k], rows[m]);
-    }
-    //Search columns
-    for (int n = 0; n < cols.size(); n++)
-    {
-	crossings.clear();
-	EvaluateChord(frame.col(cols[n]), crossings);
-	for (int k = 0; k < crossings.size(); k++)
-	    limbCrossings.add(cols[n], crossings[k]);
-    }	
-    return;
-}
-
-int Aspect::EvaluateChord(cv::Mat chord, std::vector<float> &crossings)
+int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 {
     std::vector<int> edges;
     int thisValue, lastValue;
@@ -269,7 +282,6 @@ void Aspect::FindPixelFiducials()
     
     pixelFiducials.clear();
 
-    matchKernel(kernel);
     kernelSize = kernel.size();
     
     rowRange = GetSafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
