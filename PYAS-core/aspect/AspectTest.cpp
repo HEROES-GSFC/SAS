@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
     cv::Scalar centerColor(0,0,192);
     cv::Scalar fiducialColor(128,0,0);
 
-    PointList crossings, fiducials;
+    CoordList crossings, fiducials;
     
     cv::imshow("Do it.",frame);
     cv::waitKey();
@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
     thingy.GetPixelCenter(center);
     thingy.GetPixelFiducials(fiducials);
 
-    writeFITSImage(frame, "./Stuff.fits");
+    // writeFITSImage(frame, "./Stuff.fits");
     double end = GetSystemTime();
     
     std::cout << "Estimated Balls: " << 1/(.03 + end-start) << "\n";
@@ -57,9 +57,12 @@ int main(int argc, char* argv[])
     for (int k = 0; k < crossings.size(); k++)
 	DrawCross(image, crossings[k], crossingColor, 10, 1);
     
+    std::cout << "Fiducials\n";
     for (int k = 0; k < fiducials.size(); k++)
+    {
+	std::cout << fiducials[k].x << " " << fiducials[k].y << "\n";
 	DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-    
+    }
 
     cv::imshow("Do it.", image);
     cv::waitKey();

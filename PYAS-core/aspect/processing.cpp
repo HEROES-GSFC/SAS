@@ -1,3 +1,5 @@
+/*
+ */
 #include "processing.hpp"
 #include <iostream>
 #include <fstream>
@@ -15,7 +17,7 @@ Aspect::Aspect()
     fiducialLength = 15;
     fiducialWidth = 2; 
     fiducialThreshold = 5;
-    fiducialNeighborhood = 1;
+    fiducialNeighborhood = 2;
     numFiducials = 10;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
@@ -30,7 +32,9 @@ void Aspect::LoadFrame(cv::Mat inputFrame)
 {
     inputFrame.copyTo(frame);
     frameSize = frame.size();
+    limbCrossings.clear();
     centerValid = false;
+    pixelFiducials.clear();
     fiducialsValid = false;
 }
 
@@ -256,11 +260,12 @@ int Aspect::EvaluateChord(cv::Mat chord, std::vector<float> &crossings)
 void Aspect::FindPixelFiducials()
 {
     cv::Scalar mean, stddev;
-    cv::Mat correlation, nbhd, A, B, X;
+    cv::Mat correlation, nbhd;
     cv::Point2f fiducialOffset;
     cv::Range rowRange, colRange;
-    float threshold, thisValue, minValue, D;
-    int minIndex, M, N, index, row, col;
+    float threshold, thisValue, minValue;
+    double Cm, Cn, average;
+    int minIndex;
     
     pixelFiducials.clear();
 
@@ -322,8 +327,10 @@ void Aspect::FindPixelFiducials()
     }
 
     //Refine positions to sub-pixel
+    //For each fiducial location
     for (int k = 0; k < pixelFiducials.size(); k++)
     {
+	//Get safe ranges for for the neighborhood around the fiducial
 	rowRange = GetSafeRange(pixelFiducials[k].y - fiducialNeighborhood,
 				pixelFiducials[k].y + fiducialNeighborhood,
 				solarSize.height);
@@ -331,47 +338,27 @@ void Aspect::FindPixelFiducials()
 	colRange = GetSafeRange(pixelFiducials[k].x - fiducialNeighborhood,
 				pixelFiducials[k].x + fiducialNeighborhood,
 				solarSize.width);
-	M = rowRange.end - rowRange.start + 1;
-	N = colRange.end - colRange.start + 1;
-	A.create(M*N,6, CV_32FC1);
-	B.create(M*N,1, CV_32FC1);
-	X.create(6,1, CV_32FC1);
-	for(int m = 0; m < M; m++)
+
+	Cm = 0.0; Cn = 0.0; average = 0.0;
+	for(int m = rowRange.start; m <= rowRange.end; m++)
 	{
-	    for(int n = 0; n < N; n++)
+	    for(int n = colRange.start; n <= colRange.end; n++)
 	    {
-		index = M*m+n;
-		row = rowRange.start + m;
-		col = colRange.start + n;
-		A.at<float>(index, 0) = (float) m*m;
-		A.at<float>(index, 1) = (float) m*n;
-		A.at<float>(index, 2) = (float) n*n;
-		A.at<float>(index, 3) = (float) m;
-		A.at<float>(index, 4) = (float) n;
-		A.at<float>(index, 5) = (float) 1.0;
-		B.at<float>(index) = correlation.at<float>(row,col);
+		thisValue = correlation.at<float>(m,n);
+		Cm += m*thisValue;
+		Cn += n*thisValue;
+		average += thisValue;
 	    }
 	}
-	X = (A.t()*A).inv()*A.t()*B;
-//	cv::solve(A.t()*A, A.t()*B, X, cv::DECOMP_CHOLESKY);
-	D = (4.0*X.at<float>(0)*X.at<float>(2) - pow(X.at<float>(1),2));
-	pixelFiducials[k].y = (  X.at<float>(1)*X.at<float>(4) -
-			       2*X.at<float>(2)*X.at<float>(3)  )/D +
-	    rowRange.start;
-	pixelFiducials[k].x = (  X.at<float>(1)*X.at<float>(3) - 
-			       2*X.at<float>(0)*X.at<float>(4)  )/D +
-	    colRange.start;
+
+	pixelFiducials[k].y = (float) (Cm/average + (double) fiducialOffset.y);
+	pixelFiducials[k].x = (float) (Cn/average + (double) fiducialOffset.x);
     }
 
-    //Adjust positions to original image pixels
-    for (int k = 0; k < pixelFiducials.size(); k++)
-    {
-	pixelFiducials[k].x += (float) fiducialOffset.x;
-	pixelFiducials[k].y += (float) fiducialOffset.y;
-    }
     fiducialsValid = true;
     return;
 }
+
 
 void matchKernel(cv::OutputArray _kernel)
 {
