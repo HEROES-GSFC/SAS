@@ -37,9 +37,9 @@ private:
     int fiducialNeighborhood;
     int numFiducials;
     
-    int fiducialSpacing;
+    float fiducialSpacing;
     float fiducialSpacingTol;
-    std::vector<int> mDistances, nDistances;
+    std::vector<float> mDistances, nDistances;
     
     int FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings);
     void FindPixelCenter();

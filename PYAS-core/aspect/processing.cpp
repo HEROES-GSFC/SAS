@@ -39,7 +39,7 @@ Aspect::Aspect()
     fiducialNeighborhood = 1.5;
     numFiducials = 10;
 
-    fiducialSpacing = 15;
+    fiducialSpacing = 16.;
     fiducialSpacingTol = 2.0;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
@@ -51,13 +51,13 @@ Aspect::Aspect()
     {
 	if(k < 7)
 	{
-	    mDistances.push_back(84-k*6);
-	    nDistances.push_back(84-k*6);
+	    mDistances.push_back((84-k*6)*fiducialSpacing/15);
+	    nDistances.push_back((84-k*6)*fiducialSpacing/15);
 	}
 	else
 	{
-	    mDistances.push_back(45 + (k-7)*6);
-	    nDistances.push_back(45 + (k-7)*6);
+	    mDistances.push_back((45 + (k-7)*6)*fiducialSpacing/15);
+	    nDistances.push_back((45 + (k-7)*6)*fiducialSpacing/15);
 	}
     }
 }
@@ -409,7 +409,7 @@ void Aspect::FindFiducialIDs()
 	FindPixelFiducials();
     for (int k = 0; k < K; k++)
     {
-	fiducialIDs.push_back(cv::Point(-1, -1));
+	fiducialIDs.push_back(cv::Point(-100, -100));
     }
 
     //Find fiducial pairs that are spaced correctly
@@ -439,13 +439,13 @@ void Aspect::FindFiducialIDs()
 	    {
 		if (rowDiff > 0) 
 		{
-		    fiducialIDs[rowPairs[k].x].y = d;
-		    fiducialIDs[rowPairs[k].y].y = d+1;
+		    fiducialIDs[rowPairs[k].x].y = d-7;
+		    fiducialIDs[rowPairs[k].y].y = d+1-7;
 		}
 		else
 		{
-		    fiducialIDs[rowPairs[k].x].y = d+1;
-		    fiducialIDs[rowPairs[k].y].y = d;
+		    fiducialIDs[rowPairs[k].x].y = d+1-7;
+		    fiducialIDs[rowPairs[k].y].y = d-7;
 		}
 	    }
 	}
@@ -461,13 +461,13 @@ void Aspect::FindFiducialIDs()
 	    {
 		if (colDiff > 0) 
 		{
-		    fiducialIDs[colPairs[k].x].x = d;
-		    fiducialIDs[colPairs[k].y].x = d+1;
+		    fiducialIDs[colPairs[k].x].x = d-7;
+		    fiducialIDs[colPairs[k].y].x = d+1-7;
 		}
 		else
 		{
-		    fiducialIDs[colPairs[k].x].x = d+1;
-		    fiducialIDs[colPairs[k].y].x = d;
+		    fiducialIDs[colPairs[k].x].x = d+1-7;
+		    fiducialIDs[colPairs[k].y].x = d-7;
 		}
 	    }
 	}

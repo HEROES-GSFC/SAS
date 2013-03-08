@@ -44,13 +44,13 @@ Flag::~Flag()
 void Flag::raise()
 {
     pthread_mutex_lock(&mutex);
-    value = 0;
+    value = 1;
     pthread_mutex_unlock(&mutex);
 }
 void Flag::lower()
 {
     pthread_mutex_lock(&mutex);
-    value = 1;
+    value = 0;
     pthread_mutex_unlock(&mutex);
 }
 

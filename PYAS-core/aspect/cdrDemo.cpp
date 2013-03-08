@@ -55,7 +55,7 @@ sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
 cv::Point2f center, error;
-CoordList limbs, fiducials;
+CoordList limbs, fiducials, ids;
 
 Flag procReady, saveReady;
 int runtime = 10;
@@ -235,7 +235,23 @@ void *ImageProcessThread(void *threadid)
 		    aspect.GetPixelCenter(center);
 		    aspect.GetPixelError(error);
 		    aspect.GetPixelFiducials(fiducials);
-                    
+		    aspect.GetFiducialIDs(ids);
+
+        std::cout << ids.size() << " fiducials found:";
+        for(int i = 0; i < 20; i++){
+            if (i < ids.size()) {
+                std::cout << " (" << fiducials[i].x << "," << fiducials[i].y << ")";
+            }
+        }
+        std::cout << std::endl;
+
+        for(int i = 0; i < 20; i++){
+            if (i < ids.size()) {
+                std::cout << " (" << ids[i].x << "," << ids[i].y << ")";
+            }
+        }
+        std::cout << std::endl;
+
                     pthread_mutex_unlock(&mutexProcess);
                 }
 		else
@@ -371,8 +387,8 @@ void *TelemetryPackagerThread(void *threadid)
 	    pthread_mutex_unlock(&mutexProcess);
         }
 
-        tp << localCenter.x;
-        tp << localCenter.y;
+        tp << (double)localCenter.x;
+        tp << (double)localCenter.y;
 
         for(int i = 0; i < 20; i++){
             if (i < localFiducials.size()) {
