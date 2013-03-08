@@ -1,6 +1,7 @@
 #include "processing.hpp"
 #include "utilities.hpp"
 #include "compression.hpp"
+#include <cstring>
 
 void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
 {
@@ -34,9 +35,13 @@ int main(int argc, char* argv[])
     cv::Scalar crossingColor(0,128,0);
     cv::Scalar centerColor(0,0,192);
     cv::Scalar fiducialColor(128,0,0);
+    cv::Scalar textColor(0,0,0);
 
-    CoordList crossings, fiducials;
+    CoordList crossings, fiducials, IDs;
    
+    std::string label;
+    char number[4] = "+00";
+    
     cv::imshow("Do it.",frame);
     cv::waitKey();
     Aspect thingy;
@@ -47,7 +52,7 @@ int main(int argc, char* argv[])
     thingy.GetPixelCrossings(crossings);
     thingy.GetPixelCenter(center);
     thingy.GetPixelFiducials(fiducials);
-    
+    thingy.GetFiducialIDs(IDs);
     // writeFITSImage(frame, "./Stuff.fits");
     double end = GetSystemTime();
     
@@ -61,8 +66,16 @@ int main(int argc, char* argv[])
     std::cout << "Fiducials\n";
     for (int k = 0; k < fiducials.size(); k++)
     {
-	std::cout << fiducials[k].x << " " << fiducials[k].y << "\n";
+	label = "";
+	sprintf(number, "%d", (int) IDs[k].x);
+	label += number;
+	label += ",";
+	sprintf(number, "%d", (int) IDs[k].y);
+	label += number;
+
+	std::cout << fiducials[k].x << "," << fiducials[k].y << "\n";
 	DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+	cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
     }
 
     cv::imshow("Do it.", image);

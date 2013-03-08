@@ -11,14 +11,14 @@
 
    Remains to be added:
    -Configuration Set functions. Right now all the parameters are hard-coded in the
-    constructor
+   constructor
    -Fiducial ID's
    -Coordinate transforms
    -Ignore close fiducials in FindPixelFiducials
    -Catch bad center in FindPixelCenter
    -Use GetSafeRange in setting chord placement in FindPixelCenter
    -Test on frame100 again, seemed to be catching chords on a fiducial.
- */
+*/
 #include "processing.hpp"
 #include <iostream>
 #include <fstream>
@@ -36,12 +36,30 @@ Aspect::Aspect()
     fiducialLength = 15;
     fiducialWidth = 2; 
     fiducialThreshold = 5;
-    fiducialNeighborhood = 2;
+    fiducialNeighborhood = 1.5;
     numFiducials = 10;
+
+    fiducialSpacing = 15;
+    fiducialSpacingTol = 2.0;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
     
     matchKernel(kernel);
+    mDistances.clear();
+    nDistances.clear();
+    for (int k = 0; k < 14; k++)
+    {
+	if(k < 7)
+	{
+	    mDistances.push_back(84-k*6);
+	    nDistances.push_back(84-k*6);
+	}
+	else
+	{
+	    mDistances.push_back(45 + (k-7)*6);
+	    nDistances.push_back(45 + (k-7)*6);
+	}
+    }
 }
 
 Aspect::~Aspect()
@@ -57,6 +75,9 @@ void Aspect::LoadFrame(cv::Mat inputFrame)
     centerValid = false;
     pixelFiducials.clear();
     fiducialsValid = false;
+
+    fiducialIDs.clear();
+    fiducialIDsValid = false;
 }
 
 void Aspect::FindPixelCenter()
@@ -280,6 +301,9 @@ void Aspect::FindPixelFiducials()
     double Cm, Cn, average;
     int minIndex;
     
+    if (centerValid == false)
+	FindPixelCenter();
+
     pixelFiducials.clear();
 
     kernelSize = kernel.size();
@@ -350,7 +374,8 @@ void Aspect::FindPixelFiducials()
 	colRange = GetSafeRange(pixelFiducials[k].x - fiducialNeighborhood,
 				pixelFiducials[k].x + fiducialNeighborhood,
 				solarSize.width);
-
+	//Compute the centroid of the region around the local max
+	//in the correlation image
 	Cm = 0.0; Cn = 0.0; average = 0.0;
 	for(int m = rowRange.start; m <= rowRange.end; m++)
 	{
@@ -363,6 +388,8 @@ void Aspect::FindPixelFiducials()
 	    }
 	}
 
+	//Set the fiducials to the centroid location, plus an offset
+	//to convert from the solar subimage to the original frame
 	pixelFiducials[k].y = (float) (Cm/average + (double) fiducialOffset.y);
 	pixelFiducials[k].x = (float) (Cn/average + (double) fiducialOffset.x);
     }
@@ -371,6 +398,83 @@ void Aspect::FindPixelFiducials()
     return;
 }
 
+void Aspect::FindFiducialIDs()
+{
+    int K;
+    float rowDiff, colDiff;
+    CoordList rowPairs, colPairs;
+    K = pixelFiducials.size();
+    fiducialIDs.clear();
+    if(fiducialsValid == false)
+	FindPixelFiducials();
+    for (int k = 0; k < K; k++)
+    {
+	fiducialIDs.push_back(cv::Point(-1, -1));
+    }
+
+    //Find fiducial pairs that are spaced correctly
+    for (int k = 0; k < K; k++)
+    {
+	for (int l = k+1; l < K; l++)
+	{
+	    rowDiff = pixelFiducials[k].y - pixelFiducials[l].y;
+	    if (abs(rowDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
+		abs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol)
+		colPairs.push_back(cv::Point(k,l));
+
+	    colDiff = pixelFiducials[k].x - pixelFiducials[l].x;
+	    if (abs(colDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
+		abs(colDiff) < (float) fiducialSpacing + fiducialSpacingTol)
+		rowPairs.push_back(cv::Point(k,l));
+	}
+    }
+    
+    for (int k = 0; k < rowPairs.size(); k++)
+    {
+	rowDiff = pixelFiducials[rowPairs[k].x].y 
+	    - pixelFiducials[rowPairs[k].y].y;
+	for (int d = 0; d < mDistances.size(); d++)
+	{
+	    if (abs(abs(rowDiff) - mDistances[d]) < fiducialSpacingTol)
+	    {
+		if (rowDiff > 0) 
+		{
+		    fiducialIDs[rowPairs[k].x].y = d;
+		    fiducialIDs[rowPairs[k].y].y = d+1;
+		}
+		else
+		{
+		    fiducialIDs[rowPairs[k].x].y = d+1;
+		    fiducialIDs[rowPairs[k].y].y = d;
+		}
+	    }
+	}
+    }
+
+    for (int k = 0; k < colPairs.size(); k++)
+    {
+	colDiff = pixelFiducials[colPairs[k].x].x 
+	    - pixelFiducials[colPairs[k].y].x;
+	for (int d = 0; d < nDistances.size(); d++)
+	{
+	    if (abs(abs(colDiff) - nDistances[d]) < fiducialSpacingTol)
+	    {
+		if (colDiff > 0) 
+		{
+		    fiducialIDs[colPairs[k].x].x = d;
+		    fiducialIDs[colPairs[k].y].x = d+1;
+		}
+		else
+		{
+		    fiducialIDs[colPairs[k].x].x = d+1;
+		    fiducialIDs[colPairs[k].y].x = d;
+		}
+	    }
+	}
+    }
+}	
+	    
+		
 
 void matchKernel(cv::OutputArray _kernel)
 {
@@ -446,5 +550,15 @@ void Aspect::GetPixelFiducials(CoordList& fiducials)
     fiducials.clear();
     for (int k = 0; k < pixelFiducials.size(); k++)
 	fiducials.push_back(pixelFiducials[k]);
+    return;
+}
+
+void Aspect::GetFiducialIDs(CoordList& IDs)
+{
+    if(fiducialIDsValid == false)
+	FindFiducialIDs();
+    IDs.clear();
+    for (int k = 0; k < fiducialIDs.size(); k++)
+	IDs.push_back(fiducialIDs[k]);
     return;
 }

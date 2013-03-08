@@ -19,6 +19,7 @@ public:
     void GetPixelCenter(cv::Point2f& center);
     void GetPixelError(cv::Point2f& error);
     void GetPixelFiducials(CoordList& fiducials);
+    void GetFiducialIDs(CoordList& fiducialIDs);
 
 private:
     int initialNumChords;
@@ -36,14 +37,17 @@ private:
     int fiducialNeighborhood;
     int numFiducials;
     
+    int fiducialSpacing;
+    float fiducialSpacingTol;
+    std::vector<int> mDistances, nDistances;
     
     int FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings);
     void FindPixelCenter();
     void FindPixelFiducials();
-    void IdentifyFiducials();
-    void LoadKernel();
+    void FindFiducialIDs();
+
     cv::Range GetSafeRange(int start, int stop, int size);
-    
+//    void LoadKernel();
 
     cv::Mat frame;
     cv::Size frameSize;
@@ -60,6 +64,9 @@ private:
     CoordList pixelFiducials;
     cv::Mat solarImage;
     cv::Size solarSize;
+
+    bool fiducialIDsValid;
+    CoordList fiducialIDs;
 };
 
 int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
