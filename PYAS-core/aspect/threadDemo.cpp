@@ -17,6 +17,7 @@
 #include <mutex>
 #include "ImperxStream.hpp"
 #include "processing.hpp"
+#include "utilities.hpp"
 
 cv::Mat frame;
 cv::Point center;
@@ -31,17 +32,35 @@ int runtime, exposure, frameRate;
 void stream_image()
 {    
     cv::Mat localFrame;
-    int width, height;
+    int width = 0, height = 0;
     ImperxStream camera;
     if (camera.Connect() != 0)
     {
 	std::cout << "Error connecting to camera!\n";	
+	return;
     }
     else
     {
-	camera.ConfigureSnap(width, height, exposure);
+	camera.ConfigureSnap();
+	camera.SetROISize(960,960);
+	camera.SetROIOffset(165,0);
+	camera.SetExposure(exposure);
+	
+	width = camera.GetROIWidth();
+	height = camera.GetROIHeight();
+	if ( height == 0 || width == 0)
+	{
+	    std::cout << "Attempting to allocate frame of size 0\n";
+	    return;
+	}
+	
 	localFrame.create(height, width, CV_8UC1);
-	camera.Initialize();
+	
+	if(camera.Initialize() != 0)
+	{
+	    std::cout << "Error initializing camera!\n";
+	    return;
+	}
 	do
 	{
 	    enableMutex.lock();
@@ -67,7 +86,7 @@ void stream_image()
 	} while (true);
     }
 }
-
+/*
 void process_image()
 {
     cv::Size frameSize;
@@ -145,10 +164,12 @@ void process_image()
 	frameProcessed.increment();
     } while(true);		        
 }
-
+*/
 void display()
 {
     bool validCenter;
+    cv::Mat localFrame;
+ //   cv::namedWindow("Current Frame", CV_WINDOW_AUTOSIZE);
     do
     {
 
@@ -165,7 +186,8 @@ void display()
 	    
 	    try
 	    {
-		frameProcessed.decrement();
+//		frameProcessed.decrement();
+		frameReady.decrement();
 		break;
 	    }
 	    catch(const char* e)
@@ -173,6 +195,12 @@ void display()
 		fine_wait(0,frameRate/10,0,0);
 	    }
 	}
+	frameMutex.lock();
+	frame.copyTo(localFrame);
+	frameMutex.unlock();
+	
+//	cv::imshow("Current Frame", localFrame);
+//	cv::waitKey(10);
 	
 	centerMutex.lock();
 	validCenter = (center.x != -1 && center.y != -1);
@@ -197,6 +225,7 @@ void display()
 	}
 
 	fiducialMutex.unlock();
+
 	
     } while(true);
 }
@@ -212,7 +241,7 @@ int main()
     std::cout << "Enter frame period in ms (>= 250): ";
     std::cin >> frameRate;
     std::thread stream(stream_image);
-    std::thread process(process_image);
+    //  std::thread process(process_image);
     std::thread show(display);
 
     
@@ -223,7 +252,7 @@ int main()
     enableMutex.unlock();
 
     stream.join();
-    process.join();
+//    process.join();
     show.join();
 
     std::cout << "All threads stopped. Exiting\n";
