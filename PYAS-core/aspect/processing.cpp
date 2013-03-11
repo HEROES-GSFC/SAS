@@ -39,8 +39,8 @@ Aspect::Aspect()
     fiducialNeighborhood = 1.5;
     numFiducials = 10;
 
-    fiducialSpacing = 16.;
-    fiducialSpacingTol = 2.0;
+    fiducialSpacing = 15.5;
+    fiducialSpacingTol = 1.5;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
     
