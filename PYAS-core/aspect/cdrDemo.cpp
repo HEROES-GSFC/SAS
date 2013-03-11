@@ -9,20 +9,7 @@
 #define EC_INDEX 0x6f0
 #define EC_DATA 0x6f1
 
-// image variables
-#define CHORDS 50
-#define THRESHOLD 50 
-
-#define FID_WIDTH 5
-#define FID_LENGTH 23
-#define SOLAR_RADIUS 105
-#define FID_ROW_THRESH 5
-#define FID_COL_THRESH 0
-#define FID_MATCH_THRESH 5
-
-#define NUM_LOCS 20
-
-
+#include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
 #include <pthread.h>    /* for multithreading */
 #include <stdlib.h>     /* for atoi() and exit() */
@@ -30,6 +17,7 @@
 #include <signal.h>     /* for signal() */
 #include <math.h>       /* for testing only, remove when done */
 #include <sys/io.h>     /* for outb, computer parameters */
+#include <ctime>        /* time_t, struct tm, time, gmtime */
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
@@ -41,6 +29,8 @@
 #include <string>
 #include "ImperxStream.hpp"
 #include "processing.hpp"
+#include "compression.hpp"
+#include "utilities.hpp"
 
 // global declarations
 uint16_t command_sequence_number = 0;
@@ -64,25 +54,27 @@ pthread_mutex_t mutexProcess;
 sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
-cv::Point2f fiducialLocations[NUM_LOCS];
+cv::Point2f center, error;
+CoordList limbs, fiducials, ids;
 
-CoordList limbs;
-
-int numFiducials;
-Semaphore frameReady, frameProcessed;
+Flag procReady, saveReady;
 int runtime = 10;
 int exposure = 10000;
 int frameRate = 250;
 int cameraReady = 0;
 
+timespec frameTime;
+long int frameCount = 0;
+
+
 long long camera_temperature;
 
-double chordOutput[6];
 
 void sig_handler(int signum)
 {
-  if (signum == SIGINT){
-    g_running = 0;
+    if (signum == SIGINT)
+    {
+	g_running = 0;
     }
 }
 
@@ -99,30 +91,31 @@ signed char get_cpu_temperature( void )
 unsigned long get_cpu_voltage( int index )
 {
 
-    switch( index ){
-        case 0:         // +1.05V
-            outb(0x21, EC_INDEX );
-            return inb( EC_DATA ) * 2000 / 255;
-            break;
-        case 1:         // +2.5 V
-            outb(0x20, EC_INDEX );
-            return inb( EC_DATA ) * 3320 / 255;
-            break;
-        case 2:         // +3.3 V
-            outb(0x22, EC_INDEX );
-            return inb( EC_DATA ) * 4380 / 255;
-            break;
-        case 3:         // +5.0 V
-            outb(0x23, EC_INDEX );
-            return inb( EC_DATA ) * 6640 / 255;
-            break;
-        case 4:         // +12.0 V
-            outb(0x24, EC_INDEX );
-            return inb( EC_DATA ) * 1600 / 255;
-            break;
-        default:
-            return -1; 
-            }      
+    switch( index )
+    {
+    case 0:         // +1.05V
+	outb(0x21, EC_INDEX );
+	return inb( EC_DATA ) * 2000 / 255;
+	break;
+    case 1:         // +2.5 V
+	outb(0x20, EC_INDEX );
+	return inb( EC_DATA ) * 3320 / 255;
+	break;
+    case 2:         // +3.3 V
+	outb(0x22, EC_INDEX );
+	return inb( EC_DATA ) * 4380 / 255;
+	break;
+    case 3:         // +5.0 V
+	outb(0x23, EC_INDEX );
+	return inb( EC_DATA ) * 6640 / 255;
+	break;
+    case 4:         // +12.0 V
+	outb(0x24, EC_INDEX );
+	return inb( EC_DATA ) * 1600 / 255;
+	break;
+    default:
+	return -1; 
+    }      
 }
 
 void *CameraStreamThread( void * threadid)
@@ -135,42 +128,65 @@ void *CameraStreamThread( void * threadid)
 
     cv::Mat localFrame;
     int width, height;
-    if (camera.Connect() != 0){
+    while(1)
+    {
+	if (camera.Connect() != 0)
+	{
 	    std::cout << "Error connecting to camera!\n";	
-    }
-    else{
-        // width and height are passed out while exposure is passed in!
-        // CRAZY!
-        camera.ConfigureSnap(width, height, exposure);
-        localFrame.create(height, width, CV_8UC1);
-        camera.Initialize();
-        cameraReady = 1;
+	    sleep(1);
+	    continue;
 	}
+	else
+	{
+	    camera.ConfigureSnap();
+	    camera.SetROISize(960,960);
+	    camera.SetROIOffset(165,0);
+	    camera.SetExposure(exposure);
 	
-	while(1){
+	    width = camera.GetROIWidth();
+	    height = camera.GetROIHeight();
+	    localFrame.create(height, width, CV_8UC1);
+	    if(camera.Initialize() != 0)
+	    {
+		std::cout << "Error initializing camera!\n";
+		sleep(1);
+		continue;
+	    }
+	    cameraReady = 1;
+	    frameCount = 0;
+	    break;
+	}
+    }	
+    while(1)
+    {
 
-        if (stop_message[tid] == 1){
+        if (stop_message[tid] == 1)
+	{
             printf("thread #%ld exiting\n", tid);
             camera.Stop();
             camera.Disconnect();
             pthread_exit( NULL );
         }
-            
-	    camera.Snap(localFrame);
+	camera.Snap(localFrame);
+	procReady.raise();
+	saveReady.raise();
 
         //printf("CameraStreamThread: trying to lock\n");
         pthread_mutex_lock(&mutexImage);
+	clock_gettime(CLOCK_REALTIME, &frameTime);
         //printf("CameraStreamThread: got lock, copying over\n");
-	    localFrame.copyTo(frame);
+	localFrame.copyTo(frame);
         //printf("%d\n", frame.at<uint8_t>(0,0));
+	frameCount++;
         pthread_mutex_unlock(&mutexImage);
 
-	    //printf("camera temp is %lld\n", camera.getTemperature());
-		camera_temperature = camera.getTemperature();
-
-	    frameReady.increment();
-	    fine_wait(0,frameRate - exposure,0,0);
-	}
+	//printf("camera temp is %lld\n", camera.getTemperature());
+	camera_temperature = camera.getTemperature();
+	
+	procReady.raise();
+	saveReady.raise();
+	fine_wait(0,frameRate - exposure,0,0);
+    }
 }
 
 void *ImageProcessThread(void *threadid)
@@ -179,97 +195,69 @@ void *ImageProcessThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
 
-    cv::Size frameSize;
-    cv::Mat localFrame;
-
-    cv::Mat kernel;
-    cv::Mat subImage;
-    int height, width;
-    cv::Range rowRange, colRange;
-    matchKernel(kernel);
-
-    double localChordOutput[6];
-
-    cv::Point2f localFiducialLocations[NUM_LOCS];
-    int localNumFiducials;
-
-    CoordList localLimbs;
+    Aspect aspect;
     
     while(1)
     {
-	    if (stop_message[tid] == 1){
+	if (stop_message[tid] == 1)
+	{
             printf("thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
         
-        if (cameraReady){
-            while(1){
-                try{
-                    frameReady.decrement();\
+        if (cameraReady)
+	{
+            while(1)
+	    {
+                if(procReady.check())
+		{
+		    procReady.lower();
                     break;
                 }
-                catch(const char* e){
-                    fine_wait(0,frameRate/10,0,0);
-                }
-            }
+		else
+		{
+		    usleep(1000*frameRate/10);
+		}
+	    }
     
             //printf("ImageProcessThread: trying to lock\n");
-            if (pthread_mutex_trylock(&mutexImage) == 0){
+            if (pthread_mutex_trylock(&mutexImage) == 0)
+	    {
                 //printf("ImageProcessThread: got lock\n");
-                if(!frame.empty()){
-                    frame.copyTo(localFrame);
-                    //printf("%d\n", localFrame.at<uint8_t>(0,0));
-                    frameSize = localFrame.size();
-                    height = frameSize.height;
-                    width = frameSize.width;
-                    //printf("working on chords now\n");
-
-
-                    chordCenter((const unsigned char*) localFrame.data, height, width, CHORDS, THRESHOLD, localChordOutput, localLimbs);
-                    printf("sun center is %lf %lf, %d limbs\n", localChordOutput[0], localChordOutput[1], localLimbs.size());
-
-                    std::cout << "Limb crossings: ";
-
-                    for (uint8_t l = 0; l < localLimbs.size(); l++) {
-                        std::cout << " (" << localLimbs[l].x << ", " << localLimbs[l].y << ")";
-                    }
-
-                    std::cout << std::endl;
-                
-                    if (localChordOutput[0] > 0 && localChordOutput[1] > 0 && localChordOutput[0] < width && localChordOutput[1] < height)
-                    {
-                        rowRange.end = (((int) localChordOutput[1]) + SOLAR_RADIUS < height-1) ? (((int) localChordOutput[1]) + SOLAR_RADIUS) : (height-1);
-                        rowRange.start = (((int) localChordOutput[1]) - SOLAR_RADIUS > 0) ? (((int) localChordOutput[1]) - SOLAR_RADIUS) : 0;
-                        colRange.end = (((int) localChordOutput[0]) + SOLAR_RADIUS < width) ? (((int) localChordOutput[0]) + SOLAR_RADIUS) : (width-1);
-                        colRange.start = (((int) localChordOutput[0]) - SOLAR_RADIUS > 0) ? (((int) localChordOutput[0]) - SOLAR_RADIUS) : 0;
-                        subImage = localFrame(rowRange, colRange);
-                        localNumFiducials = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, localFiducialLocations, NUM_LOCS);
-                    }
-                    
+                if(!frame.empty())
+		{
+                    aspect.LoadFrame(frame);
+		    pthread_mutex_unlock(&mutexImage); 
+		    
                     pthread_mutex_lock(&mutexProcess);
 
-                    memcpy(chordOutput, localChordOutput, sizeof(double)*6);
+                    aspect.GetPixelCrossings(limbs);
+		    aspect.GetPixelCenter(center);
+		    aspect.GetPixelError(error);
+		    aspect.GetPixelFiducials(fiducials);
+		    aspect.GetFiducialIDs(ids);
 
-                    limbs = localLimbs;
+        std::cout << ids.size() << " fiducials found:";
+        for(int i = 0; i < 20; i++){
+            if (i < ids.size()) {
+                std::cout << " (" << fiducials[i].x << "," << fiducials[i].y << ")";
+            }
+        }
+        std::cout << std::endl;
 
-                    numFiducials = localNumFiducials;
-
-                    std::cout << "Fiducials:";
-
-                    for (int k = 0; k < localNumFiducials; k++)
-                    {
-                        fiducialLocations[k].x = localFiducialLocations[k].x + colRange.start;
-                        fiducialLocations[k].y = localFiducialLocations[k].y + rowRange.start;
-		                std::cout << " (" << fiducialLocations[k].x << ", " << fiducialLocations[k].y << ")";
-                    }
-
-                    std::cout << std::endl;
-                    
-                    frameProcessed.increment();
+        for(int i = 0; i < 20; i++){
+            if (i < ids.size()) {
+                std::cout << " (" << ids[i].x << "," << ids[i].y << ")";
+            }
+        }
+        std::cout << std::endl;
 
                     pthread_mutex_unlock(&mutexProcess);
                 }
-            pthread_mutex_unlock(&mutexImage);        
+		else
+		{
+		    pthread_mutex_unlock(&mutexImage);  
+		}
             }
         }
     }
@@ -301,6 +289,66 @@ void *TelemetrySenderThread(void *threadid)
     }
 }
 
+void *SaveImageThread(void *threadid)
+{
+    long tid;
+    tid = (long)threadid;
+    printf("Hello World! It's me, thread #%ld!\n", tid);
+    
+    cv::Mat localFrame;
+    long int localFrameCount;
+    char number[6] = "00000";
+    std::string fitsfile;
+
+    while(1)
+    {
+	if (stop_message[tid] == 1)
+	{
+            printf("thread #%ld exiting\n", tid);
+            pthread_exit( NULL );
+        }
+        
+        if (cameraReady)
+	{
+            while(1)
+	    {
+                if(saveReady.check())
+		{
+		    saveReady.lower();
+                    break;
+                }
+		else
+		{
+		    usleep(1000*frameRate/10);
+		}
+	    }
+    
+            //printf("SaveImageThread: trying to lock\n");
+            if (pthread_mutex_trylock(&mutexImage) == 0)
+	    {
+                //printf("ImageProcessThread: got lock\n");
+                if(!frame.empty())
+		{
+                    frame.copyTo(localFrame);
+		    localFrameCount = frameCount;
+		    pthread_mutex_unlock(&mutexImage); 
+		    fitsfile = "./test/frame";
+		    sprintf(number, "%05d", (int) localFrameCount);
+		    fitsfile += number;
+		    fitsfile += ".fit";
+		    std::cout << fitsfile << "\n";
+		    writeFITSImage(frame, fitsfile);
+                    
+                }
+		else
+		{
+		    pthread_mutex_unlock(&mutexImage);  
+		}
+            }
+        }
+    }
+}
+
 void *TelemetryPackagerThread(void *threadid)
 {
     long tid;
@@ -309,10 +357,8 @@ void *TelemetryPackagerThread(void *threadid)
     
     sleep(1);      // delay a little compared to the TelemetrySenderThread
 
-    cv::Point2f localFiducialLocations[NUM_LOCS];
-
-    CoordList localLimbs;
-    double localChordOutput[6];
+    CoordList localLimbs, localFiducials;
+    cv::Point2f localCenter, localError;
     
     while(1)    // run forever
     {
@@ -331,20 +377,23 @@ void *TelemetryPackagerThread(void *threadid)
         //    printf("voltage is %d V\n", get_cpu_voltage(i));
         //}
         
-        if(pthread_mutex_trylock(&mutexProcess) == 0) {
-            memcpy(localChordOutput, chordOutput, sizeof(double)*6);
-            memcpy(localFiducialLocations, fiducialLocations, sizeof(cv::Point2f)*NUM_LOCS);
-            localLimbs = limbs;
-            pthread_mutex_unlock(&mutexProcess);
+        if(pthread_mutex_trylock(&mutexProcess) == 0) 
+	{
+	    localLimbs = limbs;
+	    localCenter = center;
+	    localError = error;
+	    localFiducials = fiducials;
+
+	    pthread_mutex_unlock(&mutexProcess);
         }
 
-        tp << localChordOutput[0];
-        tp << localChordOutput[1];
+        tp << (double)localCenter.x;
+        tp << (double)localCenter.y;
 
-        for(int i = 0; i < NUM_LOCS; i++){
-            if (i < numFiducials) {
-                tp << (float) localFiducialLocations[i].x;
-                tp << (float) localFiducialLocations[i].y;
+        for(int i = 0; i < 20; i++){
+            if (i < localFiducials.size()) {
+                tp << (float) localFiducials[i].x;
+                tp << (float) localFiducials[i].y;
             } else {
                 tp << (float)0 << (float)0;
             }
@@ -503,37 +552,37 @@ void start_all_threads( void ){
     t = 0L;
     rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 1L;
     rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 2L;
     rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 3L;
     rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 4L;
     rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 5L;
     rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
     rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     
 }
@@ -565,19 +614,19 @@ int main(void)
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
             
             switch( latest_sas_command_key ){
-                case 0x0100:     // test, do nothing
-                    break;
-                case 0x0101:    // kill all worker threads
-                    kill_all_threads();
-                    break;
-                case 0x0102:    // (re)start all worker threads
-                    // kill them all just in case
-                    kill_all_threads();
-                    sleep(1);
-                    start_all_threads();
-                    break;
-                default:        // unknown command!
-                    printf("Unknown command!\n");
+	    case 0x0100:     // test, do nothing
+		break;
+	    case 0x0101:    // kill all worker threads
+		kill_all_threads();
+		break;
+	    case 0x0102:    // (re)start all worker threads
+		// kill them all just in case
+		kill_all_threads();
+		sleep(1);
+		start_all_threads();
+		break;
+	    default:        // unknown command!
+		printf("Unknown command!\n");
             }
         }
         

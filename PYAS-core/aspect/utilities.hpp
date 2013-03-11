@@ -1,4 +1,5 @@
-#include <mutex>
+#include <pthread.h>
+#include <chrono>
 
 class Semaphore 
 {
@@ -9,7 +10,7 @@ public:
     void decrement();
 private:
     int count;	
-    std::mutex mutex;
+    pthread_mutex_t mutex;
 };
 
 class Flag 
@@ -22,7 +23,9 @@ public:
     bool check();
 private:
     bool value;	
-    std::mutex mutex;
+    pthread_mutex_t mutex;
 };
 
 void fine_wait(int sec, int msec, int usec, int nsec);
+
+double GetSystemTime();
