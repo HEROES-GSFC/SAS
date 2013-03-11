@@ -1,9 +1,12 @@
-#define NUM_THREADS 5
+#define NUM_THREADS 6
 #define SAS_TARGET_ID 0x30
 #define SAS_TM_TYPE 0x70
 #define SAS_IMAGE_TYPE 0x82
 #define SAS_SYNC_WORD 0xEB90
 #define SAS_CM_ACK_TYPE 0x01
+
+#define numXpixels 1392
+#define numYpixels 1090
 
 #include <stdio.h>      /* for printf() and fprintf() */
 #include <pthread.h>    /* for multithreading */
@@ -14,6 +17,7 @@
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
+#include "TCPSender.hpp"
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
@@ -23,7 +27,7 @@ uint16_t latest_sas_command_key = 0x0000;
 uint32_t tm_frame_sequence_number = 0;
 
 // loopback IP, just talking to myself
-char ip[] = "127.0.0.1";
+char ip[] = "192.168.1.114";
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -232,6 +236,39 @@ void *sendCTLCommandsThread( void *threadid )
     return NULL;
 }
 
+void *sendImageHandler( void *threadid )
+{
+    long tid;
+    tid = (long)threadid;
+    printf("Hello World! It's me, thread #%ld!\n", tid);
+    TCPSender tcpSender(ip, (unsigned short) 5010);
+    tcpSender.init_connection();
+
+    uint32_t dimx = numXpixels;
+    uint32_t dimy = numYpixels;
+
+    uint32_t img_index;  
+    
+    for( int i = 0; i < 100; i++ ){
+        printf("%d\n", i);
+        img_index = i * (dimx * dimy)/10;
+        TelemetryPacket tp(0x70, 0x30);
+        //tp << (uint16_t)img_index;
+        //for( int j = 0; j < 50; j++){ tp << (uint8_t) j; }
+        //std::cout << tp << std::endl;
+        tcpSender.send_packet( &tp );
+        sleep(1);
+        if (stop_message[tid] == 1){
+            printf("thread #%ld exiting\n", tid);
+            pthread_exit( NULL );
+        }
+    }
+    tcpSender.close_connection();
+    printf("Done\n");
+    pthread_exit( NULL );
+    return NULL;
+}
+
 void kill_all_threads( void ){
     for(int i = 0; i < NUM_THREADS; i++ ){
         stop_message[i] = 1;
@@ -273,8 +310,22 @@ void start_all_threads( void ){
     rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
     if (rc){
          printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }   
+}
+
+void start_cmd_thread( void ){
+    int rc;
+    long t;
+ 
+    // reset stop message
+    for(int i = 0; i < NUM_THREADS; i++ ){
+        stop_message[i] = 0;
     }
-    
+    t = 1L;
+    rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
+    if (rc){
+         printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
 }
 
 int main(void)
@@ -289,7 +340,8 @@ int main(void)
     /* Create worker threads */
     printf("In main: creating threads\n");
 
-    start_all_threads();
+    //start_all_threads();
+    start_cmd_thread();
 
     while(g_running){
 
@@ -299,7 +351,6 @@ int main(void)
             Command command;
             command = Command();
             recvd_command_queue >> command;
-            //recvd_command_queue.pop_front();
 
             latest_sas_command_key = command.get_sas_command();
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
@@ -316,6 +367,17 @@ int main(void)
                     sleep(1);
                     start_all_threads();
                     break;
+                case 0x0103:    // send TCP packet
+                    {
+                    printf("received 0x0103\n");
+                    int t = 5L;
+                    int rc; 
+                    rc = pthread_create(&threads[5],NULL, sendImageHandler,(void *)t);
+                    if (rc){
+                         printf("ERROR; return code from pthread_create() is %d\n", rc);
+                    }
+                    break;
+                    }
                 default:        // unknown command!
                     printf("Unknown command!\n");
             }
