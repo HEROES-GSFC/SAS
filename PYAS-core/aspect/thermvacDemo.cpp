@@ -316,7 +316,7 @@ void *SaveTemperaturesThread(void *threadid)
 	times = localtime(&ltime);
 	strftime(stringtemp,25,"data_%y%m%d_%H%M%S.dat",times);
 	strncpy(obsfilespec,stringtemp,128 - 1);
-	obsfilespec[MAXPATH - 1] = '\0';
+	obsfilespec[128 - 1] = '\0';
 	printf("%s \r",obsfilespec);
 	
     if((file = fopen(obsfilespec, "w")) != NULL){
