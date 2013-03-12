@@ -319,11 +319,12 @@ void *SaveTemperaturesThread(void *threadid)
 	obsfilespec[128 - 1] = '\0';
 	printf("Creating file %s \n",obsfilespec);
 	
-    if((file = fopen(obsfilespec, "w")) != NULL){
+    if((file = fopen(obsfilespec, "w")) == NULL){
         printf("Cannot open file\n");
         pthread_exit( NULL );
     } else {
         fprintf(file, "time, camera temp, cpu temp\n");
+        sleep(10);
         while(1)
         {
             char current_time[25];
