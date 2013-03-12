@@ -585,7 +585,7 @@ void *sendCTLCommandsThread( void *threadid )
 void *commandHandlerThread(void *threadargs)
 {
     long tid;
-    struct thread_data *threadarg;
+    struct thread_data *my_data;
     my_data = (struct thread_data *) threadargs;
     tid = (long)my_data->thread_id;
     uint16_t command_key = my_data->var;
