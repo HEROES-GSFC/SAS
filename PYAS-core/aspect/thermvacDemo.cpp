@@ -126,63 +126,6 @@ void kill_all_threads( void ){
     for(int i = 0; i < NUM_THREADS; i++ ){
         stop_message[i] = 1;
     }
-    
-}
-
-void start_all_threads( void ){
-    int rc;
-    long t;
- 
-    pthread_mutex_init(&mutexImage, NULL);
-    pthread_mutex_init(&mutexProcess, NULL);
- 
-    // reset stop message
-    for(int i = 0; i < NUM_THREADS; i++ ){
-        stop_message[i] = 0;
-    }
-    
-    // start all threads
-    t = 0L;
-    rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
-    if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 1L;
-    rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
-    if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 2L;
-    rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
-    if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 3L;
-    rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
-    if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 4L;
-    rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
-    if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 5L;
-    rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
-    if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 6L;
-    rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
-    if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 7L;
-    rc = pthread_create(&threads[7],NULL, SaveTemperaturesThread,(void *)t);
-    if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    
 }
 
 void *CameraStreamThread( void * threadid)
@@ -364,14 +307,15 @@ void *SaveTemperaturesThread(void *threadid)
     printf("Hello World! It's me, thread #%ld!\n", tid);
  
     char stringtemp[80];
-    char obsfilespec[100];
-    
+    char obsfilespec[100];    
     FILE *file;
-    
-	time(&ltime);
+    time_t ltime;
+    struct tm *times;
+
+	time(&ltime);	
 	times = localtime(&ltime);
 	strftime(stringtemp,25,"data_%y%m%d_%H%M%S.dat",times);
-	strncpy(obsfilespec,stringtemp,MAXPATH - 1);
+	strncpy(obsfilespec,stringtemp,128 - 1);
 	obsfilespec[MAXPATH - 1] = '\0';
 	printf("%s \r",obsfilespec);
 	
@@ -641,7 +585,7 @@ void *sendCTLCommandsThread( void *threadid )
 void *commandHandlerThread(void *threadargs)
 {
     long tid;
-    struct thread_data *my_data;
+    struct thread_data *threadarg;
     my_data = (struct thread_data *) threadarg;
     tid = (long)my_data->thread_id;
     uint16_t command_key = my_data->var;
@@ -694,7 +638,8 @@ int main(void)
                     start_all_threads();
                     break;
                 default:
-                    t = 8L;
+                    long t = 8L;
+                    int rc;
                     thread_data_array[t].thread_id = t;
                     thread_data_array[t].var = latest_sas_command_key;
                     //thread_data_array[t].message = messages[t];
@@ -721,3 +666,60 @@ int main(void)
     
     return 0;
 }
+
+void start_all_threads( void ){
+    int rc;
+    long t;
+ 
+    pthread_mutex_init(&mutexImage, NULL);
+    pthread_mutex_init(&mutexProcess, NULL);
+ 
+    // reset stop message
+    for(int i = 0; i < NUM_THREADS; i++ ){
+        stop_message[i] = 0;
+    }
+    
+    // start all threads
+    t = 0L;
+    rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 1L;
+    rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 2L;
+    rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 3L;
+    rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 4L;
+    rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 5L;
+    rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 6L;
+    rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 7L;
+    rc = pthread_create(&threads[7],NULL, SaveTemperaturesThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    
+}
+
