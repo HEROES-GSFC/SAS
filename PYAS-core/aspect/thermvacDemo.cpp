@@ -314,7 +314,7 @@ void *SaveTemperaturesThread(void *threadid)
 
 	time(&ltime);	
 	times = localtime(&ltime);
-	strftime(stringtemp,25,"data_%y%m%d_%H%M%S.dat",times);
+	strftime(stringtemp,25,"temp_data_%y%m%d_%H%M%S.dat",times);
 	strncpy(obsfilespec,stringtemp,128 - 1);
 	obsfilespec[128 - 1] = '\0';
 	printf("Creating file %s \n",obsfilespec);
@@ -339,6 +339,7 @@ void *SaveTemperaturesThread(void *threadid)
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%ML%S",times);
             fprintf(file, "%s, %f, %f\n", current_time, camera_temperature, cpu_temperature);
+            printf("%s, %f, %f\n", current_time, camera_temperature, cpu_temperature);
         }
     }
 }
