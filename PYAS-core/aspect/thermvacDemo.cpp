@@ -317,7 +317,7 @@ void *SaveTemperaturesThread(void *threadid)
 	strftime(stringtemp,25,"data_%y%m%d_%H%M%S.dat",times);
 	strncpy(obsfilespec,stringtemp,128 - 1);
 	obsfilespec[128 - 1] = '\0';
-	printf("%s \r",obsfilespec);
+	printf("Creating file %s \n",obsfilespec);
 	
     if((file = fopen(obsfilespec, "w")) != NULL){
         printf("Cannot open file\n");
@@ -333,7 +333,7 @@ void *SaveTemperaturesThread(void *threadid)
                 fclose(file);
                 pthread_exit( NULL );
             }
-            sleep(3);
+            sleep(1);
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%ML%S",times);
@@ -382,6 +382,18 @@ void *SaveImageThread(void *threadid)
             //printf("ImageProcessThread: got lock\n");
             if(!frame.empty())
 		    {
+                char stringtemp[80];
+                char obsfilespec[100];    
+                FILE *file;
+                time_t ltime;
+                struct tm *times;
+
+                time(&ltime);	
+                times = localtime(&ltime);
+                strftime(stringtemp,25,"image_%y%m%d_%H%M%S.fits",times);
+                strncpy(obsfilespec,stringtemp,128 - 1);
+                obsfilespec[128 - 1] = '\0';
+
                 frame.copyTo(localFrame);
                 localFrameCount = frameCount;
                 pthread_mutex_unlock(&mutexImage); 
@@ -390,8 +402,8 @@ void *SaveImageThread(void *threadid)
                 fitsfile += number;
                 fitsfile += ".fit";
                 std::cout << fitsfile << "\n";
-                writeFITSImage(frame, fitsfile);
-                    
+                writeFITSImage(frame, obsfilespec);
+                printf("Saving image %s\n", obsfilespec);
             }
 		    else
 		    {
