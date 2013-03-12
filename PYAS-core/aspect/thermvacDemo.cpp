@@ -190,7 +190,7 @@ void *CameraStreamThread( void * threadid)
 	frameCount++;
         pthread_mutex_unlock(&mutexImage);
 
-	printf("camera temp is %lld\n", camera.getTemperature());
+	//printf("camera temp is %lld\n", camera.getTemperature());
 	camera_temperature = camera.getTemperature();
 	
 	
@@ -338,8 +338,8 @@ void *SaveTemperaturesThread(void *threadid)
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %f, %f\n", current_time, camera_temperature, cpu_temperature);
-            printf("%s, %f, %f\n", current_time, camera_temperature, cpu_temperature);
+            fprintf(file, "%s, %lld, %lld\n", current_time, camera_temperature, cpu_temperature);
+            printf("%s, %lld, %lld\n", current_time, camera_temperature, cpu_temperature);
         }
     }
 }
@@ -658,10 +658,10 @@ void start_all_threads( void ){
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
-    //rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
-    //if (rc){
-	//printf("ERROR; return code from pthread_create() is %d\n", rc);
-    //}
+    rc = pthread_create(&threads[6],NULL, SaveImageThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
     t = 7L;
     rc = pthread_create(&threads[7],NULL, SaveTemperaturesThread,(void *)t);
     if (rc){
