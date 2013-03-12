@@ -614,10 +614,10 @@ void start_all_threads( void ){
     
     // start all threads
     t = 0L;
-    rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
-    if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
+    //rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
+    //if (rc){
+	//printf("ERROR; return code from pthread_create() is %d\n", rc);
+    //}
     t = 1L;
     rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
     if (rc){
@@ -644,10 +644,10 @@ void start_all_threads( void ){
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
-    rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
-    if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
+    //rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
+    //if (rc){
+	//printf("ERROR; return code from pthread_create() is %d\n", rc);
+    //}
     t = 7L;
     rc = pthread_create(&threads[7],NULL, SaveTemperaturesThread,(void *)t);
     if (rc){
