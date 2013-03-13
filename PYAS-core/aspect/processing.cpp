@@ -29,14 +29,14 @@ Aspect::Aspect()
 {
     initialNumChords = 20;
     chordsPerAxis = 5;
-    chordThreshold = 70;
+    chordThreshold = 30;
     solarRadius = 105;
     limbWidth = 3;
-    fiducialTolerance = 3;
+    fiducialTolerance = 1.5;
     fiducialLength = 15;
     fiducialWidth = 2; 
     fiducialThreshold = 5;
-    fiducialNeighborhood = 1.5;
+    fiducialNeighborhood = 2;
     numFiducials = 10;
 
     fiducialSpacing = 15.5;
@@ -189,13 +189,13 @@ void Aspect::FindPixelCenter()
 int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 {
     std::vector<int> edges;
+    std::vector<float> x, y, fit;
     int thisValue, lastValue;
     int K = chord.total();
     int edgeSpread;
 
     int edge, min, max;
-    int x, xx, y, xy, N;
-    float D, slope, intercept;
+    int N;
 	
     //for each pixel, check if the pixel lies on a potential limb
     lastValue = chord.at<unsigned char>(0);
@@ -268,25 +268,15 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 	if (N < 2)
 	    return -1;
 
-	//compute the fit to the neighborhood
-	x = 0;
-	y = 0;
-	xx = 0;
-	xy = 0;
-
+	//compute fit to neighborhood
+	x.clear(); y.clear();
 	for (int l = min; l <= max; l++)
 	{
-	    x += l;
-	    xx += l*l;
-	    y += chord.at<unsigned char>(l);
-	    xy += l*chord.at<unsigned char>(l);
+	    x.push_back(l);
+	    y.push_back((float) chord.at<unsigned char>(l));
 	}
-	D = N*xx -x*x;
-	slope = (float) (N*xy - x*y)/D;
-	intercept = (float) (y*xx - xy*x)/D;
-	
-	//push the crossing into the output vector
-	crossings.push_back(((float)chordThreshold - intercept)/slope);
+	GetLinearFit(x,y,fit);
+	crossings.push_back(((float)chordThreshold - fit[0])/fit[1]);
     }
     return 0; 
 }
@@ -297,10 +287,11 @@ void Aspect::FindPixelFiducials()
     cv::Mat correlation, nbhd;
     cv::Point2f fiducialOffset;
     cv::Range rowRange, colRange;
-    float threshold, thisValue, minValue;
+    float threshold, thisValue, thatValue, minValue;
     double Cm, Cn, average;
     int minIndex;
-    
+    bool redundant;
+
     if (centerValid == false)
 	FindPixelCenter();
 
@@ -333,9 +324,28 @@ void Aspect::FindPixelFiducials()
 		   (thisValue > correlation.at<float>(m+1, n)) &
 		   (thisValue > correlation.at<float>(m-1, n)))
 		{
+		    redundant = false;
+		    for (int k = 0; k < pixelFiducials.size(); k++)
+		    {
+			if (abs(pixelFiducials[k].y - m) < fiducialLength &&
+			    abs(pixelFiducials[k].x - n) < fiducialLength)
+			{
+			    redundant = true;
+			    thatValue = correlation.at<float>((int) pixelFiducials[k].y,
+							      (int) pixelFiducials[k].x);
+			    if ( thisValue > thatValue)
+			    {
+				pixelFiducials[k] = cv::Point2f(n,m);
+			    }
+			    break;
+			}
+		    }
+		    if (redundant == true)
+			continue;
+
 		    if (pixelFiducials.size() < numFiducials)
 		    {
-			pixelFiducials.push_back(cv::Point2f(n, m));
+			pixelFiducials.add(n, m);
 		    }
 		    else
 		    {
@@ -509,6 +519,39 @@ void matchKernel(cv::OutputArray _kernel)
 	//std::cout << "\n";		
     }
 }
+
+void GetLinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit)
+{
+
+    if (x.size() != y.size())
+    {
+	std::cout << "Error in GetLinearFit: x and y vectors should be same length\n";
+	return;
+    }
+
+    float X, Y, XX, XY, D, slope, intercept;
+
+    X = 0;
+    Y = 0;
+    XX = 0;
+    XY = 0;
+
+    for (int l = 0; l < x.size(); l++)
+    {
+	X += x[l];
+	XX += x[l]*x[l];
+	Y += y[l];
+	XY += x[l]*y[l];
+    }
+    D = x.size()*XX -X*X;
+    slope = (x.size()*XY - X*Y)/D;
+    intercept = (Y*XX - XY*X)/D;
+	
+    fit.clear();
+    fit.push_back(intercept);
+    fit.push_back(slope);
+}
+
 
 cv::Range Aspect::GetSafeRange(int start, int stop, int size)
 {
