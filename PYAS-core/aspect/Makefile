@@ -32,7 +32,7 @@ EXEC = fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test_co
 
 all: $(EXEC)
 
-fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
+fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS) -pg
 
 fidDemo: fidDemo.cpp processing.o compression.o

@@ -9,7 +9,7 @@
 
 #include "ImperxStream.hpp"
 #include "processing.hpp"
-#include "compression.hpp"
+//#include "compression.hpp"
  
 void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
 {
@@ -144,7 +144,7 @@ int main(int argc, char* agrv[])
 		cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
 	    }
 	    std::cout << IDCenter.x << "," << IDCenter.y << "\n";
-	    imshow("Solar Solution", frame);
+	    imshow("Solar Solution", image);
 	    cv::waitKey(10);
 #endif
 						
