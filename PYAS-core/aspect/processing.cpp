@@ -36,7 +36,7 @@ Aspect::Aspect()
     numFiducials = 10;
 
     fiducialSpacing = 15.5;
-    fiducialSpacingTol = 1;
+    fiducialSpacingTol = 1.5;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
     
@@ -411,7 +411,8 @@ void Aspect::FindFiducialIDs()
 {
     int K;
     float rowDiff, colDiff;
-    CoordList rowPairs, colPairs, trash;
+    IndexList rowPairs, colPairs;
+    CoordList trash;
     K = pixelFiducials.size();
     fiducialIDs.clear();
     if(fiducialsValid == false)
@@ -427,29 +428,29 @@ void Aspect::FindFiducialIDs()
 	for (int l = k+1; l < K; l++)
 	{
 	    rowDiff = pixelFiducials[k].y - pixelFiducials[l].y;
-	    if (abs(rowDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
-		abs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol)
+	    if (fabs(rowDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
+		fabs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol)
 		colPairs.push_back(cv::Point(k,l));
 
 	    colDiff = pixelFiducials[k].x - pixelFiducials[l].x;
-	    if (abs(colDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
-		abs(colDiff) < (float) fiducialSpacing + fiducialSpacingTol)
+	    if (fabs(colDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
+		fabs(colDiff) < (float) fiducialSpacing + fiducialSpacingTol)
 		rowPairs.push_back(cv::Point(k,l));
 	}
     }
     
     for (int k = 0; k < rowPairs.size(); k++)
     {
-	rowDiff = pixelFiducials[rowPairs[k].x].y 
-	    - pixelFiducials[rowPairs[k].y].y;
+	rowDiff = pixelFiducials[rowPairs[k].y].y 
+	    - pixelFiducials[rowPairs[k].x].y;
 	for (int d = 0; d < mDistances.size(); d++)
 	{
-	    if (abs(abs(rowDiff) - mDistances[d]) < fiducialSpacingTol)
+	    if (fabs(fabs(rowDiff) - mDistances[d]) < fiducialSpacingTol)
 	    {
 		if (rowDiff > 0) 
 		{
-		    fiducialIDs[rowPairs[k].x].y = d-7;
-		    fiducialIDs[rowPairs[k].y].y = d+1-7;
+		      fiducialIDs[rowPairs[k].x].y = d-7;
+		      fiducialIDs[rowPairs[k].y].y = d+1-7;
 		}
 		else
 		{
@@ -466,7 +467,7 @@ void Aspect::FindFiducialIDs()
 	    - pixelFiducials[colPairs[k].y].x;
 	for (int d = 0; d < nDistances.size(); d++)
 	{
-	    if (abs(abs(colDiff) - nDistances[d]) < fiducialSpacingTol)
+	    if (fabs(fabs(colDiff) - nDistances[d]) < fiducialSpacingTol)
 	    {
 		if (colDiff > 0) 
 		{
@@ -640,7 +641,7 @@ void Aspect::GetPixelFiducials(CoordList& fiducials)
     return;
 }
 
-void Aspect::GetFiducialIDs(CoordList& IDs)
+void Aspect::GetFiducialIDs(IndexList& IDs)
 {
     if(fiducialIDsValid == false)
 	FindFiducialIDs();

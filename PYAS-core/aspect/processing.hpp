@@ -8,6 +8,12 @@ class CoordList : public std::vector<cv::Point2f>
     void add(float x, float y) { this->push_back(cv::Point2f(x, y)); }
 };
 
+class IndexList : public std::vector<cv::Point>
+{
+  public:
+    void add(int x, int y) { this->push_back(cv::Point(x, y)); }
+};
+
 class Aspect
 {
 public:
@@ -19,7 +25,7 @@ public:
     void GetPixelCenter(cv::Point2f& center);
     void GetPixelError(cv::Point2f& error);
     void GetPixelFiducials(CoordList& fiducials);
-    void GetFiducialIDs(CoordList& fiducialIDs);
+    void GetFiducialIDs(IndexList& fiducialIDs);
     void GetScreenCenter(cv::Point2f& center);
 
 private:
@@ -66,7 +72,7 @@ private:
     CoordList pixelFiducials;
 
     bool fiducialIDsValid;
-    CoordList fiducialIDs;
+    IndexList fiducialIDs;
 };
 
 void GetLinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);

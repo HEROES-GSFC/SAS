@@ -60,7 +60,8 @@ int main(int argc, char* agrv[])
 
     cv::Point2f center, error, IDCenter;
 
-    CoordList fiducials, crossings, IDs;
+    CoordList fiducials, crossings;
+    IndexList IDs;
     if (camera.Connect() != 0)
     {
 	std::cout << "Error connecting to camera!\n";	
