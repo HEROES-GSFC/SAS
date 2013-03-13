@@ -314,7 +314,7 @@ void *SaveTemperaturesThread(void *threadid)
 
 	time(&ltime);	
 	times = localtime(&ltime);
-	strftime(stringtemp,25,"temp_data_%y%m%d_%H%M%S.dat",times);
+	strftime(stringtemp,30,"temp_data_%y%m%d_%H%M%S.dat",times);
 	strncpy(obsfilespec,stringtemp,128 - 1);
 	obsfilespec[128 - 1] = '\0';
 	printf("Creating file %s \n",obsfilespec);
@@ -362,7 +362,7 @@ void *SaveImageThread(void *threadid)
             printf("thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
-        
+	sleep(60);        
         if (cameraReady)
     	{
             while(1)
@@ -385,7 +385,7 @@ void *SaveImageThread(void *threadid)
             if(!frame.empty())
 		    {
                 char stringtemp[80];
-                char obsfilespec[100];    
+                char obsfilespec[128];    
                 FILE *file;
                 time_t ltime;
                 struct tm *times;
