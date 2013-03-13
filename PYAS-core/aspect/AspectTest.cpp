@@ -5,7 +5,21 @@
 
 void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
 {
-    cv::Point2f pt1, pt2;
+    cv::Point2f pt1, std::cout << "Fiducials\n";
+    for (int k = 0; k < fiducials.size(); k++)
+    {
+	label = "";
+	sprintf(number, "%d", (int) IDs[k].x);
+	label += number;
+	label += ",";
+	sprintf(number, "%d", (int) IDs[k].y);
+	label += number;
+
+//	std::cout << fiducials[k].x << "," << fiducials[k].y << "\n";
+	DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+	cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
+    }
+    std::cout << IDCenter.x << "," << IDCenter.y << "\n";pt2;
     length = (length+1)/2;
     pt1.x = point.x-length;
     pt1.y = point.y-length;
@@ -58,8 +72,6 @@ int main(int argc, char* argv[])
     // writeFITSImage(frame, "./Stuff.fits");
     double end = GetSystemTime();
     
-    std::cout << "Estimated runtime: " << 1/(.03 + end-start) << "\n";
-
     cv::merge(list,3,image);
     DrawCross(image, center, centerColor, 20, 1);
     for (int k = 0; k < crossings.size(); k++)
