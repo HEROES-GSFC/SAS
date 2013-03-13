@@ -29,17 +29,17 @@ Aspect::Aspect()
 {
     initialNumChords = 20;
     chordsPerAxis = 5;
-    chordThreshold = 30;
+    chordThreshold = 50;
     solarRadius = 105;
     limbWidth = 3;
-    fiducialTolerance = 1.5;
+    fiducialTolerance = 2;
     fiducialLength = 15;
     fiducialWidth = 2; 
     fiducialThreshold = 5;
     fiducialNeighborhood = 2;
     numFiducials = 10;
 
-    fiducialSpacing = 15.5;
+    fiducialSpacing = 15;
     fiducialSpacingTol = 1.5;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
@@ -484,7 +484,39 @@ void Aspect::FindFiducialIDs()
     }
 }	
 	    
-		
+cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
+{
+    std::vector<float> x, y, fit;
+    cv::Point2f screenPoint;
+    for (int dim = 0; dim < 2; dim++)
+    {
+	x.clear();
+	y.clear();
+	for (int k = 0; k < pixelFiducials.size(); k++)
+	{
+	    if(dim == 0)
+	    {
+		if(fiducialIDs[k].x < -10)
+		    continue;
+		x.push_back(pixelFiducials[k].x);
+		y.push_back(fiducialIDs[k].x);
+	    }
+	    else
+	    {
+		if(fiducialIDs[k].y < -10)
+		    continue;
+		x.push_back(pixelFiducials[k].y);
+		y.push_back(fiducialIDs[k].y);
+	    }
+	}
+	GetLinearFit(x,y,fit);
+	if(dim == 0)
+	    screenPoint.x = fit[0] + fit[1]*pixelPoint.x;
+	else
+	    screenPoint.y = fit[0] + fit[1]*pixelPoint.y;
+    }
+    return screenPoint;
+}		
 
 void matchKernel(cv::OutputArray _kernel)
 {
@@ -604,4 +636,11 @@ void Aspect::GetFiducialIDs(CoordList& IDs)
     for (int k = 0; k < fiducialIDs.size(); k++)
 	IDs.push_back(fiducialIDs[k]);
     return;
+}
+
+void Aspect::GetScreenCenter(cv::Point2f &center)
+{
+    if(fiducialIDsValid == false)
+	FindFiducialIDs();
+    center = PixelToScreen(pixelCenter);
 }

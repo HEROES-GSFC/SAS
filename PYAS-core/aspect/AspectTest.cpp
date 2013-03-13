@@ -31,6 +31,7 @@ int main(int argc, char* argv[])
     cv::Mat frame = cv::imread(argv[1],0);
     cv::Mat image;
     cv::Point2f center;
+    cv::Point2f IDCenter;
 
     cv::Scalar crossingColor(0,128,0);
     cv::Scalar centerColor(0,0,192);
@@ -53,10 +54,11 @@ int main(int argc, char* argv[])
     thingy.GetPixelCenter(center);
     thingy.GetPixelFiducials(fiducials);
     thingy.GetFiducialIDs(IDs);
+    thingy.GetScreenCenter(IDCenter);
     // writeFITSImage(frame, "./Stuff.fits");
     double end = GetSystemTime();
     
-    std::cout << "Estimated Balls: " << 1/(.03 + end-start) << "\n";
+    std::cout << "Estimated runtime: " << 1/(.03 + end-start) << "\n";
 
     cv::merge(list,3,image);
     DrawCross(image, center, centerColor, 20, 1);
@@ -73,11 +75,11 @@ int main(int argc, char* argv[])
 	sprintf(number, "%d", (int) IDs[k].y);
 	label += number;
 
-	std::cout << fiducials[k].x << "," << fiducials[k].y << "\n";
+//	std::cout << fiducials[k].x << "," << fiducials[k].y << "\n";
 	DrawCross(image, fiducials[k], fiducialColor, 15, 1);
 	cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
     }
-
+    std::cout << IDCenter.x << "," << IDCenter.y << "\n";
     cv::imshow("Do it.", image);
     cv::waitKey();
     }
