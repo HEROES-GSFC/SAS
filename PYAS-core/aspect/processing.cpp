@@ -12,12 +12,8 @@
    Remains to be added:
    -Configuration Set functions. Right now all the parameters are hard-coded in the
    constructor
-   -Fiducial ID's
    -Coordinate transforms
-   -Ignore close fiducials in FindPixelFiducials
    -Catch bad center in FindPixelCenter
-   -Use GetSafeRange in setting chord placement in FindPixelCenter
-   -Test on frame100 again, seemed to be catching chords on a fiducial.
 */
 #include "processing.hpp"
 #include <iostream>
@@ -45,6 +41,8 @@ Aspect::Aspect()
     pixelError = cv::Point2f(0.0, 0.0);
     
     matchKernel(kernel);
+    kernelSize = kernel.size();
+
     mDistances.clear();
     nDistances.clear();
     for (int k = 0; k < 14; k++)
@@ -84,7 +82,8 @@ void Aspect::FindPixelCenter()
 {
     std::vector<int> rows, cols;
     std::vector<float> crossings, midpoints;
-    int rowStep, rowStart, colStep, colStart, limit, K, M;
+    int rowStart, colStart, rowStep, colStep, limit, K, M;
+    cv::Range rowRange, colRange;
     float mean, std;
 
     rows.clear();
@@ -92,7 +91,9 @@ void Aspect::FindPixelCenter()
 
     //Determine new row and column locations for chords
     //If the past center was invalid, search the whole frame
-    if(pixelCenter.x < 0 || pixelCenter.y < 0)
+    if(pixelCenter.x < 0 || pixelCenter.y < 0 ||
+		       pixelCenter.x >= frameSize.width || 
+		       pixelCenter.y >= frameSize.height)
     {
 	limit = initialNumChords;
 
@@ -106,11 +107,19 @@ void Aspect::FindPixelCenter()
     else
     {
 	limit = chordsPerAxis;
-	rowStep = (2*solarRadius + 1)/limit;
-	colStep = (2*solarRadius + 1)/limit;
+	rowRange = GetSafeRange(pixelCenter.y - solarRadius,
+				pixelCenter.y + solarRadius, 
+				frameSize.height);
 
-	rowStart = pixelCenter.y - solarRadius + rowStep/2;
-	colStart = pixelCenter.x - solarRadius + colStep/2;
+	colRange = GetSafeRange(pixelCenter.x - solarRadius,
+				pixelCenter.x + solarRadius, 
+				frameSize.width);
+
+	rowStep = (rowRange.end - rowRange.start + 1)/limit;
+	colStep = (colRange.end - colRange.start + 1)/limit;
+
+	rowStart = rowRange.start + rowStep/2;
+	colStart = colRange.start + colStep/2;
     }
 
     //Generate vectors of chord locations
@@ -281,40 +290,30 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
     return 0; 
 }
 
-void Aspect::FindPixelFiducials()
+void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 {
     cv::Scalar mean, stddev;
+    cv::Size imageSize;
     cv::Mat correlation, nbhd;
-    cv::Point2f fiducialOffset;
     cv::Range rowRange, colRange;
     float threshold, thisValue, thatValue, minValue;
     double Cm, Cn, average;
     int minIndex;
     bool redundant;
 
-    if (centerValid == false)
-	FindPixelCenter();
-
     pixelFiducials.clear();
+    imageSize = image.size();
 
-    kernelSize = kernel.size();
-    
-    rowRange = GetSafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
-    colRange = GetSafeRange(pixelCenter.x-solarRadius, pixelCenter.x+solarRadius, frameSize.width);
-    solarImage = frame(rowRange, colRange);
-    solarSize = solarImage.size();
-    fiducialOffset = cv::Point(colRange.start, rowRange.start);
-    
-    cv::filter2D(solarImage, correlation, CV_32FC1, kernel, cv::Point(-1,-1));
+    cv::filter2D(image, correlation, CV_32FC1, kernel, cv::Point(-1,-1));
     cv::normalize(correlation,correlation,0,1,cv::NORM_MINMAX);
 	
     cv::meanStdDev(correlation, mean, stddev);
 
     threshold = mean[0] + fiducialThreshold*stddev[0];
 	
-    for (int m = 1; m < solarSize.height-1; m++)
+    for (int m = 1; m < imageSize.height-1; m++)
     {
-	for (int n = 1; n < solarSize.width-1; n++)
+	for (int n = 1; n < imageSize.width-1; n++)
 	{	 
 	    thisValue = correlation.at<float>(m,n);
 	    if(thisValue > threshold)
@@ -379,11 +378,11 @@ void Aspect::FindPixelFiducials()
 	//Get safe ranges for for the neighborhood around the fiducial
 	rowRange = GetSafeRange(pixelFiducials[k].y - fiducialNeighborhood,
 				pixelFiducials[k].y + fiducialNeighborhood,
-				solarSize.height);
+				imageSize.height);
 
 	colRange = GetSafeRange(pixelFiducials[k].x - fiducialNeighborhood,
 				pixelFiducials[k].x + fiducialNeighborhood,
-				solarSize.width);
+				imageSize.width);
 	//Compute the centroid of the region around the local max
 	//in the correlation image
 	Cm = 0.0; Cn = 0.0; average = 0.0;
@@ -400,8 +399,8 @@ void Aspect::FindPixelFiducials()
 
 	//Set the fiducials to the centroid location, plus an offset
 	//to convert from the solar subimage to the original frame
-	pixelFiducials[k].y = (float) (Cm/average + (double) fiducialOffset.y);
-	pixelFiducials[k].x = (float) (Cn/average + (double) fiducialOffset.x);
+	pixelFiducials[k].y = (float) (Cm/average + (double) offset.y);
+	pixelFiducials[k].x = (float) (Cn/average + (double) offset.x);
     }
 
     fiducialsValid = true;
@@ -412,11 +411,11 @@ void Aspect::FindFiducialIDs()
 {
     int K;
     float rowDiff, colDiff;
-    CoordList rowPairs, colPairs;
+    CoordList rowPairs, colPairs, trash;
     K = pixelFiducials.size();
     fiducialIDs.clear();
     if(fiducialsValid == false)
-	FindPixelFiducials();
+	GetPixelFiducials(trash);
     for (int k = 0; k < K; k++)
     {
 	fiducialIDs.push_back(cv::Point(-100, -100));
@@ -620,8 +619,21 @@ void Aspect::GetPixelCrossings(CoordList& crossings)
 
 void Aspect::GetPixelFiducials(CoordList& fiducials)
 {
+    cv::Range rowRange, colRange;
+    cv::Mat solarImage;
+    cv::Point offset;
     if(fiducialsValid == false)
-	FindPixelFiducials();
+    {
+	if (centerValid == false)
+	{  
+	    FindPixelCenter();
+	}
+	rowRange = GetSafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
+	colRange = GetSafeRange(pixelCenter.x-solarRadius, pixelCenter.x+solarRadius, frameSize.width);
+	solarImage = frame(rowRange, colRange);
+	offset = cv::Point(colRange.start, rowRange.start);
+	FindPixelFiducials(solarImage, offset);
+    }
     fiducials.clear();
     for (int k = 0; k < pixelFiducials.size(); k++)
 	fiducials.push_back(pixelFiducials[k]);

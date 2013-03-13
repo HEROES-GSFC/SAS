@@ -44,7 +44,7 @@ private:
     
     int FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings);
     void FindPixelCenter();
-    void FindPixelFiducials();
+    void FindPixelFiducials(cv::Mat image, cv::Point offset);
     void FindFiducialIDs();
     cv::Point2f PixelToScreen(cv::Point2f point);
 
@@ -64,8 +64,6 @@ private:
     
     bool fiducialsValid;
     CoordList pixelFiducials;
-    cv::Mat solarImage;
-    cv::Size solarSize;
 
     bool fiducialIDsValid;
     CoordList fiducialIDs;
