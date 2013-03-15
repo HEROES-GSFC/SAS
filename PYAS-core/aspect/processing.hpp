@@ -28,6 +28,8 @@ public:
     void GetFiducialIDs(IndexList& fiducialIDs);
     void GetScreenCenter(cv::Point2f& center);
 
+    cv::Point2f PixelToScreen(cv::Point2f point);
+
 private:
     int initialNumChords;
     int chordsPerAxis;
@@ -53,7 +55,6 @@ private:
     void FindPixelCenter();
     void FindPixelFiducials(cv::Mat image, cv::Point offset);
     void FindFiducialIDs();
-    cv::Point2f PixelToScreen(cv::Point2f point);
 
     cv::Range GetSafeRange(int start, int stop, int size);
 //    void LoadKernel();

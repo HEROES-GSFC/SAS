@@ -88,12 +88,9 @@ uint16_t Command::lookup_payload_length(uint16_t heroes_cm, uint16_t sas_cm)
 
 uint16_t Command::lookup_sas_payload_length(uint16_t sas_cm)
 {
-  switch(sas_cm) {
-    case 0xffff:
-      return 2;
-    default:
-      return 0;
-  }
+  //The least significant 4 bits of a SAS command key
+  //  are the number of associated 2-byte variables
+  return 2*(sas_cm & 0x000f);
 }
 
 uint16_t Command::get_heroes_command()
