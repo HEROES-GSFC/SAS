@@ -89,6 +89,7 @@ int main(int argc, char* agrv[])
 	std::cout << "CameraStart Done. Running CameraSnap loop\n";
 	std::cout << "Run for how many seconds: ";
 	std::cin >> duration;
+	std::cout << std::endl;
 					
 
 
@@ -112,7 +113,7 @@ int main(int argc, char* agrv[])
 	    aspect.GetFiducialIDs(IDs);
 	    aspect.GetScreenCenter(IDCenter);
 	    
-	    std::cout << "\x1b[A\x1b[A\r";
+	    std::cout << "\x1b[A\x1b[A\x1b[A\r";
 #if DEBUG
 	    std::cout << "Center: " << center.x << " " << center.y << "\n";
 	    std::cout << "Error:  " << error.x << " " << error.y << "\n";
@@ -127,7 +128,6 @@ int main(int argc, char* agrv[])
 	    
 	    for (int k = 0; k < fiducials.size(); k++)
 		DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-	    std::cout << "Fiducials\n";
 	    for (int k = 0; k < fiducials.size(); k++)
 	    {
 		label = "";
@@ -136,12 +136,11 @@ int main(int argc, char* agrv[])
 		label += ",";
 		sprintf(number, "%d", (int) IDs[k].y);
 		label += number;
-
-//	std::cout << fiducials[k].x << "," << fiducials[k].y << "\n";
 		DrawCross(image, fiducials[k], fiducialColor, 15, 1);
 		cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
 	    }
-	    std::cout << IDCenter.x << "," << IDCenter.y << "\n";
+
+	    std::cout << "Screen center: " << IDCenter << std::endl;
 	    imshow("Solar Solution", image);
 	    cv::waitKey(10);
 #endif
@@ -153,7 +152,7 @@ int main(int argc, char* agrv[])
 	    savefile += number;
 //	    savefile += ".fits";
 	    savefile += ".png";
-	    cv::imwrite(frame, savefile);
+	    //	    cv::imwrite(frame, savefile);
 	    
 //	    writeFITSImage(frame, savefile);
 #endif

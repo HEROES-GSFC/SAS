@@ -77,10 +77,14 @@ Aspect::~Aspect()
 void Aspect::LoadFrame(cv::Mat inputFrame)
 {
 
-    cv::Size inputSize = inputFrame.size();
+  if(inputFrame.empty())
+    std::cout << "Tried to load empty frame" << std::endl;
+  else
+    {
+  cv::Size inputSize = inputFrame.size();
     if (inputSize.width == 0 || inputSize.height == 0)
     {
-	std::cout << "Tried to load an empty frame!" << std::endl;
+	std::cout << "Tried to load a frame with dimension 0" << std::endl;
 	
     }
     else
@@ -94,6 +98,8 @@ void Aspect::LoadFrame(cv::Mat inputFrame)
 
 	fiducialIDs.clear();
 	fiducialIDsValid = false;
+	mappingValid = false;
+    }
     }
 }
 
