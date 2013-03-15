@@ -59,6 +59,9 @@ cdrDemo: cdrDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPRec
 tcpDemo: tcpDemo.cpp TCPReceiver.o Packet.o lib_crc.o TCPSender.o
 	$(CC) $(CFLAGS) $^ -o $@
 
+tcpSend: tcpSend.cpp TCPReceiver.o Telemetry.o Packet.o lib_crc.o TCPSender.o
+	$(CC) $(CFLAGS) $^ -o $@
+
 test_command: test_command.cpp Packet.o Command.o lib_crc.o UDPSender.o
 	$(CC) $(CFLAGS) $^ -o $@
 
