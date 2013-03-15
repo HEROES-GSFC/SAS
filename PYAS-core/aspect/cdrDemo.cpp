@@ -55,7 +55,8 @@ sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
 cv::Point2f center, error;
-CoordList limbs, fiducials, ids;
+CoordList limbs, fiducials;
+IndexList ids;
 
 Flag procReady, saveReady;
 int runtime = 10;
