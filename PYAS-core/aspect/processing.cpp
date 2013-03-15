@@ -21,7 +21,14 @@
 #include <vector>
 #include <cmath>
 
-#define ID_TO_SCREEN(a) (a > 0 ? 45*a+6*a*(a+1) : 48*a-6*a*(a-1))
+cv::Point2f fiducialIDtoScreen(cv::Point2i id) {
+  cv::Point2f result;
+
+  result.x = 6 * ((id.x >= 0 ? 45*id.x+3*id.x*(id.x-1) : 48*id.x-3*id.x*(id.x+1)) - 15*id.y);
+  result.y = 6 * ((id.y >= 0 ? 45*id.y+3*id.y*(id.y-1) : 48*id.y-3*id.y*(id.y+1)) + 15*id.x);
+
+  return result;
+}
 
 Aspect::Aspect()
 {
@@ -489,6 +496,7 @@ void Aspect::FindFiducialIDs()
 cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
 {
     std::vector<float> x, y, fit;
+    cv::Point2f curPoint;
     cv::Point2f screenPoint;
     for (int dim = 0; dim < 2; dim++)
     {
@@ -496,19 +504,18 @@ cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
 	y.clear();
 	for (int k = 0; k < pixelFiducials.size(); k++)
 	{
+	if(fiducialIDs[k].x < -10 || fiducialIDs[k].y < -10) continue;
 	    if(dim == 0)
 	    {
-		if(fiducialIDs[k].x < -10)
-		    continue;
+                curPoint = fiducialIDtoScreen(fiducialIDs[k]);
 		x.push_back(pixelFiducials[k].x);
-		y.push_back(ID_TO_SCREEN(fiducialIDs[k].x));
+		y.push_back(curPoint.x);
 	    }
 	    else
 	    {
-		if(fiducialIDs[k].y < -10)
-		    continue;
+                curPoint = fiducialIDtoScreen(fiducialIDs[k]);
 		x.push_back(pixelFiducials[k].y);
-		y.push_back(ID_TO_SCREEN(fiducialIDs[k].y));
+		y.push_back(curPoint.y);
 	    }
 	}
 	GetLinearFit(x,y,fit);
