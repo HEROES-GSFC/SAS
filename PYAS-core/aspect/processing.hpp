@@ -39,6 +39,7 @@ private:
 
     int fiducialLength;
     int fiducialWidth;
+
     int fiducialThreshold;
 
     int fiducialNeighborhood;

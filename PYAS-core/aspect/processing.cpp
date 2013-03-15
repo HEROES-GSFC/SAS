@@ -136,8 +136,8 @@ void Aspect::FindPixelCenter()
     //For each dimension
     for (int dim = 0; dim < 2; dim++)
     {
-	if (dim) K = rows.size();
-	else K = cols.size();
+	if (dim) K = (int) rows.size();
+	else K = (int) cols.size();
 
 	//Find the midpoints of the chords.
 	//For each chord
@@ -154,7 +154,7 @@ void Aspect::FindPixelCenter()
 	    else
 	    {
 		//Save the crossings
-		for (int l = 0; l < crossings.size(); l++)
+		for (int l = 0; l < (int) crossings.size(); l++)
 		{
 		    if (dim) limbCrossings.add(crossings[l], rows[k]);
 		    else limbCrossings.add(cols[k], crossings[l]);
@@ -166,7 +166,7 @@ void Aspect::FindPixelCenter()
 
 	//Determine the mean of the midpoints for this dimension
 	mean = 0;
-	M = midpoints.size();
+	M = (int) midpoints.size();
 	for (int m = 0; m < M; m++)
 	    mean += midpoints[m];
 	mean = (float)mean/M;
@@ -207,10 +207,10 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
     int N;
 	
     //for each pixel, check if the pixel lies on a potential limb
-    lastValue = chord.at<unsigned char>(0);
+    lastValue = (int) chord.at<unsigned char>(0);
     for (int k = 1; k < K; k++)
     {
-	thisValue = chord.at<unsigned char>(k);
+	thisValue = (int) chord.at<unsigned char>(k);
 
 	//check for a rising edge, save the index above the threshold
 	if (lastValue <= chordThreshold && thisValue > chordThreshold)
@@ -227,7 +227,7 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 
     //Remove edge pairs that seem to correspond to fiducials
     //also remove edge pairs that are too close together
-    for (int k = 1; k < edges.size(); k++)
+    for (int k = 1; k < (int) edges.size(); k++)
     {
 	//find distance between next edge pair
 	//positive if the region is below the chordThreshold
@@ -248,7 +248,7 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
     }
 
     //if we still have anything other than a single edge pair, ignore the chord
-    if (edges.size() != 2)
+    if ((int) edges.size() != 2)
     {
 	return -1;
     }
@@ -324,7 +324,7 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 		   (thisValue > correlation.at<float>(m-1, n)))
 		{
 		    redundant = false;
-		    for (int k = 0; k < pixelFiducials.size(); k++)
+		    for (int k = 0; k < (int) pixelFiducials.size(); k++)
 		    {
 			if (abs(pixelFiducials[k].y - m) < fiducialLength &&
 			    abs(pixelFiducials[k].x - n) < fiducialLength)
@@ -342,7 +342,7 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 		    if (redundant == true)
 			continue;
 
-		    if (pixelFiducials.size() < numFiducials)
+		    if ((int) pixelFiducials.size() < numFiducials)
 		    {
 			pixelFiducials.add(n, m);
 		    }
@@ -373,7 +373,7 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 
     //Refine positions to sub-pixel
     //For each fiducial location
-    for (int k = 0; k < pixelFiducials.size(); k++)
+    for (int k = 0; k < (int) pixelFiducials.size(); k++)
     {
 	//Get safe ranges for for the neighborhood around the fiducial
 	rowRange = GetSafeRange(pixelFiducials[k].y - fiducialNeighborhood,
@@ -413,7 +413,7 @@ void Aspect::FindFiducialIDs()
     float rowDiff, colDiff;
     IndexList rowPairs, colPairs;
     CoordList trash;
-    K = pixelFiducials.size();
+    K = (int) pixelFiducials.size();
     fiducialIDs.clear();
     if(fiducialsValid == false)
 	GetPixelFiducials(trash);
@@ -439,11 +439,11 @@ void Aspect::FindFiducialIDs()
 	}
     }
     
-    for (int k = 0; k < rowPairs.size(); k++)
+    for (int k = 0; k < (int) rowPairs.size(); k++)
     {
 	rowDiff = pixelFiducials[rowPairs[k].y].y 
 	    - pixelFiducials[rowPairs[k].x].y;
-	for (int d = 0; d < mDistances.size(); d++)
+	for (int d = 0; d < (int) mDistances.size(); d++)
 	{
 	    if (fabs(fabs(rowDiff) - mDistances[d]) < fiducialSpacingTol)
 	    {
@@ -461,11 +461,11 @@ void Aspect::FindFiducialIDs()
 	}
     }
 
-    for (int k = 0; k < colPairs.size(); k++)
+    for (int k = 0; k < (int) colPairs.size(); k++)
     {
 	colDiff = pixelFiducials[colPairs[k].x].x 
 	    - pixelFiducials[colPairs[k].y].x;
-	for (int d = 0; d < nDistances.size(); d++)
+	for (int d = 0; d < (int) nDistances.size(); d++)
 	{
 	    if (fabs(fabs(colDiff) - nDistances[d]) < fiducialSpacingTol)
 	    {
@@ -492,7 +492,7 @@ cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
     {
 	x.clear();
 	y.clear();
-	for (int k = 0; k < pixelFiducials.size(); k++)
+	for (int k = 0; k < (int) pixelFiducials.size(); k++)
 	{
 	    if(dim == 0)
 	    {
@@ -568,7 +568,7 @@ void GetLinearFit(const std::vector<float> &x, const std::vector<float> &y, std:
     XX = 0;
     XY = 0;
 
-    for (int l = 0; l < x.size(); l++)
+    for (int l = 0; l < (int) x.size(); l++)
     {
 	X += x[l];
 	XX += x[l]*x[l];
@@ -612,7 +612,7 @@ void Aspect::GetPixelCrossings(CoordList& crossings)
     if (centerValid == false)
 	FindPixelCenter();
     crossings.clear();
-    for (int k = 0; k < limbCrossings.size(); k++)
+    for (int k = 0; k < (int) limbCrossings.size(); k++)
 	crossings.push_back(limbCrossings[k]);
     
     return;
@@ -636,7 +636,7 @@ void Aspect::GetPixelFiducials(CoordList& fiducials)
 	FindPixelFiducials(solarImage, offset);
     }
     fiducials.clear();
-    for (int k = 0; k < pixelFiducials.size(); k++)
+    for (int k = 0; k < (int) pixelFiducials.size(); k++)
 	fiducials.push_back(pixelFiducials[k]);
     return;
 }
@@ -646,7 +646,7 @@ void Aspect::GetFiducialIDs(IndexList& IDs)
     if(fiducialIDsValid == false)
 	FindFiducialIDs();
     IDs.clear();
-    for (int k = 0; k < fiducialIDs.size(); k++)
+    for (int k = 0; k < (int) fiducialIDs.size(); k++)
 	IDs.push_back(fiducialIDs[k]);
     return;
 }

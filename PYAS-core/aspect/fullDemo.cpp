@@ -39,10 +39,7 @@ int main(int argc, char* agrv[])
 
 #if SAVE == 1
     char number[4] = "000";
-    std::vector<int> pngstuff;
     std::string savefile;
-    pngstuff.push_back(CV_IMWRITE_PNG_COMPRESSION);
-    pngstuff.push_back(0);
 				
 #endif
     
@@ -156,7 +153,7 @@ int main(int argc, char* agrv[])
 	    savefile += number;
 //	    savefile += ".fits";
 	    savefile += ".png";
-	    cv::imwrite(savefile, frame, pngstuff);
+	    cv::imwrite(frame, savefile);
 	    
 //	    writeFITSImage(frame, savefile);
 #endif

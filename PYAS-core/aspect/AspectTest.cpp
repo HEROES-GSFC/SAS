@@ -5,21 +5,8 @@
 
 void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
 {
-    cv::Point2f pt1, std::cout << "Fiducials\n";
-    for (int k = 0; k < fiducials.size(); k++)
-    {
-	label = "";
-	sprintf(number, "%d", (int) IDs[k].x);
-	label += number;
-	label += ",";
-	sprintf(number, "%d", (int) IDs[k].y);
-	label += number;
+    cv::Point2f pt1, pt2;
 
-//	std::cout << fiducials[k].x << "," << fiducials[k].y << "\n";
-	DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-	cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
-    }
-    std::cout << IDCenter.x << "," << IDCenter.y << "\n";pt2;
     length = (length+1)/2;
     pt1.x = point.x-length;
     pt1.y = point.y-length;
@@ -52,7 +39,8 @@ int main(int argc, char* argv[])
     cv::Scalar fiducialColor(128,0,0);
     cv::Scalar textColor(0,0,0);
 
-    CoordList crossings, fiducials, IDs;
+    CoordList crossings, fiducials;
+    IndexList IDs;
    
     std::string label;
     char number[4] = "+00";
@@ -74,11 +62,11 @@ int main(int argc, char* argv[])
     
     cv::merge(list,3,image);
     DrawCross(image, center, centerColor, 20, 1);
-    for (int k = 0; k < crossings.size(); k++)
+    for (int k = 0; k < (int) crossings.size(); k++)
 	DrawCross(image, crossings[k], crossingColor, 10, 1);
     
     std::cout << "Fiducials\n";
-    for (int k = 0; k < fiducials.size(); k++)
+    for (int k = 0; k < (int) fiducials.size(); k++)
     {
 	label = "";
 	sprintf(number, "%d", (int) IDs[k].x);
