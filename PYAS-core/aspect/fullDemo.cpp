@@ -9,7 +9,7 @@
 
 #include "ImperxStream.hpp"
 #include "processing.hpp"
-#include "compression.hpp"
+//#include "compression.hpp"
  
 void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
 {
@@ -29,7 +29,7 @@ void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, 
 
 int main(int argc, char* agrv[])
 {
-    int startTime, endTime, framesCapped = 0;
+    int startTime, endTime, duration, framesCapped = 0;
     ImperxStream camera;
     int exposure = 15000;
     cv::Mat frame;
@@ -49,16 +49,19 @@ int main(int argc, char* agrv[])
 
 #if DISPLAY == 1
     cv::Mat image; //contains RGB version of image
+    std::string label;
     cv::Scalar color(0,0,192);
     cv::Scalar color2(128,0,0);
     cv::Scalar crossingColor(0,128,0);
     cv::Scalar centerColor(0,0,192);
     cv::Scalar fiducialColor(128,0,0);
+    cv::Scalar textColor(0,0,0);
 #endif
 
-    cv::Point2f center, error;
+    cv::Point2f center, error, IDCenter;
 
     CoordList fiducials, crossings;
+    IndexList IDs;
     if (camera.Connect() != 0)
     {
 	std::cout << "Error connecting to camera!\n";	
@@ -67,8 +70,8 @@ int main(int argc, char* agrv[])
     else
     {
 	camera.ConfigureSnap();
-	camera.SetROISize(960,960);
-	camera.SetROIOffset(165,0);
+//	camera.SetROISize(960,960);
+//	camera.SetROIOffset(165,0);
 	camera.SetExposure(exposure);
 	
 	width = camera.GetROIWidth();
@@ -109,6 +112,8 @@ int main(int argc, char* agrv[])
 	    aspect.GetPixelCenter(center);
 	    aspect.GetPixelError(error);
 	    aspect.GetPixelFiducials(fiducials);
+	    aspect.GetFiducialIDs(IDs);
+	    aspect.GetScreenCenter(IDCenter);
 	    
 	    std::cout << "\x1b[A\x1b[A\r";
 #if DEBUG
@@ -125,7 +130,22 @@ int main(int argc, char* agrv[])
 	    
 	    for (int k = 0; k < fiducials.size(); k++)
 		DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-	    imshow("Solar Solution", frame);
+	    std::cout << "Fiducials\n";
+	    for (int k = 0; k < fiducials.size(); k++)
+	    {
+		label = "";
+		sprintf(number, "%d", (int) IDs[k].x);
+		label += number;
+		label += ",";
+		sprintf(number, "%d", (int) IDs[k].y);
+		label += number;
+
+//	std::cout << fiducials[k].x << "," << fiducials[k].y << "\n";
+		DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+		cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
+	    }
+	    std::cout << IDCenter.x << "," << IDCenter.y << "\n";
+	    imshow("Solar Solution", image);
 	    cv::waitKey(10);
 #endif
 						
@@ -143,7 +163,7 @@ int main(int argc, char* agrv[])
 	    framesCapped++;
 	}
 	endTime = time(NULL);
-	std::cout << "Frame rate was: " << ((float) framesCapped/(endTime-startTime)) << "\n";
+	std::cout << "Frame rate was: " << ((float) framesCapped/(duration)) << "\n";
 	std::cout << "CameraSnap loop Done. Running CameraStop\n";
 	camera.Stop();
 	camera.Disconnect();
