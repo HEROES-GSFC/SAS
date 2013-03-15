@@ -504,16 +504,15 @@ cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
 	y.clear();
 	for (int k = 0; k < pixelFiducials.size(); k++)
 	{
-	if(fiducialIDs[k].x < -10 || fiducialIDs[k].y < -10) continue;
+            if(fiducialIDs[k].x < -10 || fiducialIDs[k].y < -10) continue;
+            curPoint = fiducialIDtoScreen(fiducialIDs[k]);
 	    if(dim == 0)
 	    {
-                curPoint = fiducialIDtoScreen(fiducialIDs[k]);
 		x.push_back(pixelFiducials[k].x);
 		y.push_back(curPoint.x);
 	    }
 	    else
 	    {
-                curPoint = fiducialIDtoScreen(fiducialIDs[k]);
 		x.push_back(pixelFiducials[k].y);
 		y.push_back(curPoint.y);
 	    }
