@@ -55,6 +55,7 @@ private:
     void FindPixelCenter();
     void FindPixelFiducials(cv::Mat image, cv::Point offset);
     void FindFiducialIDs();
+    void FindMapping();
 
     cv::Range GetSafeRange(int start, int stop, int size);
 //    void LoadKernel();
@@ -75,6 +76,9 @@ private:
 
     bool fiducialIDsValid;
     IndexList fiducialIDs;
+
+    bool mappingValid;
+    float mapping[2][2];
 };
 
 void GetLinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);

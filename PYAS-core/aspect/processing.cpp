@@ -76,15 +76,25 @@ Aspect::~Aspect()
 
 void Aspect::LoadFrame(cv::Mat inputFrame)
 {
-    inputFrame.copyTo(frame);
-    frameSize = frame.size();
-    limbCrossings.clear();
-    centerValid = false;
-    pixelFiducials.clear();
-    fiducialsValid = false;
 
-    fiducialIDs.clear();
-    fiducialIDsValid = false;
+    cv::Size inputSize = inputFrame.size();
+    if (inputSize.width == 0 || inputSize.height == 0)
+    {
+	std::cout << "Tried to load an empty frame!" << std::endl;
+	
+    }
+    else
+    {
+	inputFrame.copyTo(frame);
+	frameSize = frame.size();
+	limbCrossings.clear();
+	centerValid = false;
+	pixelFiducials.clear();
+	fiducialsValid = false;
+
+	fiducialIDs.clear();
+	fiducialIDsValid = false;
+    }
 }
 
 void Aspect::FindPixelCenter()
@@ -491,13 +501,18 @@ void Aspect::FindFiducialIDs()
 	    }
 	}
     }
+    fiducialIDsValid = true;
 }	
-	    
-cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
+
+void Aspect::FindMapping()
 {
     std::vector<float> x, y, fit;
+    IndexList trash;
     cv::Point2f curPoint;
     cv::Point2f screenPoint;
+    if (fiducialIDsValid == false)
+	GetFiducialIDs(trash);
+
     for (int dim = 0; dim < 2; dim++)
     {
 	x.clear();
@@ -518,11 +533,20 @@ cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
 	    }
 	}
 	GetLinearFit(x,y,fit);
-	if(dim == 0)
-	    screenPoint.x = fit[0] + fit[1]*pixelPoint.x;
-	else
-	    screenPoint.y = fit[0] + fit[1]*pixelPoint.y;
+	mapping[dim][0] = fit[0];
+	mapping[dim][1] = fit[1];
     }
+    mappingValid = true;
+}
+	    
+cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
+{
+    cv::Point2f screenPoint;
+    if (mappingValid == false)
+	FindMapping();
+    screenPoint.x = mapping[0][0] + mapping[0][1]*pixelPoint.x;
+    screenPoint.y = mapping[1][0] + mapping[1][1]*pixelPoint.y;
+    
     return screenPoint;
 }		
 
@@ -661,7 +685,5 @@ void Aspect::GetFiducialIDs(IndexList& IDs)
 
 void Aspect::GetScreenCenter(cv::Point2f &center)
 {
-    if(fiducialIDsValid == false)
-	FindFiducialIDs();
     center = PixelToScreen(pixelCenter);
 }
