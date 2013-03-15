@@ -8,9 +8,10 @@ GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
 
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
-INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/
+CCFITSDIR = /usr/local/include/CCfits/
+INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR)
 
-CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
+CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas -lrt
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CFLAGS += -std=gnu++0x
 endif
@@ -25,13 +26,14 @@ IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 	-lPvStream 
 OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
+CCFITS = -lCCfits
 
 EXEC = fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test_command test_sender
 
 all: $(EXEC)
 
-fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) -pg
+fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS) -pg
 
 fidDemo: fidDemo.cpp processing.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) -pg
@@ -48,8 +50,11 @@ commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
 networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o TCPSender.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-cdrDemo: cdrDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) -pg
+thermvacDemo: thermvacDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o TCPSender.o processing.o utilities.o ImperxStream.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
+
+cdrDemo: cdrDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
 tcpDemo: tcpDemo.cpp TCPReceiver.o Packet.o lib_crc.o TCPSender.o
 	$(CC) $(CFLAGS) $^ -o $@
@@ -59,6 +64,15 @@ test_command: test_command.cpp Packet.o Command.o lib_crc.o UDPSender.o
 
 test_sender: test_sender.cpp UDPSender.o Packet.o lib_crc.o Telemetry.o
 	$(CC) $(CFLAGS) $^ -o $@
+
+compressTest: compressTest.cpp compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(CCFITS) $(OPENCV)
+
+saveTest: saveTest.cpp compression.o utilities.o
+	$(CC) $(CFLAGS) $^ -o $@ $(CCFITS) $(OPENCV)
+
+AspectTest: AspectTest.cpp processing.o utilities.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp

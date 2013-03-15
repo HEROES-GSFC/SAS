@@ -1,57 +1,65 @@
-#include <mutex>
 #include <time.h>
 #include "utilities.hpp"
+
 Semaphore::Semaphore()
 {
+    pthread_mutex_init(&mutex, NULL);
     count = 0;
 }
 
-Semaphore::~Semaphore(){};
+Semaphore::~Semaphore()
+{
+    pthread_mutex_destroy(&mutex);
+}
 
 void Semaphore::increment()
 {
-    mutex.lock();
+    pthread_mutex_lock(&mutex);
     count++;
-    mutex.unlock();
+    pthread_mutex_unlock(&mutex);
 }
 void Semaphore::decrement()
 {
-    mutex.lock();
+    pthread_mutex_lock(&mutex);;
     if (count == 0)
     {
-	mutex.unlock();
+	pthread_mutex_unlock(&mutex);
 	throw "Counter empty";
     }
     count--;
-    mutex.unlock();
+    pthread_mutex_unlock(&mutex);
 }
     
 Flag::Flag()
 {
+    pthread_mutex_init(&mutex, NULL);
     value = 0;
 }
 
-Flag::~Flag(){};
+Flag::~Flag()
+{
+    pthread_mutex_destroy(&mutex);
+}
 
 void Flag::raise()
 {
-    mutex.lock();
-    value = 0;
-    mutex.unlock();
+    pthread_mutex_lock(&mutex);
+    value = 1;
+    pthread_mutex_unlock(&mutex);
 }
 void Flag::lower()
 {
-    mutex.lock();
-    value = 1;
-    mutex.unlock();
+    pthread_mutex_lock(&mutex);
+    value = 0;
+    pthread_mutex_unlock(&mutex);
 }
 
 bool Flag::check()
 {
     bool temp;
-    mutex.lock();
+    pthread_mutex_lock(&mutex);
     temp = value;
-    mutex.unlock();
+    pthread_mutex_unlock(&mutex);
     return temp;
 }
 
@@ -62,3 +70,13 @@ void fine_wait(int sec, int msec, int usec, int nsec)
     waittime.tv_nsec = (long) 1000*(1000*msec + usec) + nsec;
     nanosleep(&waittime, NULL);
 }
+
+double GetSystemTime()
+{
+    using namespace std::chrono;
+
+    system_clock::time_point tp = system_clock::now();
+    system_clock::duration dtn = tp.time_since_epoch();
+    return (double) dtn.count() * system_clock::period::num / system_clock::period::den;
+}
+
