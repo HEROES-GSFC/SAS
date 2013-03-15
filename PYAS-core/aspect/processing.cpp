@@ -21,6 +21,8 @@
 #include <vector>
 #include <cmath>
 
+#define ID_TO_SCREEN(a) (a > 0 ? 45*a+6*a*(a+1) : 48*a-6*a*(a-1))
+
 Aspect::Aspect()
 {
     initialNumChords = 20;
@@ -499,14 +501,14 @@ cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
 		if(fiducialIDs[k].x < -10)
 		    continue;
 		x.push_back(pixelFiducials[k].x);
-		y.push_back(fiducialIDs[k].x);
+		y.push_back(ID_TO_SCREEN(fiducialIDs[k].x));
 	    }
 	    else
 	    {
 		if(fiducialIDs[k].y < -10)
 		    continue;
 		x.push_back(pixelFiducials[k].y);
-		y.push_back(fiducialIDs[k].y);
+		y.push_back(ID_TO_SCREEN(fiducialIDs[k].y));
 	    }
 	}
 	GetLinearFit(x,y,fit);
