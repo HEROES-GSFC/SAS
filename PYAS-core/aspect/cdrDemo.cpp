@@ -239,13 +239,13 @@ void *ImageProcessThread(void *threadid)
 		    aspect.GetFiducialIDs(ids);
 
         std::cout << ids.size() << " fiducials found:";
-        for(int i = 0; i < ids.size() && i < 20; i++) std::cout << fiducials[i];
+        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << fiducials[i];
         std::cout << std::endl;
 
-        for(int i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
+        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
         std::cout << std::endl;
 
-        for(int i = 0; i < ids.size() && i < 20; i++) std::cout << aspect.PixelToScreen(fiducials[i]);
+        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << aspect.PixelToScreen(fiducials[i]);
         std::cout << std::endl;
 
         std::cout << "Sun center (pixels): " << center << ", Sun center (screen): " << aspect.PixelToScreen(center) << std::endl;
@@ -388,7 +388,7 @@ void *TelemetryPackagerThread(void *threadid)
         tp << (double)localCenter.x;
         tp << (double)localCenter.y;
 
-        for(int i = 0; i < 20; i++){
+        for(uint8_t i = 0; i < 20; i++){
             if (i < localFiducials.size()) {
                 tp << (float) localFiducials[i].x;
                 tp << (float) localFiducials[i].y;
