@@ -12,7 +12,6 @@ int main()
 {
     char number[4] = "000";
     std::string infile, savefile, fitsfile, pngfile;
-    std::vector<int> pngstuff;
     cv::Mat frame;
     
     for (int filenumber = 0; filenumber < 20; filenumber++)
@@ -23,10 +22,7 @@ int main()
 	infile += ".png";
 	
 	frame = cv::imread(infile,0);
-	
-	pngstuff.push_back(CV_IMWRITE_PNG_COMPRESSION);
-	pngstuff.push_back(RATE);
-								       	
+				       	
 	savefile = "./test/frame";
 	savefile += number;
 
@@ -36,7 +32,7 @@ int main()
 	fitsfile += ".fit";
 	
 	double pngDuration = -1*GetSystemTime();
-	cv::imwrite(pngfile, frame, pngstuff);
+	writePNGImage(frame, pngfile);
 	pngDuration += GetSystemTime();
     
 	double FITSDuration = -1*GetSystemTime();
