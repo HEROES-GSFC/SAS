@@ -8,6 +8,12 @@ class CoordList : public std::vector<cv::Point2f>
     void add(float x, float y) { this->push_back(cv::Point2f(x, y)); }
 };
 
+class IndexList : public std::vector<cv::Point>
+{
+  public:
+    void add(int x, int y) { this->push_back(cv::Point(x, y)); }
+};
+
 class Aspect
 {
 public:
@@ -19,7 +25,10 @@ public:
     void GetPixelCenter(cv::Point2f& center);
     void GetPixelError(cv::Point2f& error);
     void GetPixelFiducials(CoordList& fiducials);
-    void GetFiducialIDs(CoordList& fiducialIDs);
+    void GetFiducialIDs(IndexList& fiducialIDs);
+    void GetScreenCenter(cv::Point2f& center);
+
+    cv::Point2f PixelToScreen(cv::Point2f point);
 
 private:
     int initialNumChords;
@@ -32,6 +41,7 @@ private:
 
     int fiducialLength;
     int fiducialWidth;
+
     int fiducialThreshold;
 
     int fiducialNeighborhood;
@@ -43,8 +53,9 @@ private:
     
     int FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings);
     void FindPixelCenter();
-    void FindPixelFiducials();
+    void FindPixelFiducials(cv::Mat image, cv::Point offset);
     void FindFiducialIDs();
+    void FindMapping();
 
     cv::Range GetSafeRange(int start, int stop, int size);
 //    void LoadKernel();
@@ -62,12 +73,14 @@ private:
     
     bool fiducialsValid;
     CoordList pixelFiducials;
-    cv::Mat solarImage;
-    cv::Size solarSize;
 
     bool fiducialIDsValid;
-    CoordList fiducialIDs;
+    IndexList fiducialIDs;
+
+    bool mappingValid;
+    float mapping[2][2];
 };
 
+void GetLinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
 int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
 void matchKernel(cv::OutputArray);
