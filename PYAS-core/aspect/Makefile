@@ -11,7 +11,9 @@ OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/local/include/CCfits/
 INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR)
 
-CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas -lrt
+#removed to compile on Mac -schriste
+#CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas -lrt
+CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CFLAGS += -std=gnu++0x
 endif
@@ -48,7 +50,7 @@ commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o TCPSender.o
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) -pg
 
 thermvacDemo: thermvacDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o TCPSender.o processing.o utilities.o ImperxStream.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
@@ -59,8 +61,8 @@ cdrDemo: cdrDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPRec
 tcpDemo: tcpDemo.cpp TCPReceiver.o Packet.o lib_crc.o TCPSender.o
 	$(CC) $(CFLAGS) $^ -o $@
 
-tcpSend: tcpSend.cpp TCPReceiver.o Telemetry.o Packet.o lib_crc.o TCPSender.o
-	$(CC) $(CFLAGS) $^ -o $@
+tcpSend: tcpSend.cpp Telemetry.o Packet.o lib_crc.o TCPSender.o
+	$(CC) $(CFLAGS) $^ -o $@ -pg
 
 test_command: test_command.cpp Packet.o Command.o lib_crc.o UDPSender.o
 	$(CC) $(CFLAGS) $^ -o $@
