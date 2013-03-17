@@ -4,6 +4,8 @@
 
 #include "types.hpp"
 
+#define OFFSET 105 //shifts the range of the Pair3B "float", should be >= 1
+
 using std::ostream;
 
 Pair::Pair(float x, float y) : i_x(x), i_y(y) {}
@@ -37,12 +39,12 @@ Pair3B::Pair3B(const Pair& p)
 void Pair3B::initialize(float x, float y)
 {
   //Needs bounds checking!
-  i_a = (uint16_t)floor((x*3+1)+0.5);
-  i_b = (uint16_t)floor((y*3+1)+0.5);
+  i_a = (uint16_t)floor((x*3+OFFSET)+0.5);
+  i_b = (uint16_t)floor((y*3+OFFSET)+0.5);
 }
 
-float Pair3B::x() const { return ((float)i_a-1)/3; }
-float Pair3B::y() const { return ((float)i_b-1)/3; }
+float Pair3B::x() const { return ((float)i_a-OFFSET)/3; }
+float Pair3B::y() const { return ((float)i_b-OFFSET)/3; }
 
 ByteString& operator<<(ByteString& bs, const Pair3B& p3)
 {
