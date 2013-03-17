@@ -4,7 +4,7 @@ Pair, Pair3B
 
 These classes are for pairs of floats.  Pair is not particularly more useful
 than other alternatives, but Pair3B is critical for writing reduced-precision
-pixel location floats to ByteStrings.  Two 2-byte floats are stored in only
+pixel location floats to ByteStrings.  Two 4-byte floats are stored in only
 3 bytes by rounding to the nearest third of a pixel.
 
 For now, the actual values are kept private, and can be read by using x() and
