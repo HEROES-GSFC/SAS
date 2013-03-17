@@ -414,20 +414,20 @@ void *TelemetryPackagerThread(void *threadid)
 
         //Housekeeping fields, two of them
         tp << (uint16_t)camera_temperature;
-	tp << (uint16_t)0x0;
+        tp << (uint16_t)0x0;
 
-	//Sun center and error
-	tp << Pair3B(localCenter.x, localCenter.y);
-	tp << Pair3B(localError.x, localError.y);
+        //Sun center and error
+        tp << Pair3B(localCenter.x, localCenter.y);
+        tp << Pair3B(localError.x, localError.y);
 
-	//Predicted Sun center and error
-	tp << Pair3B(0, 0);
-	tp << Pair3B(0, 0);
+        //Predicted Sun center and error
+        tp << Pair3B(0, 0);
+        tp << Pair3B(0, 0);
 
-	//Number of limb crossings
-	tp << (uint16_t)localLimbs.size();
+        //Number of limb crossings
+        tp << (uint16_t)localLimbs.size();
 
-	//Limb crossings (currently 8)
+        //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
             if (j < localLimbs.size()) {
                 tp << Pair3B(localLimbs[j].x, localLimbs[j].y);
@@ -436,10 +436,10 @@ void *TelemetryPackagerThread(void *threadid)
             }
         }
 
-	//Number of fiducials
-	tp << (uint16_t)localFiducials.size();
-        
-	//Fiduicals (currently 6)
+        //Number of fiducials
+        tp << (uint16_t)localFiducials.size();
+
+        //Fiduicals (currently 6)
         for(uint8_t k = 0; k < 6; k++) {
             if (k < localFiducials.size()) {
                 tp << Pair3B(localFiducials[k].x, localFiducials[k].y);
@@ -449,14 +449,14 @@ void *TelemetryPackagerThread(void *threadid)
         }
 
         //Pixel to screen conversion
-	tp << (float)0; //X intercept
-	tp << (float)1; //X slope
-	tp << (float)0; //Y intercept
-	tp << (float)1; //Y slope
+        tp << (float)0; //X intercept
+        tp << (float)1; //X slope
+        tp << (float)0; //Y intercept
+        tp << (float)1; //Y slope
 
         //Image max and min
-	tp << (uint8_t)255; //max
-	tp << (uint8_t)0; //min
+        tp << (uint8_t)255; //max
+        tp << (uint8_t)0; //min
 
         //add telemetry packet to the queue
         tm_packet_queue << tp;
