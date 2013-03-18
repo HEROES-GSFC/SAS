@@ -8,7 +8,7 @@
 
 using std::ostream;
 
-Pair::Pair(float x, float y) : i_x(x), i_y(y) {}
+Pair::Pair(double x, double y) : i_x(x), i_y(y) {}
 Pair::Pair(const Pair3B& p3) : i_x(p3.x()), i_y(p3.y()) {}
 
 ByteString& operator<<(ByteString& bs, const Pair& p)
@@ -26,7 +26,7 @@ ByteString& operator>>(ByteString& bs, Pair& p)
   return bs >> p.i_x >> p.i_y;
 }
 
-Pair3B::Pair3B(float x, float y)
+Pair3B::Pair3B(double x, double y)
 {
   initialize(x, y);
 }
@@ -36,15 +36,15 @@ Pair3B::Pair3B(const Pair& p)
   initialize(p.x(), p.y());
 }
 
-void Pair3B::initialize(float x, float y)
+void Pair3B::initialize(double x, double y)
 {
   //Needs bounds checking!
   i_a = (uint16_t)floor((x*3+OFFSET)+0.5);
   i_b = (uint16_t)floor((y*3+OFFSET)+0.5);
 }
 
-float Pair3B::x() const { return ((float)i_a-OFFSET)/3; }
-float Pair3B::y() const { return ((float)i_b-OFFSET)/3; }
+double Pair3B::x() const { return ((double)i_a-OFFSET)/3; }
+double Pair3B::y() const { return ((double)i_b-OFFSET)/3; }
 
 ByteString& operator<<(ByteString& bs, const Pair3B& p3)
 {
