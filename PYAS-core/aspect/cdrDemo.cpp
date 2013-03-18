@@ -199,6 +199,9 @@ void *ImageProcessThread(void *threadid)
     printf("Hello World! It's me, thread #%ld!\n", tid);
 
     Aspect aspect;
+    CoordList localLimbs, localFiducials;
+    IndexList localIds;
+    cv::Point2f localCenter, localError;
     
     while(1)
     {
@@ -232,14 +235,22 @@ void *ImageProcessThread(void *threadid)
                     aspect.LoadFrame(frame);
 		    pthread_mutex_unlock(&mutexImage); 
 		    
+
+                    aspect.GetPixelCrossings(localLimbs);
+		    aspect.GetPixelCenter(localCenter);
+		    aspect.GetPixelError(localError);
+		    aspect.GetPixelFiducials(localFiducials);
+		    aspect.GetFiducialIDs(localIds);
+
                     pthread_mutex_lock(&mutexProcess);
 
-                    aspect.GetPixelCrossings(limbs);
-		    aspect.GetPixelCenter(center);
-		    aspect.GetPixelError(error);
-		    aspect.GetPixelFiducials(fiducials);
-		    aspect.GetFiducialIDs(ids);
+                    limbs = localLimbs;
+                    center = localCenter;
+                    error = localError;
+                    fiducials = localFiducials;
+                    ids = localIds;
 
+/*
         std::cout << ids.size() << " fiducials found:";
         for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << fiducials[i];
         std::cout << std::endl;
@@ -251,6 +262,7 @@ void *ImageProcessThread(void *threadid)
         std::cout << std::endl;
 
         std::cout << "Sun center (pixels): " << center << ", Sun center (screen): " << aspect.PixelToScreen(center) << std::endl;
+*/
 
                     pthread_mutex_unlock(&mutexProcess);
                 }
@@ -384,7 +396,11 @@ void *TelemetryPackagerThread(void *threadid)
 	    localError = error;
 	    localFiducials = fiducials;
 
+            std::cout << "Telemetry packet with Sun center (pixels): " << localCenter << std::endl;
+
 	    pthread_mutex_unlock(&mutexProcess);
+        } else {
+            std::cout << "Using stale information for telemetry packet" << std::endl;
         }
 
 /*
@@ -449,10 +465,10 @@ void *TelemetryPackagerThread(void *threadid)
         }
 
         //Pixel to screen conversion
-        tp << (float)0; //X intercept
-        tp << (float)1; //X slope
-        tp << (float)0; //Y intercept
-        tp << (float)1; //Y slope
+        tp << (float)-3000; //X intercept
+        tp << (float)6; //X slope
+        tp << (float)3000; //Y intercept
+        tp << (float)-6; //Y slope
 
         //Image max and min
         tp << (uint8_t)255; //max
