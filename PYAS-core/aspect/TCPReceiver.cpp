@@ -99,7 +99,7 @@ void TCPReceiver::init_connection( void ){
 }
 
 void TCPReceiver::get_packet( uint8_t *packet ){
-    if( numBytesRcvd > 0 ){ memcpy( packet, payload, numBytesRcvd); }
+    if( numBytesRcvd >= 0 ){ memcpy( packet, payload, numBytesRcvd); }
 }
 
 void TCPReceiver::close_connection( void ){
