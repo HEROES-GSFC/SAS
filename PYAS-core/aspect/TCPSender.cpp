@@ -12,6 +12,7 @@ TCPSender::TCPSender(void) : sendPort(7000)
     char ip[] = "192.168.1.114";
     sendtoIP = new char[strlen(ip)+1];
     strcpy(sendtoIP, ip);
+    sock = 0;
 }
 
 TCPSender::TCPSender( const char *ip, unsigned short port ) : sendPort(port)
@@ -29,7 +30,7 @@ int TCPSender::init_connection( void )
 {
     
     // Create a reliable, stream socket using TCP
-    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0){ printf("socket() failed"); }
     
     // Construct the server address structure
@@ -71,5 +72,6 @@ void TCPSender::send_packet( TelemetryPacket *packet )
                 printf("CommandSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
             }
         if (bytesSent == -1){ printf("CommandSender: sendto() failed!\n"); }
+        free(payload);
     }
 }

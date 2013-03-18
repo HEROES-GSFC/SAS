@@ -1,5 +1,6 @@
 #include <opencv.hpp>
 #include <vector>
+#include <opencv.hpp>
 
 class CoordList : public std::vector<cv::Point2f>
 {
@@ -7,16 +8,79 @@ class CoordList : public std::vector<cv::Point2f>
     void add(float x, float y) { this->push_back(cv::Point2f(x, y)); }
 };
 
-int chordCenter(const unsigned char*, int, int, int, int, double*, CoordList&);
-double chord(const unsigned char*, int, int, int, int, int, bool, CoordList&);
-
-struct morphParams{
-    bool dim;
-    int tophatWidth;
-    int threshold;
+class IndexList : public std::vector<cv::Point>
+{
+  public:
+    void add(int x, int y) { this->push_back(cv::Point(x, y)); }
 };
 
-int morphPeakFind(cv::Mat, morphParams, int*, int);
-int morphFindFiducials(cv::Mat, morphParams, morphParams, int, int*, int);
+class Aspect
+{
+public:
+    Aspect();
+    ~Aspect();
+
+    void LoadFrame(cv::Mat inputFrame);
+    void GetPixelCrossings(CoordList& crossings);
+    void GetPixelCenter(cv::Point2f& center);
+    void GetPixelError(cv::Point2f& error);
+    void GetPixelFiducials(CoordList& fiducials);
+    void GetFiducialIDs(IndexList& fiducialIDs);
+    void GetScreenCenter(cv::Point2f& center);
+
+    cv::Point2f PixelToScreen(cv::Point2f point);
+
+private:
+    int initialNumChords;
+    int chordsPerAxis;
+    int chordThreshold;
+    int limbWidth;
+    int fiducialTolerance;
+
+    int solarRadius;
+
+    int fiducialLength;
+    int fiducialWidth;
+
+    int fiducialThreshold;
+
+    int fiducialNeighborhood;
+    int numFiducials;
+    
+    float fiducialSpacing;
+    float fiducialSpacingTol;
+    std::vector<float> mDistances, nDistances;
+    
+    int FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings);
+    void FindPixelCenter();
+    void FindPixelFiducials(cv::Mat image, cv::Point offset);
+    void FindFiducialIDs();
+    void FindMapping();
+
+    cv::Range GetSafeRange(int start, int stop, int size);
+//    void LoadKernel();
+
+    cv::Mat frame;
+    cv::Size frameSize;
+
+    cv::Mat kernel;
+    cv::Size kernelSize;
+
+    bool centerValid;
+    CoordList limbCrossings;
+    cv::Point2f pixelCenter;
+    cv::Point2f pixelError;
+    
+    bool fiducialsValid;
+    CoordList pixelFiducials;
+
+    bool fiducialIDsValid;
+    IndexList fiducialIDs;
+
+    bool mappingValid;
+    float mapping[2][2];
+};
+
+void GetLinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
 int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
 void matchKernel(cv::OutputArray);

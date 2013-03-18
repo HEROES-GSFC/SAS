@@ -1,3 +1,5 @@
 #include "opencv.hpp"
+#include <string>
 
-int writeFITSImage(cv::InputArray);
+int writePNGImage(cv::InputArray _image, const std::string fileName);
+int writeFITSImage(cv::InputArray, const std::string fileName);

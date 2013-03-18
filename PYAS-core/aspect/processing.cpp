@@ -1,363 +1,560 @@
+/* This code should encapsulate all the code necessary for generating solar aspect.
+   It generates and stores all the variables needed for determining limb crossings,
+   center, fiducials, etc, as well as a local copy of the current frame. 
+
+   The idea would be to call "LoadFrame" once, at which point this module would
+   reset all its values. Requests for data are made with the Get functions, and
+   the necessary data is calculated and provided, usually as a CoordList or a
+   cv::Point. All the functions doing real computation are private. If the desired
+   data is already up to date when a Get function is called, then it won't be
+   re-calculated.
+
+   Remains to be added:
+   -Configuration Set functions. Right now all the parameters are hard-coded in the
+   constructor
+   -Coordinate transforms
+   -Catch bad center in FindPixelCenter
+*/
 #include "processing.hpp"
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <math.h>
+#include <cmath>
 
-int chordCenter(const unsigned char* image, int M, int N, int chords, int thresh, double* center, CoordList &limbs)
+cv::Point2f fiducialIDtoScreen(cv::Point2i id) {
+  cv::Point2f result;
+
+  result.x = 6 * ((id.x >= 0 ? 45*id.x+3*id.x*(id.x-1) : 48*id.x-3*id.x*(id.x+1)) - 15*id.y);
+  result.y = 6 * ((id.y >= 0 ? 45*id.y+3*id.y*(id.y-1) : 48*id.y-3*id.y*(id.y+1)) + 15*id.x);
+
+  return result;
+}
+
+Aspect::Aspect()
 {
-    limbs.clear();
+    initialNumChords = 20;
+    chordsPerAxis = 5;
+    chordThreshold = 50;
+    solarRadius = 105;
+    limbWidth = 3;
+    fiducialTolerance = 2;
+    fiducialLength = 15;
+    fiducialWidth = 2; 
+    fiducialThreshold = 5;
+    fiducialNeighborhood = 2;
+    numFiducials = 10;
 
-    int loc = 0;
-    //CRAZINESS!
-    int total[2] = {0};
-    center[0] = 0; //will contain center in the X direction
-    center[1] = 0; //will contain center in the Y direction
-    center[2] = 0; //will contain the number of row chords
-    center[3] = 0; //will contain the number of column chords
-    center[4] = 0; //will contain sample standard deviation in the X direction
-    center[5] = 0; //will contain sample standard deviation in the Y direction
-    double temp;
-    for (int l = 0; l < chords; l++)
+    fiducialSpacing = 15.5;
+    fiducialSpacingTol = 1.5;
+    pixelCenter = cv::Point2f(-1.0, -1.0);
+    pixelError = cv::Point2f(0.0, 0.0);
+    
+    matchKernel(kernel);
+    kernelSize = kernel.size();
+
+    mDistances.clear();
+    nDistances.clear();
+    for (int k = 0; k < 14; k++)
     {
-	loc = (int) ((float) l*M/chords + M/(2*chords));
-	//std::cout << "Trying row: " << loc << "\n";
-	if ((temp = chord(image, thresh, 4, loc, M, N, 0, limbs)) >= 0)
+	if(k < 7)
 	{
-	    total[0]++;
-	    center[0] += temp;
-	    center[4] += temp*temp;
-	    //std::cout << "Row: " << loc << ", value: " << temp << std::endl;
+	    mDistances.push_back((84-k*6)*fiducialSpacing/15);
+	    nDistances.push_back((84-k*6)*fiducialSpacing/15);
 	}
-		
-	loc = (int) ((float) l*N/chords + N/(2*chords));
-	//std::cout << "Trying col: " << loc << "\n";
-	if ((temp = chord(image, thresh, 2, loc, M, N, 1, limbs)) >=0)
+	else
 	{
-	    total[1]++;
-	    center[1] += temp;
-	    center[5] += temp*temp;
-	    //std::cout << "Col: " << loc << ", value: " << temp << std::endl;
+	    mDistances.push_back((45 + (k-7)*6)*fiducialSpacing/15);
+	    nDistances.push_back((45 + (k-7)*6)*fiducialSpacing/15);
 	}
     }
-    if(!total[0] || !total[1])
+}
+
+Aspect::~Aspect()
+{
+
+}
+
+void Aspect::LoadFrame(cv::Mat inputFrame)
+{
+
+  if(inputFrame.empty())
+    std::cout << "Tried to load empty frame" << std::endl;
+  else
     {
-	std::cout << "failed to find any chords\n";
-	center[0] = -1; center[1] = -1;
+  cv::Size inputSize = inputFrame.size();
+    if (inputSize.width == 0 || inputSize.height == 0)
+    {
+	std::cout << "Tried to load a frame with dimension 0" << std::endl;
+	
     }
     else
     {
-	center[2] = total[0];
-	center[3] = total[1];
-	center[0] = center[0]/total[0];
-	center[1] = center[1]/total[1];
-	center[4] = sqrt((center[4]-center[2]*center[0]*center[0])/(center[2]-1));
-	center[5] = sqrt((center[5]-center[3]*center[1]*center[1])/(center[3]-1));
-	//std::cout << "  Chords found: " << total[0] << " rows, " << total[1] << " columns" << std::endl;
+	inputFrame.copyTo(frame);
+	frameSize = frame.size();
+	limbCrossings.clear();
+	centerValid = false;
+	pixelFiducials.clear();
+	fiducialsValid = false;
+
+	fiducialIDs.clear();
+	fiducialIDsValid = false;
+	mappingValid = false;
     }
-	
-    return 0;
+    }
 }
 
-double chord(const unsigned char* image, int thresh, int width, int loc, int M, int N, bool mode, CoordList &limbs)
+void Aspect::FindPixelCenter()
 {
-    std::vector<bool> edge_dir;
-    std::vector< std::vector<int> > idx;
-    std::vector< std::vector<char> > edge;
-    int cur;
-    int last = -1;
-    int K;
-    int min, max;
-    int x, xx, y, xy, Num;
-    double D, slope, intercept, center;
-	
-    if (mode) K = M;
-    else K = N;
-    for (int k = 0; k < K; k++)
+    std::vector<int> rows, cols;
+    std::vector<float> crossings, midpoints;
+    int rowStart, colStart, rowStep, colStep, limit, K, M;
+    cv::Range rowRange, colRange;
+    float mean, std;
+
+    rows.clear();
+    cols.clear();
+
+    //Determine new row and column locations for chords
+    //If the past center was invalid, search the whole frame
+    if(pixelCenter.x < 0 || pixelCenter.y < 0 ||
+		       pixelCenter.x >= frameSize.width || 
+		       pixelCenter.y >= frameSize.height)
     {
-	if (mode) cur = image[N*k + loc];
-	else cur = image[N*loc + k];
-		
-	if (last < thresh && cur >= thresh)
-	{
-	    //std::cout << "    Rising Edge Found (" << loc << "): " << k << "\n";
-	    edge_dir.push_back(0);
-	    if ((k-width) < 0) min = 0;
-	    else min = k-width;
-			
-	    if ((k+width) > K) max = K;
-	    else max = k+width;
-			
-	    idx.resize(idx.size() + 1);
-	    edge.resize(edge.size() +1);
-	    for (int e = min; e < max; e++)
-	    {
-		idx.back().push_back(e);
-		if (mode) edge.back().push_back(image[N*e + loc]);
-		else edge.back().push_back(image[N*loc + e]);
-	    }
-	    k = idx.back().back();
-	}
-	else if(last >= thresh && cur < thresh)
-	{
-	    //std::cout << "    Falling Edge Found (" << loc << "): " << k-1 << "\n";
-	    edge_dir.push_back(1);
-	    if ((k-width-1) < 0)	min = 0;
-	    else min = k-width-1;
-			
-	    if ((k+width-1) > K) max = K;
-	    else max = k+width-1;
-			
-	    idx.resize(idx.size() + 1);
-	    edge.resize(edge.size() +1);
-	    for (int e = min; e < max; e++)
-	    {
-		idx.back().push_back(e);
-		if (mode) edge.back().push_back(image[N*e + loc]);
-		else edge.back().push_back(image[N*loc + e]);
-	    }
-	    k = idx.back().back();
-	}
-	if (mode) last = image[N*k + loc];
-	else last = image[N*loc + k];
+	limit = initialNumChords;
+
+	rowStep = frameSize.height/limit;
+	colStep = frameSize.width/limit;
+
+	rowStart = rowStep/2;
+	colStart = colStep/2;
     }
-	
-    if (edge_dir.size() != 2)
+    //Otherwise, only use the solar subimage
+    else
     {
-	//std::cout << "Wrong number of limbs: "<< edge_dir.size() <<"\n";
-	//for (unsigned int k = 0; k < edge_dir.size(); k++)
-	//	std::cout << "Edge Loc: " << (int) idx[k][width] << "\n";
+	limit = chordsPerAxis;
+	rowRange = GetSafeRange(pixelCenter.y - solarRadius,
+				pixelCenter.y + solarRadius, 
+				frameSize.height);
+
+	colRange = GetSafeRange(pixelCenter.x - solarRadius,
+				pixelCenter.x + solarRadius, 
+				frameSize.width);
+
+	rowStep = (rowRange.end - rowRange.start + 1)/limit;
+	colStep = (colRange.end - colRange.start + 1)/limit;
+
+	rowStart = rowRange.start + rowStep/2;
+	colStart = colRange.start + colStep/2;
+    }
+
+    //Generate vectors of chord locations
+    for (int k = 0; k < limit; k++)
+    {
+	rows.push_back(rowStart + k*rowStep);
+	cols.push_back(colStart + k*colStep);
+    }
+
+    //Initialize
+    pixelCenter = cv::Point2f(0.0,0.0);
+    limbCrossings.clear();
+
+    //For each dimension
+    for (int dim = 0; dim < 2; dim++)
+    {
+	if (dim) K = (int) rows.size();
+	else K = (int) cols.size();
+
+	//Find the midpoints of the chords.
+	//For each chord
+	midpoints.clear();
+	for (int k = 0; k < K; k++)
+	{
+	    //Determine the limb crossings in that chord
+	    crossings.clear();
+	    if (dim) FindLimbCrossings(frame.row(rows[k]), crossings);
+	    else FindLimbCrossings(frame.col(cols[k]), crossings);
+	    
+	    //If there seems to be a pair of crossings
+	    if (crossings.size() != 2) continue;
+	    else
+	    {
+		//Save the crossings
+		for (int l = 0; l < (int) crossings.size(); l++)
+		{
+		    if (dim) limbCrossings.add(crossings[l], rows[k]);
+		    else limbCrossings.add(cols[k], crossings[l]);
+		}
+		//Compute and store the midpoint
+		midpoints.push_back((crossings[0] + crossings[1])/2);
+	    }
+	}
+
+	//Determine the mean of the midpoints for this dimension
+	mean = 0;
+	M = (int) midpoints.size();
+	for (int m = 0; m < M; m++)
+	    mean += midpoints[m];
+	mean = (float)mean/M;
+	
+	//Determine the std dev of the midpoints
+	std = 0;
+	for (int m = 0; m < M; m++)
+	    std += pow(midpoints[m]-mean,2);
+	std = sqrt(std/M);
+	
+	//Store the Center and RMS Error for this dimension
+	if (dim)
+	{
+	    pixelCenter.x = mean;
+	    pixelError.x = std;
+	}
+	else
+	{
+	    pixelCenter.y = mean;
+	    pixelError.y = std;
+	}	
+    }
+
+    //Add a test here for valid center
+    
+    centerValid = true;
+}
+
+int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
+{
+    std::vector<int> edges;
+    std::vector<float> x, y, fit;
+    int thisValue, lastValue;
+    int K = chord.total();
+    int edgeSpread;
+
+    int edge, min, max;
+    int N;
+	
+    //for each pixel, check if the pixel lies on a potential limb
+    lastValue = (int) chord.at<unsigned char>(0);
+    for (int k = 1; k < K; k++)
+    {
+	thisValue = (int) chord.at<unsigned char>(k);
+
+	//check for a rising edge, save the index above the threshold
+	if (lastValue <= chordThreshold && thisValue > chordThreshold)
+	{
+	    edges.push_back(k);
+	}
+	//check for a falling edge
+	else if(lastValue > chordThreshold && thisValue <= chordThreshold)
+	{
+	    edges.push_back(-(k-1));
+	}
+	lastValue = thisValue;
+    }
+
+    //Remove edge pairs that seem to correspond to fiducials
+    //also remove edge pairs that are too close together
+    for (int k = 1; k < (int) edges.size(); k++)
+    {
+	//find distance between next edge pair
+	//positive if the region is below the chordThreshold
+	edgeSpread = edges[k] + edges[k-1];
+
+	//if the pair is along a fiducial
+	if(abs(edgeSpread - fiducialLength) <= fiducialTolerance || 
+	   // or across a fiducial
+	   abs(edgeSpread - fiducialWidth) <= fiducialTolerance ||
+	   // or too close together
+	   abs(edgeSpread) < limbWidth)
+	{
+	    // remove the pair and update the index accordingly
+	    edges.erase(edges.begin() + (k-1), edges.begin() + (k+1));
+	    if (k == 1) k -= 1;
+	    else k -= 2;
+	}
+    }
+
+    //if we still have anything other than a single edge pair, ignore the chord
+    if ((int) edges.size() != 2)
+    {
 	return -1;
     }
-    else if( edge_dir[0] != 0 && edge_dir[1] != 1)
+    // if the pair isn't a rising edge followed by a falling edge, ignore the chord.
+    else if(!(edges[0] > 0  && edges[1] < 0))
     {
-	//std::cout << "Wrong limb direction\n";
-	//std::cout << "Edge Dir: ";
-	//for (unsigned int k = 0; k < edge_dir.size(); k ++)
-	//	std::cout << edge_dir[k] << " ";
-	//std:: cout << "\n";
 	return -1;
     }
-    else
+
+    // at this point we're reasonably certain we've found a valid chord
+
+    // for each edge, perform a fit to find the limb crossing
+    crossings.clear();
+    for (int k = 0; k < 2; k++)
     {
-	//std::cout << "Performing Linear Fits\n";
-	center = 0;
-	for (int k = 0; k < 2; k++)
+	//take a neighborhood around the edge
+	edge = abs(edges[k]);
+	if ((edge-limbWidth) < 0) min = 0;
+	else min = edge-limbWidth;
+	
+	if ((edge+limbWidth) > K) max = K;
+	else max = edge+limbWidth;
+
+	//if that neighborhood is large enough
+	N = max-min+1;
+	if (N < 2)
+	    return -1;
+
+	//compute fit to neighborhood
+	x.clear(); y.clear();
+	for (int l = min; l <= max; l++)
 	{
-	    Num = idx[k].size();
-	    x = 0;
-	    y = 0;
-	    xx = 0;
-	    xy = 0;
-	    //std::cout << "idx length: " << idx[k].size() << "\n";
-	    //std::cout << "edge length: " << edge[k].size() << "\n";
-	    for (int e = 0; e < Num; e++)
-	    {
-		x += idx[k][e];
-		xx += idx[k][e]*idx[k][e];
-		y += edge[k][e];
-		xy += edge[k][e]* idx[k][e];
-	    }
-	    D = Num*xx -x*x;
-	    slope = (double) (Num*xy - x*y)/D;
-	    intercept = (double) (y*xx - xy*x)/D;
-	    center += .5*(thresh - intercept)/slope;
-
-            if (mode == 0) { //looking at rows
-              limbs.add((thresh - intercept)/slope, loc);
-            } else {
-              limbs.add(loc, (thresh - intercept)/slope);
-            }
-
+	    x.push_back(l);
+	    y.push_back((float) chord.at<unsigned char>(l));
 	}
+	GetLinearFit(x,y,fit);
+	crossings.push_back(((float)chordThreshold - fit[0])/fit[1]);
     }
-    return center;
+    return 0; 
 }
 
-int morphPeakFind(cv::Mat image, morphParams params, int* locs, int numLocs)
-{
-    int thresh, length;
-    int locIdx = 0;
-    cv::Size imSize = image.size();
-    cv::Scalar mean, stddev;
-    cv::Mat proj, kernel;
-	
-    int minIdx;
-    float min;
-	
-    if (params.dim)
-    {
-	length = imSize.height;
-	kernel = cv::Mat(params.tophatWidth,1, CV_32FC1, 1);
-    }
-    else
-    {
-	length = imSize.width;
-	kernel = cv::Mat(1, params.tophatWidth,CV_32FC1, 1);
-    }
-	
-    cv::reduce(image, proj, params.dim, CV_REDUCE_SUM, CV_32F);
-//	std::cout << "Projection Size: " << (proj.size()).height << " by " << (proj.size()).width << "\n";
-    cv::morphologyEx(proj, proj, cv::MORPH_BLACKHAT, kernel);
-    cv::meanStdDev(image, mean, stddev);
-/*	std::cout << "Mean: " << mean[0] << "\n";
-	std::cout << "Std: " << stddev[0] << "\n";
-*/	thresh = mean[0] + params.threshold*stddev[0];
-	
-/*	std::ofstream logfile;
-  	logfile.open ("proj.txt");
-	for (int k = 0; k < length; k++)
-	{
-	logfile << proj.at<float>(k) << "\n";	
-  	}
-	logfile.close();
-*/
-	
-    for(int k = 1; k < length-1; k++)
-    {
-	if (proj.at<float>(k) > thresh)
-	{
-	    if ((proj.at<float>(k) > proj.at<float>(k+1)) & 
-		(proj.at<float>(k) > proj.at<float>(k-1)))
-	    {
-		if (locIdx < numLocs)
-		{
-		    locs[locIdx] = k;
-		    locIdx++;
-		}
-		else
-		{
-		    min = 256*length;
-		    minIdx = -1;
-		    for(int m = 0; m < numLocs; m++)
-		    {
-			if (proj.at<float>(locs[m]) < min)
-			{
-			    minIdx = m;
-			    min = proj.at<float>(locs[m]);
-			}	
-		    }
-		    if (proj.at<float>(k) > min)
-		    {
-			locs[minIdx] = k;
-		    }
-		}
-	    }
-	}
-    }
-
-    return locIdx;	
-}
-
-int morphFindFiducials(cv::Mat image, morphParams rowParams, morphParams colParams, 
-		       int fidWidth, int* locs, int numLocs)
-{
-    int nLocs;
-    int temp = 0;
-    cv::Size imSize;
-    cv::Range sliceCols;
-    cv::Mat slice;
-	
-    imSize = image.size();
-    nLocs = morphPeakFind(image, rowParams, &locs[0], numLocs);
-    for	(int k = 0; k < nLocs; k++)
-    {
-	sliceCols.end = (locs[k] + fidWidth/2 < imSize.width) ? (locs[k] + fidWidth/2) : (imSize.width-1);
-	sliceCols.start = (locs[k] - fidWidth/2 > 0) ? (locs[k] - fidWidth/2) : 0;
-	slice = image.colRange(sliceCols);
-
-	morphPeakFind(slice, colParams, &temp, 1);
-	locs[numLocs + k] = temp;
-/*		
-		std::cout << sliceCols.start << " to " << sliceCols.end
-		<< ", " << locs[k] << " Fiducial in row: ";
-		std::cout << locs[numLocs + k] << "\n";
-
-		cv::namedWindow( "Display window", CV_WINDOW_AUTOSIZE ); 
-		cv::imshow( "Display window", slice ); 
-		cv::waitKey(0);
-*/
-    }
-    return nLocs;
-}
-
-int matchFindFiducials(cv::InputArray _image, cv::InputArray _kernel, int threshold, cv::Point2f* locs, int numLocs)
+void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 {
     cv::Scalar mean, stddev;
-    cv::Size imSize, kerSize;
-    cv::Mat detect;
-    int locIdx = 0;
-    float thresh = 0;
-    int minIdx;
-//	double dMin, dMax;
-    float min, curVal;
+    cv::Size imageSize;
+    cv::Mat correlation, nbhd;
+    cv::Range rowRange, colRange;
+    float threshold, thisValue, thatValue, minValue;
+    double Cm, Cn, average;
+    int minIndex;
+    bool redundant;
 
-    cv::Mat image = _image.getMat();
-    cv::Mat kernel = _kernel.getMat();
+    pixelFiducials.clear();
+    imageSize = image.size();
 
-    imSize = image.size();
-    kerSize = kernel.size();
-
-
-
-    cv::filter2D(image, detect, CV_32FC1, kernel, cv::Point(-1,-1));
-    cv::normalize(detect,detect,0,1,cv::NORM_MINMAX);
+    cv::filter2D(image, correlation, CV_32FC1, kernel, cv::Point(-1,-1));
+    cv::normalize(correlation,correlation,0,1,cv::NORM_MINMAX);
 	
-    cv::meanStdDev(detect, mean, stddev);
-/*	std::cout << "Mean: " << mean[0] << "\n";
-	std::cout << "Std: " << stddev[0] << "\n";
+    cv::meanStdDev(correlation, mean, stddev);
+
+    threshold = mean[0] + fiducialThreshold*stddev[0];
 	
-	cv::minMaxLoc(detect, &dMin, &dMax, NULL, NULL);
-	std::cout << "Min: " << dMin << "\n";
-	std::cout << "Max: " << dMax << "\n";
-	cv::namedWindow( "Display window", CV_WINDOW_AUTOSIZE ); 
-	cv::imshow( "Display window", detect ); 
-	cv::waitKey(0);
-*/
-    thresh = mean[0] + threshold*stddev[0];
-	
-    for (int m = 1; m < imSize.height-1; m++)
+    for (int m = 1; m < imageSize.height-1; m++)
     {
-	for (int n = 1; n < imSize.width-1; n++)
+	for (int n = 1; n < imageSize.width-1; n++)
 	{	 
-	    curVal = detect.at<float>(m,n);
-	    if(curVal > thresh)
+	    thisValue = correlation.at<float>(m,n);
+	    if(thisValue > threshold)
 	    {
-//				std::cout << m << " " << n << "\n";
-		if((curVal > detect.at<float>(m,n+1)) &
-		   (curVal > detect.at<float>(m,n-1)) &
-		   (curVal > detect.at<float>(m+1,n)) &
-		   (curVal > detect.at<float>(m-1,n)))
+		if((thisValue > correlation.at<float>(m, n+1)) &
+		   (thisValue > correlation.at<float>(m, n- 1)) &
+		   (thisValue > correlation.at<float>(m+1, n)) &
+		   (thisValue > correlation.at<float>(m-1, n)))
 		{
-		    if (locIdx < numLocs)
+		    redundant = false;
+		    for (int k = 0; k < (int) pixelFiducials.size(); k++)
 		    {
-			locs[locIdx] = cv::Point2f(n,m);
-			locIdx++;
+			if (abs(pixelFiducials[k].y - m) < fiducialLength &&
+			    abs(pixelFiducials[k].x - n) < fiducialLength)
+			{
+			    redundant = true;
+			    thatValue = correlation.at<float>((int) pixelFiducials[k].y,
+							      (int) pixelFiducials[k].x);
+			    if ( thisValue > thatValue)
+			    {
+				pixelFiducials[k] = cv::Point2f(n,m);
+			    }
+			    break;
+			}
+		    }
+		    if (redundant == true)
+			continue;
+
+		    if ((int) pixelFiducials.size() < numFiducials)
+		    {
+			pixelFiducials.add(n, m);
 		    }
 		    else
 		    {
-			min = kerSize.width*kerSize.height*256;
-			minIdx = -1;
-			for(int k = 0; k < numLocs; k++)
+			minValue = kernelSize.width*kernelSize.height*256;
+			minIndex = -1;
+			for(int k = 0; k < numFiducials; k++)
 			{
-			    if (detect.at<float>(locs[k]) < min)
+			    if (correlation.at<float>((int) pixelFiducials[k].y,
+						      (int) pixelFiducials[k].x) 
+				< minValue)
 			    {
-				minIdx = k;
-				min = detect.at<float>(locs[k]);
+				minIndex = k;
+				minValue = correlation.at<float>((int) pixelFiducials[k].y,
+								 (int) pixelFiducials[k].x);
 			    }	
 			}
-			if (curVal > min)
+			if (thisValue > minValue)
 			{
-			    locs[minIdx] = cv::Point2f(n,m);
+			    pixelFiducials[minIndex] = cv::Point2f(n, m);
 			}
 		    }
 		}
 	    }
 	}
     }
-    return locIdx;
-	
+
+    //Refine positions to sub-pixel
+    //For each fiducial location
+    for (int k = 0; k < (int) pixelFiducials.size(); k++)
+    {
+	//Get safe ranges for for the neighborhood around the fiducial
+	rowRange = GetSafeRange(pixelFiducials[k].y - fiducialNeighborhood,
+				pixelFiducials[k].y + fiducialNeighborhood,
+				imageSize.height);
+
+	colRange = GetSafeRange(pixelFiducials[k].x - fiducialNeighborhood,
+				pixelFiducials[k].x + fiducialNeighborhood,
+				imageSize.width);
+	//Compute the centroid of the region around the local max
+	//in the correlation image
+	Cm = 0.0; Cn = 0.0; average = 0.0;
+	for(int m = rowRange.start; m <= rowRange.end; m++)
+	{
+	    for(int n = colRange.start; n <= colRange.end; n++)
+	    {
+		thisValue = correlation.at<float>(m,n);
+		Cm += m*thisValue;
+		Cn += n*thisValue;
+		average += thisValue;
+	    }
+	}
+
+	//Set the fiducials to the centroid location, plus an offset
+	//to convert from the solar subimage to the original frame
+	pixelFiducials[k].y = (float) (Cm/average + (double) offset.y);
+	pixelFiducials[k].x = (float) (Cn/average + (double) offset.x);
+    }
+
+    fiducialsValid = true;
+    return;
 }
+
+void Aspect::FindFiducialIDs()
+{
+    int K;
+    float rowDiff, colDiff;
+    IndexList rowPairs, colPairs;
+    CoordList trash;
+    K = (int) pixelFiducials.size();
+    fiducialIDs.clear();
+    if(fiducialsValid == false)
+	GetPixelFiducials(trash);
+    for (int k = 0; k < K; k++)
+    {
+	fiducialIDs.push_back(cv::Point(-100, -100));
+    }
+
+    //Find fiducial pairs that are spaced correctly
+    for (int k = 0; k < K; k++)
+    {
+	for (int l = k+1; l < K; l++)
+	{
+	    rowDiff = pixelFiducials[k].y - pixelFiducials[l].y;
+	    if (fabs(rowDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
+		fabs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol)
+		colPairs.push_back(cv::Point(k,l));
+
+	    colDiff = pixelFiducials[k].x - pixelFiducials[l].x;
+	    if (fabs(colDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
+		fabs(colDiff) < (float) fiducialSpacing + fiducialSpacingTol)
+		rowPairs.push_back(cv::Point(k,l));
+	}
+    }
+    
+    for (int k = 0; k < (int) rowPairs.size(); k++)
+    {
+	rowDiff = pixelFiducials[rowPairs[k].y].y 
+	    - pixelFiducials[rowPairs[k].x].y;
+	for (int d = 0; d < (int) mDistances.size(); d++)
+	{
+	    if (fabs(fabs(rowDiff) - mDistances[d]) < fiducialSpacingTol)
+	    {
+		if (rowDiff > 0) 
+		{
+		      fiducialIDs[rowPairs[k].x].y = d-7;
+		      fiducialIDs[rowPairs[k].y].y = d+1-7;
+		}
+		else
+		{
+		    fiducialIDs[rowPairs[k].x].y = d+1-7;
+		    fiducialIDs[rowPairs[k].y].y = d-7;
+		}
+	    }
+	}
+    }
+
+    for (int k = 0; k < (int) colPairs.size(); k++)
+    {
+	colDiff = pixelFiducials[colPairs[k].x].x 
+	    - pixelFiducials[colPairs[k].y].x;
+	for (int d = 0; d < (int) nDistances.size(); d++)
+	{
+	    if (fabs(fabs(colDiff) - nDistances[d]) < fiducialSpacingTol)
+	    {
+		if (colDiff > 0) 
+		{
+		    fiducialIDs[colPairs[k].x].x = d-7;
+		    fiducialIDs[colPairs[k].y].x = d+1-7;
+		}
+		else
+		{
+		    fiducialIDs[colPairs[k].x].x = d+1-7;
+		    fiducialIDs[colPairs[k].y].x = d-7;
+		}
+	    }
+	}
+    }
+    fiducialIDsValid = true;
+}	
+
+void Aspect::FindMapping()
+{
+    std::vector<float> x, y, fit;
+    IndexList trash;
+    cv::Point2f curPoint;
+    cv::Point2f screenPoint;
+    if (fiducialIDsValid == false)
+	GetFiducialIDs(trash);
+
+    for (int dim = 0; dim < 2; dim++)
+    {
+	x.clear();
+	y.clear();
+	for (int k = 0; k < (int) pixelFiducials.size(); k++)
+	{
+            if(fiducialIDs[k].x < -10 || fiducialIDs[k].y < -10) continue;
+            curPoint = fiducialIDtoScreen(fiducialIDs[k]);
+	    if(dim == 0)
+	    {
+		x.push_back(pixelFiducials[k].x);
+		y.push_back(curPoint.x);
+	    }
+	    else
+	    {
+		x.push_back(pixelFiducials[k].y);
+		y.push_back(curPoint.y);
+	    }
+	}
+	GetLinearFit(x,y,fit);
+	mapping[dim][0] = fit[0];
+	mapping[dim][1] = fit[1];
+    }
+    mappingValid = true;
+}
+	    
+cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
+{
+    cv::Point2f screenPoint;
+    if (mappingValid == false)
+	FindMapping();
+    screenPoint.x = mapping[0][0] + mapping[0][1]*pixelPoint.x;
+    screenPoint.y = mapping[1][0] + mapping[1][1]*pixelPoint.y;
+    
+    return screenPoint;
+}		
 
 void matchKernel(cv::OutputArray _kernel)
 {
@@ -391,4 +588,108 @@ void matchKernel(cv::OutputArray _kernel)
 	}
 	//std::cout << "\n";		
     }
+}
+
+void GetLinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit)
+{
+
+    if (x.size() != y.size())
+    {
+	std::cout << "Error in GetLinearFit: x and y vectors should be same length\n";
+	return;
+    }
+
+    float X, Y, XX, XY, D, slope, intercept;
+
+    X = 0;
+    Y = 0;
+    XX = 0;
+    XY = 0;
+
+    for (int l = 0; l < (int) x.size(); l++)
+    {
+	X += x[l];
+	XX += x[l]*x[l];
+	Y += y[l];
+	XY += x[l]*y[l];
+    }
+    D = x.size()*XX -X*X;
+    slope = (x.size()*XY - X*Y)/D;
+    intercept = (Y*XX - XY*X)/D;
+	
+    fit.clear();
+    fit.push_back(intercept);
+    fit.push_back(slope);
+}
+
+
+cv::Range Aspect::GetSafeRange(int start, int stop, int size)
+{
+    cv::Range range;
+    range.start = (start > 0) ? (start) : 0;
+    range.end = (stop < size - 1) ? (stop) : (size - 1);
+    return range;
+}
+
+void Aspect::GetPixelCenter(cv::Point2f &center)
+{
+    if (centerValid == false)
+	FindPixelCenter();
+    center = pixelCenter;
+}
+
+void Aspect::GetPixelError(cv::Point2f &error)
+{
+    if (centerValid == false)
+	FindPixelCenter();
+    error = pixelError;
+}
+
+void Aspect::GetPixelCrossings(CoordList& crossings)
+{
+    if (centerValid == false)
+	FindPixelCenter();
+    crossings.clear();
+    for (int k = 0; k < (int) limbCrossings.size(); k++)
+	crossings.push_back(limbCrossings[k]);
+    
+    return;
+}
+
+void Aspect::GetPixelFiducials(CoordList& fiducials)
+{
+    cv::Range rowRange, colRange;
+    cv::Mat solarImage;
+    cv::Point offset;
+    if(fiducialsValid == false)
+    {
+	if (centerValid == false)
+	{  
+	    FindPixelCenter();
+	}
+	rowRange = GetSafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
+	colRange = GetSafeRange(pixelCenter.x-solarRadius, pixelCenter.x+solarRadius, frameSize.width);
+	solarImage = frame(rowRange, colRange);
+	offset = cv::Point(colRange.start, rowRange.start);
+	FindPixelFiducials(solarImage, offset);
+    }
+    fiducials.clear();
+    for (int k = 0; k < (int) pixelFiducials.size(); k++)
+	fiducials.push_back(pixelFiducials[k]);
+    return;
+}
+
+void Aspect::GetFiducialIDs(IndexList& IDs)
+{
+    if(fiducialIDsValid == false)
+	FindFiducialIDs();
+    IDs.clear();
+    for (int k = 0; k < (int) fiducialIDs.size(); k++)
+	IDs.push_back(fiducialIDs[k]);
+    return;
+}
+
+void Aspect::GetScreenCenter(cv::Point2f &center)
+{
+    center = PixelToScreen(pixelCenter);
 }

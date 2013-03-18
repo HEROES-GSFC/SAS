@@ -255,7 +255,7 @@ void *sendImageHandler( void *threadid )
         TelemetryPacket tp(0x70, 0x30);
         //tp << (uint16_t)img_index;
         //for( int j = 0; j < 50; j++){ tp << (uint8_t) j; }
-        //std::cout << tp << std::endl;
+        std::cout << tp << std::endl;
         tcpSender.send_packet( &tp );
         sleep(1);
         if (stop_message[tid] == 1){

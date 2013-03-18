@@ -12,9 +12,9 @@ int main()
   Command cm2(0x1102);
   cm2 << solution;
   std::cout << cm2.remainingBytes() << std::endl;
-  Command cm3(0x10ff, 0x1234);
-  Command cm4(0x10ff, 0x1234);
-  cm4 << 0xABCD;
+  Command cm3(0x10ff, 0x1230);
+  Command cm4(0x10ff, 0x1231);
+  cm4 << (uint16_t)0xABCD;
 
   CommandPacket cp2(0x01, 101);
   cp2 << cm1 << cm2 << cm3;
