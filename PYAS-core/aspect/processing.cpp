@@ -691,6 +691,16 @@ void Aspect::GetFiducialIDs(IndexList& IDs)
     return;
 }
 
+void Aspect::GetMapping(std::vector<float>& map)
+{
+    if(mappingValid == false)
+	FindMapping();
+    map.clear();
+    for (unsigned int k = 0; k < mapping.size(); k++)
+	map.push_back(mapping[k]);
+    return;
+}
+
 void Aspect::GetScreenCenter(cv::Point2f &center)
 {
     center = PixelToScreen(pixelCenter);

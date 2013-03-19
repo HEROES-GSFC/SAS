@@ -48,6 +48,8 @@ public:
     void GetPixelFiducials(CoordList& fiducials);
     void GetFiducialIDs(IndexList& fiducialIDs);
     void GetScreenCenter(cv::Point2f& center);
+    void GetMapping(std::vector<float>& map);
+    
     float GetFloat(FloatParameter variable);
     int GetInteger(IntParameter variable);
     void SetFloat(FloatParameter, float value);

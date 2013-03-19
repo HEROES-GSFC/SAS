@@ -59,6 +59,8 @@ int main(int argc, char* agrv[])
 
     CoordList fiducials, crossings;
     IndexList IDs;
+    std::vector<float> mapping;
+    mapping.resize(4);
     if (camera.Connect() != 0)
     {
 	std::cout << "Error connecting to camera!\n";	
@@ -112,11 +114,19 @@ int main(int argc, char* agrv[])
 	    aspect.GetPixelFiducials(fiducials);
 	    aspect.GetFiducialIDs(IDs);
 	    aspect.GetScreenCenter(IDCenter);
+	    aspect.GetMapping(mapping);
 	    
-	    std::cout << "\x1b[A\x1b[A\x1b[A\r";
 #if DEBUG
-	    std::cout << "Center: " << center.x << " " << center.y << "\n";
-	    std::cout << "Error:  " << error.x << " " << error.y << "\n";
+	    std::cout << "Center: " << center.x << " " << center.y << std::endl;
+	    std::cout << "Error:  " << error.x << " " << error.y << std::endl;
+	    std::cout << "Mapping: " << std::endl;
+	    for (int d = 0; d < 2; d++)
+	    {
+		for (int o = 0; o < 2; o++)
+		    std::cout << mapping[2*d+o] << " ";
+		std::cout << endl;
+	    }
+
 	    std::cout.flush();
 #endif
 

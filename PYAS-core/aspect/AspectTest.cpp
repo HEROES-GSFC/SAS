@@ -41,15 +41,14 @@ int main(int argc, char* argv[])
 
     CoordList crossings, fiducials;
     IndexList IDs;
-   
+    std::vector<float> mapping;
+    
     std::string label;
     char number[4] = "+00";
     
     cv::imshow("Do it.",frame);
     cv::waitKey();
     Aspect thingy;
-    for (int k = 0; k < 10; k++)
-	std::cout << thingy.GetInteger((IntParameter) k) << std::endl;
 
     while(1)
     {
@@ -61,6 +60,7 @@ int main(int argc, char* argv[])
 	thingy.GetPixelFiducials(fiducials);
 	thingy.GetFiducialIDs(IDs);
 	thingy.GetScreenCenter(IDCenter);
+	thingy.GetMapping(mapping);
 	// writeFITSImage(frame, "./Stuff.fits");
 	double end = GetSystemTime();
     
@@ -83,7 +83,14 @@ int main(int argc, char* argv[])
 	    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
 	    cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
 	}
-	std::cout << IDCenter.x << "," << IDCenter.y << "\n";
+	std::cout << "ID Center: " << IDCenter << std::endl;
+	std::cout << "Mapping: " << std::endl;
+	for (int d = 0; d < 2; d++)
+	{
+	    for (int c = 0; c < 2; c++)
+		std::cout << mapping[2*d+c] << " ";
+	    std::cout << std::endl;
+	}
 	cv::imshow("Do it.", image);
 	cv::waitKey();
     }
