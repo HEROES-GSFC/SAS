@@ -61,13 +61,16 @@ int main(int argc, char* agrv[])
     IndexList IDs;
     std::vector<float> mapping;
     mapping.resize(4);
+    std::cout << "fullDemo: Connecting to camera" << std::endl;
     if (camera.Connect() != 0)
     {
-	std::cout << "Error connecting to camera!\n";	
+	std::cout << "fullDemo: Error connecting to camera!\n";	
 	return -1;
     }
     else
     {
+      
+      std::cout << "fullDemo: Configuring camera" << std::endl;
 	camera.ConfigureSnap();
 //	camera.SetROISize(960,960);
 //	camera.SetROIOffset(165,0);
@@ -77,15 +80,17 @@ int main(int argc, char* agrv[])
 	height = camera.GetROIHeight();
 	if ( height == 0 || width == 0)
 	{
-	    std::cout << "Attempting to allocate frame of size 0\n";
+	    std::cout << "fullDemo: Attempting to allocate frame of size 0\n";
 	    return -1;
 	}
 	
+	std::cout << "fullDemo: Allocating frame" << std::endl;
 	frame.create(height, width, CV_8UC1);
 	
+	std::cout << "fullDemo: Initializing camera" << std::endl;
 	if(camera.Initialize() != 0)
 	{
-	    std::cout << "Error initializing camera!\n";
+	    std::cout << "fullDemo: Error initializing camera!\n";
 	    return -1;
 	}
 	std::cout << "CameraStart Done. Running CameraSnap loop\n";
@@ -106,19 +111,34 @@ int main(int argc, char* agrv[])
 	startTime = time(NULL);
 	while ( time(NULL) < startTime + duration)
 	{
+	  std::cout << "fullDemo: Snap Frame" << std::endl;
 	    camera.Snap(frame);
+
+	  std::cout << "fullDemo: Load Frame" << std::endl;
 	    aspect.LoadFrame(frame);
+
+	  std::cout << "fullDemo: Get Crossings" << std::endl;
 	    aspect.GetPixelCrossings(crossings);
+
+	  std::cout << "fullDemo: Get Center" << std::endl;
 	    aspect.GetPixelCenter(center);
-	    aspect.GetPixelError(error);
-	    aspect.GetPixelFiducials(fiducials);
-	    aspect.GetFiducialIDs(IDs);
-	    aspect.GetScreenCenter(IDCenter);
-	    aspect.GetMapping(mapping);
-	    
-#if DEBUG
 	    std::cout << "Center: " << center.x << " " << center.y << std::endl;
+
+	  std::cout << "fullDemo: Get Error" << std::endl;
+	    aspect.GetPixelError(error);
 	    std::cout << "Error:  " << error.x << " " << error.y << std::endl;
+	    
+	  std::cout << "fullDemo: Get Fiducials" << std::endl;
+	    aspect.GetPixelFiducials(fiducials);
+	    
+	  std::cout << "fullDemo: Get IDs" << std::endl;
+	    aspect.GetFiducialIDs(IDs);
+
+	  std::cout << "fullDemo: Get Screen Center" << std::endl;
+	    aspect.GetScreenCenter(IDCenter);
+
+	  std::cout << "fullDemo: Get Mapping" << std::endl;
+	    aspect.GetMapping(mapping);
 	    std::cout << "Mapping: " << std::endl;
 	    for (int d = 0; d < 2; d++)
 	    {
@@ -126,9 +146,9 @@ int main(int argc, char* agrv[])
 		    std::cout << mapping[2*d+o] << " ";
 		std::cout << endl;
 	    }
+	    
 
 	    std::cout.flush();
-#endif
 
 #if DISPLAY
 	    cv::merge(list,3,image);
