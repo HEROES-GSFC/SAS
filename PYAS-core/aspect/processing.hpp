@@ -14,6 +14,27 @@ class IndexList : public std::vector<cv::Point>
     void add(int x, int y) { this->push_back(cv::Point(x, y)); }
 };
 
+enum IntParameter
+{
+    InitialNumChords = 0,
+    ChordsPerAxis = 1,
+    LimbWidth = 2,
+    FiducialTolerance = 3,
+    SolarRadius = 4,
+    FiducialLength = 5,
+    FiducialWidth = 6,
+    FiducialThreshold = 7,
+    FiducialNeighborhood = 8,
+    NumFiducials = 9
+};
+
+enum FloatParameter
+{
+    FiducialSpacing = 0,
+    FiducialSpacingTol = 1
+};
+    
+
 class Aspect
 {
 public:
@@ -27,6 +48,10 @@ public:
     void GetPixelFiducials(CoordList& fiducials);
     void GetFiducialIDs(IndexList& fiducialIDs);
     void GetScreenCenter(cv::Point2f& center);
+    float GetFloat(FloatParameter variable);
+    int GetInteger(IntParameter variable);
+    void SetFloat(FloatParameter, float value);
+    void SetInteger(IntParameter, int value);
 
     cv::Point2f PixelToScreen(cv::Point2f point);
 
@@ -78,7 +103,7 @@ private:
     IndexList fiducialIDs;
 
     bool mappingValid;
-    float mapping[2][2];
+    std::vector<float> mapping;
 };
 
 void GetLinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);

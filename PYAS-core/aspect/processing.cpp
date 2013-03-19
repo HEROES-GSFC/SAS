@@ -22,12 +22,12 @@
 #include <cmath>
 
 cv::Point2f fiducialIDtoScreen(cv::Point2i id) {
-  cv::Point2f result;
+    cv::Point2f result;
 
-  result.x = 6 * ((id.x >= 0 ? 45*id.x+3*id.x*(id.x-1) : 48*id.x-3*id.x*(id.x+1)) - 15*id.y);
-  result.y = 6 * ((id.y >= 0 ? 45*id.y+3*id.y*(id.y-1) : 48*id.y-3*id.y*(id.y+1)) + 15*id.x);
+    result.x = 6 * ((id.x >= 0 ? 45*id.x+3*id.x*(id.x-1) : 48*id.x-3*id.x*(id.x+1)) - 15*id.y);
+    result.y = 6 * ((id.y >= 0 ? 45*id.y+3*id.y*(id.y-1) : 48*id.y-3*id.y*(id.y+1)) + 15*id.x);
 
-  return result;
+    return result;
 }
 
 Aspect::Aspect()
@@ -67,6 +67,7 @@ Aspect::Aspect()
 	    nDistances.push_back((45 + (k-7)*6)*fiducialSpacing/15);
 	}
     }
+    mapping.resize(4);
 }
 
 Aspect::~Aspect()
@@ -77,29 +78,30 @@ Aspect::~Aspect()
 void Aspect::LoadFrame(cv::Mat inputFrame)
 {
 
-  if(inputFrame.empty())
-    std::cout << "Tried to load empty frame" << std::endl;
-  else
-    {
-  cv::Size inputSize = inputFrame.size();
-    if (inputSize.width == 0 || inputSize.height == 0)
-    {
-	std::cout << "Tried to load a frame with dimension 0" << std::endl;
-	
-    }
+    if(inputFrame.empty())
+	std::cout << "Tried to load empty frame" << std::endl;
     else
     {
-	inputFrame.copyTo(frame);
-	frameSize = frame.size();
-	limbCrossings.clear();
-	centerValid = false;
-	pixelFiducials.clear();
-	fiducialsValid = false;
+	cv::Size inputSize = inputFrame.size();
+	if (inputSize.width == 0 || inputSize.height == 0)
+	{
+	    std::cout << "Tried to load a frame with dimension 0" << std::endl;
+	
+	}
+	else
+	{
+	    inputFrame.copyTo(frame);
+	    frameSize = frame.size();
+	    limbCrossings.clear();
+	    centerValid = false;
+	    pixelFiducials.clear();
+	    fiducialsValid = false;
 
-	fiducialIDs.clear();
-	fiducialIDsValid = false;
-	mappingValid = false;
-    }
+	    fiducialIDs.clear();
+	    fiducialIDsValid = false;
+	    mapping.resize(4);
+	    mappingValid = false;
+	}
     }
 }
 
@@ -117,8 +119,8 @@ void Aspect::FindPixelCenter()
     //Determine new row and column locations for chords
     //If the past center was invalid, search the whole frame
     if(pixelCenter.x < 0 || pixelCenter.y < 0 ||
-		       pixelCenter.x >= frameSize.width || 
-		       pixelCenter.y >= frameSize.height)
+       pixelCenter.x >= frameSize.width || 
+       pixelCenter.y >= frameSize.height)
     {
 	limit = initialNumChords;
 
@@ -474,8 +476,8 @@ void Aspect::FindFiducialIDs()
 	    {
 		if (rowDiff > 0) 
 		{
-		      fiducialIDs[rowPairs[k].x].y = d-7;
-		      fiducialIDs[rowPairs[k].y].y = d+1-7;
+		    fiducialIDs[rowPairs[k].x].y = d-7;
+		    fiducialIDs[rowPairs[k].y].y = d+1-7;
 		}
 		else
 		{
@@ -539,8 +541,8 @@ void Aspect::FindMapping()
 	    }
 	}
 	GetLinearFit(x,y,fit);
-	mapping[dim][0] = fit[0];
-	mapping[dim][1] = fit[1];
+	mapping[2*dim + 0] = fit[0];
+	mapping[2*dim + 1] = fit[1];
     }
     mappingValid = true;
 }
@@ -550,8 +552,8 @@ cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
     cv::Point2f screenPoint;
     if (mappingValid == false)
 	FindMapping();
-    screenPoint.x = mapping[0][0] + mapping[0][1]*pixelPoint.x;
-    screenPoint.y = mapping[1][0] + mapping[1][1]*pixelPoint.y;
+    screenPoint.x = mapping[0] + mapping[1]*pixelPoint.x;
+    screenPoint.y = mapping[2] + mapping[3]*pixelPoint.y;
     
     return screenPoint;
 }		
@@ -692,4 +694,102 @@ void Aspect::GetFiducialIDs(IndexList& IDs)
 void Aspect::GetScreenCenter(cv::Point2f &center)
 {
     center = PixelToScreen(pixelCenter);
+}
+
+float Aspect::GetFloat(FloatParameter variable)
+{
+    switch(variable)
+    {
+    case FiducialSpacing:
+	return fiducialSpacing;
+    case FiducialSpacingTol:
+	return fiducialSpacingTol;
+    default:
+	return 0;
+    }
+}
+
+int Aspect::GetInteger(IntParameter variable)
+{
+    switch(variable)
+    {
+    case InitialNumChords:
+	return initialNumChords;
+    case ChordsPerAxis:
+	return chordsPerAxis;
+    case LimbWidth:
+	return limbWidth; 
+    case FiducialTolerance:
+	return fiducialTolerance;
+    case SolarRadius:
+	return solarRadius;
+    case FiducialLength:
+	return fiducialLength;
+    case FiducialWidth:
+	return fiducialWidth;
+    case FiducialThreshold:
+	return fiducialThreshold;
+    case FiducialNeighborhood:
+	return fiducialNeighborhood;
+    case NumFiducials:
+	return numFiducials;
+    default:
+	return 0;
+    }
+}
+
+void Aspect::SetFloat(FloatParameter variable, float value)
+{
+    switch(variable)
+    {
+    case FiducialSpacing:
+	fiducialSpacing = value;
+	break;
+    case FiducialSpacingTol:
+	fiducialSpacingTol = value;
+	break;
+    default:
+	return;
+    }
+    return;
+}
+
+void Aspect::SetInteger(IntParameter variable, int value)
+{
+    switch(variable)
+    {
+    case InitialNumChords:
+	initialNumChords = value;
+	break;
+    case ChordsPerAxis:
+	chordsPerAxis = value;
+	break;
+    case LimbWidth:
+	limbWidth = value;
+	break;
+    case FiducialTolerance:
+	fiducialTolerance = value;
+	break;
+    case SolarRadius:
+	solarRadius = value;
+	break;
+    case FiducialLength:
+	fiducialLength = value;
+	break;
+    case FiducialWidth:
+	fiducialWidth = value;
+	break;
+    case FiducialThreshold:
+	fiducialThreshold = value;
+	break;
+    case FiducialNeighborhood:
+	fiducialNeighborhood = value;
+	break;
+    case NumFiducials:
+	numFiducials = value;
+	break;
+    default:
+	return ;
+    }
+    return;
 }

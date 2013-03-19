@@ -48,40 +48,44 @@ int main(int argc, char* argv[])
     cv::imshow("Do it.",frame);
     cv::waitKey();
     Aspect thingy;
-    while(1){
-    thingy.LoadFrame(frame);
-    cv::Mat list[] = {frame,frame,frame};
-    double start = GetSystemTime();
-    thingy.GetPixelCrossings(crossings);
-    thingy.GetPixelCenter(center);
-    thingy.GetPixelFiducials(fiducials);
-    thingy.GetFiducialIDs(IDs);
-    thingy.GetScreenCenter(IDCenter);
-    // writeFITSImage(frame, "./Stuff.fits");
-    double end = GetSystemTime();
-    
-    cv::merge(list,3,image);
-    DrawCross(image, center, centerColor, 20, 1);
-    for (int k = 0; k < (int) crossings.size(); k++)
-	DrawCross(image, crossings[k], crossingColor, 10, 1);
-    
-    std::cout << "Fiducials\n";
-    for (int k = 0; k < (int) fiducials.size(); k++)
+    for (int k = 0; k < 10; k++)
+	std::cout << thingy.GetInteger((IntParameter) k) << std::endl;
+
+    while(1)
     {
-	label = "";
-	sprintf(number, "%d", (int) IDs[k].x);
-	label += number;
-	label += ",";
-	sprintf(number, "%d", (int) IDs[k].y);
-	label += number;
+	thingy.LoadFrame(frame);
+	cv::Mat list[] = {frame,frame,frame};
+	double start = GetSystemTime();
+	thingy.GetPixelCrossings(crossings);
+	thingy.GetPixelCenter(center);
+	thingy.GetPixelFiducials(fiducials);
+	thingy.GetFiducialIDs(IDs);
+	thingy.GetScreenCenter(IDCenter);
+	// writeFITSImage(frame, "./Stuff.fits");
+	double end = GetSystemTime();
+    
+	cv::merge(list,3,image);
+	DrawCross(image, center, centerColor, 20, 1);
+	for (int k = 0; k < (int) crossings.size(); k++)
+	    DrawCross(image, crossings[k], crossingColor, 10, 1);
+    
+	std::cout << "Fiducials\n";
+	for (int k = 0; k < (int) fiducials.size(); k++)
+	{
+	    label = "";
+	    sprintf(number, "%d", (int) IDs[k].x);
+	    label += number;
+	    label += ",";
+	    sprintf(number, "%d", (int) IDs[k].y);
+	    label += number;
 
 //	std::cout << fiducials[k].x << "," << fiducials[k].y << "\n";
-	DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-	cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
-    }
-    std::cout << IDCenter.x << "," << IDCenter.y << "\n";
-    cv::imshow("Do it.", image);
-    cv::waitKey();
+	    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+	    cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
+	}
+	std::cout << IDCenter.x << "," << IDCenter.y << "\n";
+	cv::imshow("Do it.", image);
+	cv::waitKey();
     }
     return 0;
 }
