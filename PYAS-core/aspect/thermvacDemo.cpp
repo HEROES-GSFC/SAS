@@ -616,7 +616,8 @@ void *commandHandlerThread(void *threadargs)
   			tcpSndr.init_connection();
 			if (pthread_mutex_trylock(&mutexImage) == 0)
 			{ 
-				if( !frame.empty() ){ frame.copyTo(localFrame); } 
+				if( !frame.empty() ){ frame.copyTo(localFrame); }
+				for( int i = 0; i < 10; i++){ printf("%d\n", localFrame(i,10)}
 				pthread_mutex_unlock(&mutexImage);
 			}
 			if( !localFrame.empty() ){
@@ -635,7 +636,7 @@ void *commandHandlerThread(void *threadargs)
 				printf("sending %d packets\n", num_packets);
 
 				for( int i = 0; i < num_packets; i++ ){
-					if (i % 100 == 0){ printf("sending %d/$d", i, num_packets); }
+					if ((i % 100) == 0){ printf("sending %d/$d", i, num_packets); }
 					//printf("%d\n", i);
 					TelemetryPacket tp(0x70, 0x30);
 					for( int j = 0; j < pixels_per_packet; j++){
@@ -643,7 +644,7 @@ void *commandHandlerThread(void *threadargs)
 						k++;
 					}
 					tcpSndr.send_packet( &tp );
-					//printf("sending %d bytes\n", tp.getLength());
+					printf("sending %d bytes\n", tp.getLength());
 					count++;
 				}
 			}
