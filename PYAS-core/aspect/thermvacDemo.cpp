@@ -611,11 +611,9 @@ void *commandHandlerThread(void *threadargs)
         case 0x0103:
         	cv::Mat localFrame;
         	
-        	TelemetryPacket tp(0x70, 0x30);
-   			tp << (uint16_t)numXpixels;
-    		tp << (uint16_t)numYpixels;
-    		tcpSndr.send_packet( &tp );
-			
+        	TCPSender tcpSndr(ip, (unsigned short) 5010);
+  			tcpSndr.init_connection();
+  
 			if (pthread_mutex_trylock(&mutexImage) == 0)
 			{ 
 				if( !frame.empty() ){ frame.copyTo(localFrame); } 
@@ -625,7 +623,12 @@ void *commandHandlerThread(void *threadargs)
 			if( !localFrame.empty() ){
 				int numXpixels = localFrame.rows();
 				int numYpixels = localFrame.cols();
-							
+				
+				TelemetryPacket tp(0x70, 0x30);
+				tp << (uint16_t)numXpixels;
+				tp << (uint16_t)numYpixels;
+				tcpSndr.send_packet( &tp );
+				
 				long k = 0;
 				long int count = 0;
 				int pixels_per_packet = 10;
@@ -635,7 +638,7 @@ void *commandHandlerThread(void *threadargs)
 					printf("%d\n", i);
 					TelemetryPacket tp(0x70, 0x30);
 					for( int j = 0; j < pixels_per_packet; j++){
-						tp << (uint8_t2;
+						tp << (uint8_t)2;
 						k++;
 					}
 					tcpSndr.send_packet( &tp );
@@ -643,7 +646,8 @@ void *commandHandlerThread(void *threadargs)
 					count++;
 				}
 				tcpSndr.close_connection();
-			}    
+			} 
+			break;
         default:
             printf("Unknown command!\n");
     }
