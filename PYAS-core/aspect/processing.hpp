@@ -41,14 +41,15 @@ public:
     Aspect();
     ~Aspect();
 
-    void LoadFrame(cv::Mat inputFrame);
-    void GetPixelCrossings(CoordList& crossings);
-    void GetPixelCenter(cv::Point2f& center);
-    void GetPixelError(cv::Point2f& error);
-    void GetPixelFiducials(CoordList& fiducials);
-    void GetFiducialIDs(IndexList& fiducialIDs);
-    void GetScreenCenter(cv::Point2f& center);
-    void GetMapping(std::vector<float>& map);
+    int LoadFrame(cv::Mat inputFrame);
+    int Run();
+    int GetPixelCrossings(CoordList& crossings);
+    int GetPixelCenter(cv::Point2f& center);
+    int GetPixelError(cv::Point2f& error);
+    int GetPixelFiducials(CoordList& fiducials);
+    int GetFiducialIDs(IndexList& fiducialIDs);
+    int GetMapping(std::vector<float>& map);
+    int GetScreenCenter(cv::Point2f& center);
     
     float GetFloat(FloatParameter variable);
     int GetInteger(IntParameter variable);
@@ -83,18 +84,20 @@ private:
     void FindPixelFiducials(cv::Mat image, cv::Point offset);
     void FindFiducialIDs();
     void FindMapping();
-
-    cv::Range GetSafeRange(int start, int stop, int size);
+    
 //    void LoadKernel();
 
+    bool frameValid;
     cv::Mat frame;
     cv::Size frameSize;
 
     cv::Mat kernel;
     cv::Size kernelSize;
 
-    bool centerValid;
+    bool crossingsValid;
     CoordList limbCrossings;
+
+    bool centerValid;
     cv::Point2f pixelCenter;
     cv::Point2f pixelError;
     
@@ -105,9 +108,12 @@ private:
     IndexList fiducialIDs;
 
     bool mappingValid;
+    std::vector<float> conditionNumbers;
     std::vector<float> mapping;
 };
 
-void GetLinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
+
+cv::Range SafeRange(int start, int stop, int size);
+void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
 int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
 void matchKernel(cv::OutputArray);
