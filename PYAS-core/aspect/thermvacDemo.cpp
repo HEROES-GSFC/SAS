@@ -644,7 +644,7 @@ void *commandHandlerThread(void *threadargs)
 						k++;
 					}
 					tcpSndr.send_packet( &tp );
-					printf("sending %d bytes\n", tp.getLength());
+					//printf("sending %d bytes\n", tp.getLength());
 					count++;
 				}
 			}
