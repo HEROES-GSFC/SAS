@@ -609,7 +609,7 @@ void *commandHandlerThread(void *threadargs)
     printf("Received data 0x%04x\n", command_key);
     
     switch( latest_sas_command_key ){
-        case 0x0103:
+        case 0x1210:
         {
         	cv::Mat localFrame;
         	TCPSender tcpSndr(ip, (unsigned short) 5010);
@@ -735,9 +735,9 @@ int main(void)
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
             
             switch( latest_sas_command_key ){
-                case 0x0100:     // test, do nothing
+                case 0x1000:     // test, do nothing
                     break;
-                case 0x0101:    // kill all worker threads
+                case 0x0102:    // kill all worker threads
                     kill_all_threads();
                     break;
                     case 0x0102:    // (re)start all worker threads
