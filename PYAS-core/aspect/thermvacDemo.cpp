@@ -617,7 +617,7 @@ void *commandHandlerThread(void *threadargs)
 			if (pthread_mutex_trylock(&mutexImage) == 0)
 			{ 
 				if( !frame.empty() ){ frame.copyTo(localFrame); }
-				for( int i = 0; i < 10; i++){ printf("%d\n", localFrame(i,10)}
+				//for( int i = 0; i < 10; i++){ printf("%d\n", localFrame(i,10);}
 				pthread_mutex_unlock(&mutexImage);
 			}
 			if( !localFrame.empty() ){
