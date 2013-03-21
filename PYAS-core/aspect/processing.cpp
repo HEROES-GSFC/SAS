@@ -136,6 +136,7 @@ int Aspect::Run()
     }
     else
     {
+      std::cout << "Aspect: Finding Center" << std::endl;
 	FindPixelCenter();
 	if (limbCrossings.size() == 0)
 	{
@@ -154,17 +155,27 @@ int Aspect::Run()
 
 
 	if (pixelCenter.x < 0 || pixelCenter.x >= frameSize.width ||
-	    pixelCenter.y < 0 || pixelCenter.y >= frameSize.height)
+	    pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
+	    std::isnan(pixelCenter.x) || std::isnan(pixelCenter.y))
 	{
-	    std::cout << "Aspect: Center Out-of-bounds." << std::endl;
+	  std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
+	    pixelCenter = cv::Point2f(-1,-1);
 	    return 1;
 	}
+	else if (pixelError.x > 50 || pixelError.y > 50 ||
+		 std::isnan(pixelError.x) || std::isnan(pixelError.y))
+	  {
+	    std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
+	    pixelCenter = cv::Point2f(-1,-1);
+	    return 1;
+	  }
 	else
 	{
 	    centerValid = true;
 	}
 	
 	//Find solar subImage
+	std::cout << "Aspect: Finding solar subimage" << std::endl;
 	rowRange = SafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
 	colRange = SafeRange(pixelCenter.x-solarRadius, pixelCenter.x+solarRadius, frameSize.width);
 	solarImage = frame(rowRange, colRange);
@@ -195,6 +206,7 @@ int Aspect::Run()
 	}
 	    
        //Find fiducials
+	std::cout << "Aspect: Finding Fiducials" << std::endl;
 	   FindPixelFiducials(solarImage, offset);
 	if (pixelFiducials.size() == 0)
 	{
@@ -212,6 +224,7 @@ int Aspect::Run()
 	}
 
 	//Find fiducial IDs
+	std::cout << "Aspect: Finding fiducial IDs" << std::endl;
 	FindFiducialIDs();
 	if (fiducialIDs.size() == 0)
 	{
@@ -223,6 +236,7 @@ int Aspect::Run()
 	    fiducialIDsValid = true;
 	}
 	
+	std::cout << "Aspect: Finding Mapping" << std::endl;
 	FindMapping();
 	if (/*ILL CONDITIONED*/ false)
 	{
@@ -546,7 +560,8 @@ void Aspect::FindPixelCenter()
 {
     std::vector<int> rows, cols;
     std::vector<float> crossings, midpoints;
-    int rowStart, colStart, rowStep, colStep, limit, K, M;
+    int rowStart, colStart, rowStep, colStep, limit;
+    unsigned int K, M, m, k, l, dim;
     cv::Range rowRange, colRange;
     float mean, std;
 
@@ -555,9 +570,11 @@ void Aspect::FindPixelCenter()
 
     //Determine new row and column locations for chords
     //If the past center was invalid, search the whole frame
-    if(pixelCenter.x >= 0 && pixelCenter.x >= frameSize.width &&
-       pixelCenter.y >= 0 && pixelCenter.y >= frameSize.height)
+    if(pixelCenter.x < 0 || pixelCenter.x >= frameSize.width ||
+       pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
+       std::isnan(pixelCenter.x) || std::isnan(pixelCenter.y))
     {
+      std::cout << "Aspect: Finding new center" << std::endl;
 	limit = initialNumChords;
 
 	rowStep = frameSize.height/limit;
@@ -569,6 +586,7 @@ void Aspect::FindPixelCenter()
     //Otherwise, only use the solar subimage
     else
     {
+      std::cout << "Aspect: Searching around old center" << std::endl;
 	limit = chordsPerAxis;
 	rowRange = SafeRange(pixelCenter.y - solarRadius,
 			     pixelCenter.y + solarRadius, 
@@ -585,27 +603,31 @@ void Aspect::FindPixelCenter()
 	colStart = colRange.start + colStep/2;
     }
 
+    std::cout << "Aspect: Generating chord location list" << std::endl;
     //Generate vectors of chord locations
-    for (int k = 0; k < limit; k++)
+    for (k = 0; k < limit; k++)
     {
 	rows.push_back(rowStart + k*rowStep);
 	cols.push_back(colStart + k*colStep);
     }
 
     //Initialize
-    pixelCenter = cv::Point2f(0.0,0.0);
+    pixelCenter = cv::Point2f(0,0);
     limbCrossings.clear();
 
     //For each dimension
-    for (int dim = 0; dim < 2; dim++)
+    for (dim = 0; dim < 2; dim++)
     {
+      if (dim) std::cout << "Aspect: Searching Rows" << std::endl;
+      else std::cout << "Aspect: Searching Cols" << std::endl;
+
 	if (dim) K =  rows.size();
 	else K =  cols.size();
 
 	//Find the midpoints of the chords.
 	//For each chord
 	midpoints.clear();
-	for (int k = 0; k < K; k++)
+	for (k = 0; k < K; k++)
 	{
 	    //Determine the limb crossings in that chord
 	    crossings.clear();
@@ -617,7 +639,7 @@ void Aspect::FindPixelCenter()
 	    else
 	    {
 		//Save the crossings
-		for (unsigned int l = 0; l <  crossings.size(); l++)
+		for (l = 0; l <  crossings.size(); l++)
 		{
 		    if (dim) limbCrossings.add(crossings[l], rows[k]);
 		    else limbCrossings.add(cols[k], crossings[l]);
@@ -630,16 +652,19 @@ void Aspect::FindPixelCenter()
 	//Determine the mean of the midpoints for this dimension
 	mean = 0;
 	M =  midpoints.size();
-	for (int m = 0; m < M; m++)
+	for (m = 0; m < M; m++)
 	    mean += midpoints[m];
 	mean = (float)mean/M;
 	
 	//Determine the std dev of the midpoints
 	std = 0;
-	for (int m = 0; m < M; m++)
+	for (m = 0; m < M; m++)
+	  {
 	    std += pow(midpoints[m]-mean,2);
+	  }
 	std = sqrt(std/M);
-	
+
+	std::cout << "Aspect: Setting Center and Error for this dimension." << std::endl;
 	//Store the Center and RMS Error for this dimension
 	if (dim)
 	{
@@ -652,6 +677,7 @@ void Aspect::FindPixelCenter()
 	    pixelError.y = std;
 	}	
     }
+    std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
 }
 
 void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
@@ -771,17 +797,23 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 
 void Aspect::FindFiducialIDs()
 {
-    int K;
+  unsigned int d, k, l, K;
     float rowDiff, colDiff;
     IndexList rowPairs, colPairs;
     CoordList trash;
     K = pixelFiducials.size();
     fiducialIDs.clear();
+    fiducialIDs.resize(K);
 
+
+    rowPairs.clear();
+      colPairs.clear();
     //Find fiducial pairs that are spaced correctly
-    for (int k = 0; k < K; k++)
+    std::cout << "Aspect: Find valid fiducial pairs" << std::endl;
+    std::cout << "Aspect: Searching through " << K << " Fiducials" << std::endl;
+    for (k = 0; k < K; k++)
     {
-	for (int l = k+1; l < K; l++)
+	for (l = k+1; l < K; l++)
 	{
 	    rowDiff = pixelFiducials[k].y - pixelFiducials[l].y;
 	    if (fabs(rowDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
@@ -795,21 +827,30 @@ void Aspect::FindFiducialIDs()
 	}
     }
     
-    for (unsigned int k = 0; k <  rowPairs.size(); k++)
+    std::cout << "Aspect: Compute intra-pair distances for row pairs." << std::endl;
+    for (k = 0; k <  rowPairs.size(); k++)
     {
+      std::cout << "Aspect: Compute row difference" << std::endl;
 	rowDiff = pixelFiducials[rowPairs[k].y].y 
 	    - pixelFiducials[rowPairs[k].x].y;
-	for (unsigned int d = 0; d <  mDistances.size(); d++)
+
+	std::cout << "Aspect: mDistances.size() = " << mDistances.size() << std::endl;
+	for (d = 0; d < mDistances.size(); d++)
 	{
+	  std::cout << "Aspect: Testing rowdiff" << std::endl;
 	    if (fabs(fabs(rowDiff) - mDistances[d]) < fiducialSpacingTol)
 	    {
+	      std::cout << "Aspect: Row difference is valid " << std::endl;
 		if (rowDiff > 0) 
 		{
-		    fiducialIDs[rowPairs[k].x].y = d-7;
+		  std::cout << "Aspect: Row difference is positive" << std::endl;
+		  std::cout << "Assigning IDs to rows of fiducials: " << rowPairs[k] << std::endl;
+		  fiducialIDs[rowPairs[k].x].y = d-7;
 		    fiducialIDs[rowPairs[k].y].y = d+1-7;
 		}
 		else
 		{
+		  std::cout << "Aspect: Row difference is negative" << std::endl;
 		    fiducialIDs[rowPairs[k].x].y = d+1-7;
 		    fiducialIDs[rowPairs[k].y].y = d-7;
 		}
@@ -817,11 +858,12 @@ void Aspect::FindFiducialIDs()
 	}
     }
 
-    for (unsigned int k = 0; k <  colPairs.size(); k++)
+    std::cout << "Aspect: Same BS for column pairs." << std::endl;
+    for (k = 0; k <  colPairs.size(); k++)
     {
 	colDiff = pixelFiducials[colPairs[k].x].x 
 	    - pixelFiducials[colPairs[k].y].x;
-	for (unsigned int d = 0; d <  nDistances.size(); d++)
+	for (d = 0; d <  nDistances.size(); d++)
 	{
 	    if (fabs(fabs(colDiff) - nDistances[d]) < fiducialSpacingTol)
 	    {

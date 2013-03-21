@@ -9,7 +9,7 @@
 
 #include "ImperxStream.hpp"
 #include "processing.hpp"
-//#include "compression.hpp"
+#include "compression.hpp"
  
 void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
 {
@@ -29,9 +29,9 @@ void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, 
 
 int main(int argc, char* agrv[])
 {
-    int startTime, endTime, duration, framesCapped = 0;
+  int startTime, duration, framesCapped = 0;
     ImperxStream camera;
-    int exposure = 15000;
+    int exposure = 3000;
     cv::Mat frame;
     int width, height;
     Aspect aspect;
@@ -99,12 +99,7 @@ int main(int argc, char* agrv[])
 	std::cout << std::endl;
 					
 
-
-					
-#if DISPLAY
 	cv::Mat list[] = {frame,frame,frame};
-	cv::namedWindow("Solar Solution", CV_WINDOW_AUTOSIZE);
-#endif
 			
 	std::cout << "\n\n";
 	std::cout.flush();
@@ -114,6 +109,10 @@ int main(int argc, char* agrv[])
 	    std::cout << "fullDemo: Snap Frame" << std::endl;
 	    camera.Snap(frame);
 
+	    cv::merge(list,3,image);
+	    cv::imshow("Solar Solution", image);
+	    cv::waitKey(1);
+
 	    std::cout << "fullDemo: Load Frame" << std::endl;
 	    aspect.LoadFrame(frame);
 
@@ -122,46 +121,33 @@ int main(int argc, char* agrv[])
 
 	    std::cout << "fullDemo: Get Crossings" << std::endl;
 	    aspect.GetPixelCrossings(crossings);
-
-	    std::cout << "fullDemo: Get Center" << std::endl;
-	    aspect.GetPixelCenter(center);
-	    std::cout << "Center: " << center.x << " " << center.y << std::endl;
-
-	    std::cout << "fullDemo: Get Error" << std::endl;
-	    aspect.GetPixelError(error);
-	    std::cout << "Error:  " << error.x << " " << error.y << std::endl;
-	    
-	    std::cout << "fullDemo: Get Fiducials" << std::endl;
-	    aspect.GetPixelFiducials(fiducials);
-	    
-	    std::cout << "fullDemo: Get IDs" << std::endl;
-	    aspect.GetFiducialIDs(IDs);
-
-	    std::cout << "fullDemo: Get Screen Center" << std::endl;
-	    aspect.GetScreenCenter(IDCenter);
-
-	    std::cout << "fullDemo: Get Mapping" << std::endl;
-	    aspect.GetMapping(mapping);
-	    std::cout << "Mapping: " << std::endl;
-	    for (int d = 0; d < 2; d++)
-	    {
-		for (int o = 0; o < 2; o++)
-		    std::cout << mapping[2*d+o] << " ";
-		std::cout << endl;
-	    }
-	    
-
-	    std::cout.flush();
-
-#if DISPLAY
-	    cv::merge(list,3,image);
 	    DrawCross(image, center, centerColor, 20, 1);
 	    for (int k = 0; k < crossings.size(); k++)
 		DrawCross(image, crossings[k], crossingColor, 10, 1);
+	    cv::imshow("Solar Solution", image);
+	    cv::waitKey(1);
+
+	    std::cout << "fullDemo: Get Center" << std::endl;
+	    aspect.GetPixelCenter(center);
+	    std::cout << "fullDemo: Center: " << center.x << " " << center.y << std::endl;
+	    DrawCross(image, center, centerColor, 20, 1);
+	    cv::imshow("Solar Solution", image);
+	    cv::waitKey(1);
 	    
+	    std::cout << "fullDemo: Get Error" << std::endl;
+	    aspect.GetPixelError(error);
+	    std::cout << "fullDemo: Error:  " << error.x << " " << error.y << std::endl;
+	    
+	    std::cout << "fullDemo: Get Fiducials" << std::endl;
+	    aspect.GetPixelFiducials(fiducials);
 	    for (int k = 0; k < fiducials.size(); k++)
 		DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-	    for (int k = 0; k < fiducials.size(); k++)
+	    cv::imshow("Solar Solution", image);
+	    cv::waitKey(1);
+
+	    std::cout << "fullDemo: Get IDs" << std::endl;
+	    aspect.GetFiducialIDs(IDs);
+	    for (int k = 0; k < IDs.size(); k++)
 	    {
 		label = "";
 		sprintf(number, "%d", (int) IDs[k].x);
@@ -172,11 +158,28 @@ int main(int argc, char* agrv[])
 		DrawCross(image, fiducials[k], fiducialColor, 15, 1);
 		cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
 	    }
+	    cv::imshow("Solar Solution", image);
+	    cv::waitKey(1);
+
+	    /*	    std::cout << "fullDemo: Get Screen Center" << std::endl;
+	    aspect.GetScreenCenter(IDCenter);
+
+	    std::cout << "fullDemo: Get Mapping" << std::endl;
+	    aspect.GetMapping(mapping);
+	    std::cout << "Mapping: " << std::endl;
+	    for (int d = 0; d < 2; d++)
+	    {
+		for (int o = 0; o < 2; o++)
+		    std::cout << mapping[2*d+o] << " ";
+		std::cout << endl;
+		}*/
+	    
+
+	    std::cout.flush();
 
 	    std::cout << "Screen center: " << IDCenter << std::endl;
 	    imshow("Solar Solution", image);
 	    cv::waitKey(10);
-#endif
 						
 #if SAVE					
 	    sprintf(number, "%03d", framesCapped);
@@ -185,13 +188,12 @@ int main(int argc, char* agrv[])
 	    savefile += number;
 //	    savefile += ".fits";
 	    savefile += ".png";
-	    //	    cv::imwrite(frame, savefile);
+	    writePNGImage(frame, savefile);
 	    
 //	    writeFITSImage(frame, savefile);
 #endif
 	    framesCapped++;
 	}
-	endTime = time(NULL);
 	std::cout << "Frame rate was: " << ((float) framesCapped/(duration)) << "\n";
 	std::cout << "CameraSnap loop Done. Running CameraStop\n";
 	camera.Stop();
