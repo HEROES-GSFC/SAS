@@ -247,7 +247,7 @@ void *ImageProcessThread(void *threadid)
 		    aspect.GetPixelCenter(center);
 		    aspect.GetPixelError(error);
 		    aspect.GetPixelFiducials(fiducials);
-		    aspect.GetFiducialIDs(ids);
+		    //aspect.GetFiducialIDs(ids);
 
         std::cout << ids.size() << " fiducials found:";
         for(int i = 0; i < 20; i++){
