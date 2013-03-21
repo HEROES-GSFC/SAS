@@ -624,23 +624,25 @@ void *commandHandlerThread(void *threadargs)
 				int numYpixels = localFrame.cols;	
 				TelemetryPacket tp(0x70, 0x30);
 				printf("sending %dx%d image\n", numXpixels, numYpixels);
+				int pixels_per_packet = 100;
+				int num_packets = numXpixels * numYpixels / pixels_per_packet;
 				tp << (uint16_t)numXpixels;
 				tp << (uint16_t)numYpixels;
 				tcpSndr.send_packet( &tp );
 				long k = 0;
 				long int count = 0;
-				int pixels_per_packet = 100;
-				int num_packets = numXpixels * numYpixels / pixels_per_packet;
+
 				printf("sending %d packets\n", num_packets);
 
 				for( int i = 0; i < num_packets; i++ ){
+					if (i % 100 == 0){ printf("sending %d/$d", i, num_packets); }
 					//printf("%d\n", i);
 					TelemetryPacket tp(0x70, 0x30);
 					for( int j = 0; j < pixels_per_packet; j++){
 						tp << (uint8_t)2;
 						k++;
 					}
-					//tcpSndr.send_packet( &tp );
+					tcpSndr.send_packet( &tp );
 					//printf("sending %d bytes\n", tp.getLength());
 					count++;
 				}
