@@ -737,25 +737,28 @@ int main(void)
             switch( latest_sas_command_key ){
                 case 0x1000:     // test, do nothing
                     break;
-                case 0x0102:    // kill all worker threads
+                case 0x1010:    // kill all worker threads
                     kill_all_threads();
                     break;
-                    case 0x0102:    // (re)start all worker threads
-                    // kill them all just in case
-                    kill_all_threads();
-                    sleep(1);
-                    start_all_threads();
+                case 0x1020:    // (re)start all worker threads
+                    {// kill them all just in case
+						kill_all_threads();
+						sleep(1);
+						start_all_threads();
+					}
                     break;
                 default:
-                    long t = 8L;
-                    int rc;
-                    thread_data_array[t].thread_id = t;
-                    thread_data_array[t].var = latest_sas_command_key;
-                    //thread_data_array[t].message = messages[t];
-                    rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
-                    if (rc){
-	                    printf("ERROR; return code from pthread_create() is %d\n", rc);
-                    };
+                	{
+						long t = 8L;
+						int rc;
+						thread_data_array[t].thread_id = t;
+						thread_data_array[t].var = latest_sas_command_key;
+						//thread_data_array[t].message = messages[t];
+						rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
+						if (rc){
+							printf("ERROR; return code from pthread_create() is %d\n", rc);
+						};
+                    }
             }
         }   
     }
