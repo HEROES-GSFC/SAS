@@ -106,7 +106,6 @@ int Aspect::LoadFrame(cv::Mat inputFrame)
 
 int Aspect::Run()
 {
-    int result = -1;
     cv::Range rowRange, colRange;
     cv::Mat solarImage;
     cv::Size solarSize;
@@ -136,7 +135,7 @@ int Aspect::Run()
     }
     else
     {
-      std::cout << "Aspect: Finding Center" << std::endl;
+	//std::cout << "Aspect: Finding Center" << std::endl;
 	FindPixelCenter();
 	if (limbCrossings.size() == 0)
 	{
@@ -175,7 +174,7 @@ int Aspect::Run()
 	}
 	
 	//Find solar subImage
-	std::cout << "Aspect: Finding solar subimage" << std::endl;
+	//std::cout << "Aspect: Finding solar subimage" << std::endl;
 	rowRange = SafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
 	colRange = SafeRange(pixelCenter.x-solarRadius, pixelCenter.x+solarRadius, frameSize.width);
 	solarImage = frame(rowRange, colRange);
@@ -205,8 +204,8 @@ int Aspect::Run()
 	    return 1;
 	}
 	    
-       //Find fiducials
-	std::cout << "Aspect: Finding Fiducials" << std::endl;
+	//Find fiducials
+	//std::cout << "Aspect: Finding Fiducials" << std::endl;
 	   FindPixelFiducials(solarImage, offset);
 	if (pixelFiducials.size() == 0)
 	{
@@ -224,7 +223,7 @@ int Aspect::Run()
 	}
 
 	//Find fiducial IDs
-	std::cout << "Aspect: Finding fiducial IDs" << std::endl;
+	//std::cout << "Aspect: Finding fiducial IDs" << std::endl;
 	FindFiducialIDs();
 	if (fiducialIDs.size() == 0)
 	{
@@ -236,7 +235,7 @@ int Aspect::Run()
 	    fiducialIDsValid = true;
 	}
 	
-	std::cout << "Aspect: Finding Mapping" << std::endl;
+	//std::cout << "Aspect: Finding Mapping" << std::endl;
 	FindMapping();
 	if (/*ILL CONDITIONED*/ false)
 	{
@@ -247,10 +246,8 @@ int Aspect::Run()
 	{
 	    mappingValid = true;
 	}
-
-	
     }
-    return result;
+    return 0;
 }
 
 
@@ -574,7 +571,7 @@ void Aspect::FindPixelCenter()
        pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
        std::isnan(pixelCenter.x) || std::isnan(pixelCenter.y))
     {
-      std::cout << "Aspect: Finding new center" << std::endl;
+	//std::cout << "Aspect: Finding new center" << std::endl;
 	limit = initialNumChords;
 
 	rowStep = frameSize.height/limit;
@@ -586,7 +583,7 @@ void Aspect::FindPixelCenter()
     //Otherwise, only use the solar subimage
     else
     {
-      std::cout << "Aspect: Searching around old center" << std::endl;
+	//std::cout << "Aspect: Searching around old center" << std::endl;
 	limit = chordsPerAxis;
 	rowRange = SafeRange(pixelCenter.y - solarRadius,
 			     pixelCenter.y + solarRadius, 
@@ -603,8 +600,8 @@ void Aspect::FindPixelCenter()
 	colStart = colRange.start + colStep/2;
     }
 
-    std::cout << "Aspect: Generating chord location list" << std::endl;
     //Generate vectors of chord locations
+    //std::cout << "Aspect: Generating chord location list" << std::endl;
     for (k = 0; k < limit; k++)
     {
 	rows.push_back(rowStart + k*rowStep);
@@ -618,8 +615,8 @@ void Aspect::FindPixelCenter()
     //For each dimension
     for (dim = 0; dim < 2; dim++)
     {
-      if (dim) std::cout << "Aspect: Searching Rows" << std::endl;
-      else std::cout << "Aspect: Searching Cols" << std::endl;
+	//if (dim) std::cout << "Aspect: Searching Rows" << std::endl;
+	//else std::cout << "Aspect: Searching Cols" << std::endl;
 
 	if (dim) K =  rows.size();
 	else K =  cols.size();
@@ -664,8 +661,8 @@ void Aspect::FindPixelCenter()
 	  }
 	std = sqrt(std/M);
 
-	std::cout << "Aspect: Setting Center and Error for this dimension." << std::endl;
 	//Store the Center and RMS Error for this dimension
+	//std::cout << "Aspect: Setting Center and Error for this dimension." << std::endl;
 	if (dim)
 	{
 	    pixelCenter.x = mean;
@@ -677,7 +674,7 @@ void Aspect::FindPixelCenter()
 	    pixelError.y = std;
 	}	
     }
-    std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
+    //std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
 }
 
 void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
@@ -809,8 +806,8 @@ void Aspect::FindFiducialIDs()
     rowPairs.clear();
       colPairs.clear();
     //Find fiducial pairs that are spaced correctly
-    std::cout << "Aspect: Find valid fiducial pairs" << std::endl;
-    std::cout << "Aspect: Searching through " << K << " Fiducials" << std::endl;
+    //std::cout << "Aspect: Find valid fiducial pairs" << std::endl;
+    //std::cout << "Aspect: Searching through " << K << " Fiducials" << std::endl;
     for (k = 0; k < K; k++)
     {
 	for (l = k+1; l < K; l++)
@@ -827,30 +824,23 @@ void Aspect::FindFiducialIDs()
 	}
     }
     
-    std::cout << "Aspect: Compute intra-pair distances for row pairs." << std::endl;
+    //std::cout << "Aspect: Compute intra-pair distances for row pairs." << std::endl;
     for (k = 0; k <  rowPairs.size(); k++)
     {
-      std::cout << "Aspect: Compute row difference" << std::endl;
 	rowDiff = pixelFiducials[rowPairs[k].y].y 
 	    - pixelFiducials[rowPairs[k].x].y;
 
-	std::cout << "Aspect: mDistances.size() = " << mDistances.size() << std::endl;
 	for (d = 0; d < mDistances.size(); d++)
 	{
-	  std::cout << "Aspect: Testing rowdiff" << std::endl;
 	    if (fabs(fabs(rowDiff) - mDistances[d]) < fiducialSpacingTol)
 	    {
-	      std::cout << "Aspect: Row difference is valid " << std::endl;
 		if (rowDiff > 0) 
 		{
-		  std::cout << "Aspect: Row difference is positive" << std::endl;
-		  std::cout << "Assigning IDs to rows of fiducials: " << rowPairs[k] << std::endl;
 		  fiducialIDs[rowPairs[k].x].y = d-7;
 		    fiducialIDs[rowPairs[k].y].y = d+1-7;
 		}
 		else
 		{
-		  std::cout << "Aspect: Row difference is negative" << std::endl;
 		    fiducialIDs[rowPairs[k].x].y = d+1-7;
 		    fiducialIDs[rowPairs[k].y].y = d-7;
 		}
@@ -858,7 +848,7 @@ void Aspect::FindFiducialIDs()
 	}
     }
 
-    std::cout << "Aspect: Same BS for column pairs." << std::endl;
+    //std::cout << "Aspect: Compute intra-pair distances for col pairs." << std::endl;
     for (k = 0; k <  colPairs.size(); k++)
     {
 	colDiff = pixelFiducials[colPairs[k].x].x 
@@ -899,7 +889,8 @@ void Aspect::FindMapping()
 	for (unsigned int k = 0; k <  pixelFiducials.size(); k++)
 	{
             if(fiducialIDs[k].x < -10 || fiducialIDs[k].y < -10) continue;
-            curPoint = fiducialIDtoScreen(fiducialIDs[k]);
+            
+	    curPoint = fiducialIDtoScreen(fiducialIDs[k]);
 	    if(dim == 0)
 	    {
 		x.push_back(pixelFiducials[k].x);
@@ -935,6 +926,10 @@ cv::Range SafeRange(int start, int stop, int size)
 
 void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit)
 {
+    cv::Mat A(2,2,CV_32FC1,0), B(2,1,CV_32FC1,0), X(2,1,CV_32FC1,0);
+    cv::Mat eigenvalues;
+    float N, cond;
+    unsigned int l;
 
     if (x.size() != y.size())
     {
@@ -942,27 +937,26 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
 	return;
     }
 
-    float X, Y, XX, XY, D, slope, intercept;
-
-    X = 0;
-    Y = 0;
-    XX = 0;
-    XY = 0;
-
-    for (unsigned int l = 0; l <  x.size(); l++)
+    N = (float) x.size();
+    A.at<float>(1,1) = N;
+    for (l = 0; l <  x.size(); l++)
     {
-	X += x[l];
-	XX += x[l]*x[l];
-	Y += y[l];
-	XY += x[l]*y[l];
+	A.at<float>(0,0) += x[l]*x[l];
+	A.at<float>(0,1) += x[l];
+	B.at<float>(1,0) += y[l];
+	B.at<float>(0,0) += x[l]*y[l];
     }
-    D = x.size()*XX -X*X;
-    slope = (x.size()*XY - X*Y)/D;
-    intercept = (Y*XX - XY*X)/D;
-	
+    A.at<float>(1,0) = A.at<float>(0,1);
+    
+    cv::eigen(A, eigenvalues);
+    cond = eigenvalues.at<float>(0)/eigenvalues.at<float>(1);
+    std::cout << "Condition number is: " << cond << std::endl;
+    
+    cv::solve(A,B,X,cv::DECOMP_CHOLESKY);
+    
     fit.clear();
-    fit.push_back(intercept);
-    fit.push_back(slope);
+    fit.push_back(X.at<float>(1)); //intercept
+    fit.push_back(X.at<float>(0)); //slope
 }
 
 void matchKernel(cv::OutputArray _kernel)
@@ -992,9 +986,6 @@ void matchKernel(cv::OutputArray _kernel)
 		    kernel.at<float>(cv::Point(n,m)) = -1.0;
 		}
 	    }
-	    //	std::cout << temp.at<char>(cv::Point(n,m)) << " ";
-	    //	std::cout << kernel.at<float>(cv::Point(n,m)) << " ";
-	}
-	//std::cout << "\n";		
+	}	
     }
 }
