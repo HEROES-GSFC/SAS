@@ -608,7 +608,7 @@ void *commandHandlerThread(void *threadargs)
     printf("Hello World! It's me, thread #%ld!\n", tid);
     printf("Received data 0x%04x\n", command_key);
     
-    switch( latest_sas_command_key ){
+    switch( command_key ){
         case 0x1210:
         {
         	cv::Mat localFrame;
