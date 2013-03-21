@@ -23,6 +23,7 @@
 #include "UDPReceiver.hpp"
 #include "Command.hpp"
 #include "Telemetry.hpp"
+#include "TCPSender.hpp"
 
 #include <opencv.hpp>
 #include <iostream>
@@ -621,8 +622,8 @@ void *commandHandlerThread(void *threadargs)
 			}
 
 			if( !localFrame.empty() ){
-				int numXpixels = localFrame.rows();
-				int numYpixels = localFrame.cols();
+				int numXpixels = localFrame.rows;
+				int numYpixels = localFrame.cols;
 				
 				TelemetryPacket tp(0x70, 0x30);
 				tp << (uint16_t)numXpixels;
