@@ -70,7 +70,7 @@ int main(int argc, char* agrv[])
     else
     {
       
-      std::cout << "fullDemo: Configuring camera" << std::endl;
+	std::cout << "fullDemo: Configuring camera" << std::endl;
 	camera.ConfigureSnap();
 //	camera.SetROISize(960,960);
 //	camera.SetROIOffset(165,0);
@@ -111,33 +111,36 @@ int main(int argc, char* agrv[])
 	startTime = time(NULL);
 	while ( time(NULL) < startTime + duration)
 	{
-	  std::cout << "fullDemo: Snap Frame" << std::endl;
+	    std::cout << "fullDemo: Snap Frame" << std::endl;
 	    camera.Snap(frame);
 
-	  std::cout << "fullDemo: Load Frame" << std::endl;
+	    std::cout << "fullDemo: Load Frame" << std::endl;
 	    aspect.LoadFrame(frame);
 
-	  std::cout << "fullDemo: Get Crossings" << std::endl;
+	    std::cout << "fullDemo: Run Aspect" << std::endl;
+	    aspect.Run();
+
+	    std::cout << "fullDemo: Get Crossings" << std::endl;
 	    aspect.GetPixelCrossings(crossings);
 
-	  std::cout << "fullDemo: Get Center" << std::endl;
+	    std::cout << "fullDemo: Get Center" << std::endl;
 	    aspect.GetPixelCenter(center);
 	    std::cout << "Center: " << center.x << " " << center.y << std::endl;
 
-	  std::cout << "fullDemo: Get Error" << std::endl;
+	    std::cout << "fullDemo: Get Error" << std::endl;
 	    aspect.GetPixelError(error);
 	    std::cout << "Error:  " << error.x << " " << error.y << std::endl;
 	    
-	  std::cout << "fullDemo: Get Fiducials" << std::endl;
+	    std::cout << "fullDemo: Get Fiducials" << std::endl;
 	    aspect.GetPixelFiducials(fiducials);
 	    
-	  std::cout << "fullDemo: Get IDs" << std::endl;
+	    std::cout << "fullDemo: Get IDs" << std::endl;
 	    aspect.GetFiducialIDs(IDs);
 
-	  std::cout << "fullDemo: Get Screen Center" << std::endl;
+	    std::cout << "fullDemo: Get Screen Center" << std::endl;
 	    aspect.GetScreenCenter(IDCenter);
 
-	  std::cout << "fullDemo: Get Mapping" << std::endl;
+	    std::cout << "fullDemo: Get Mapping" << std::endl;
 	    aspect.GetMapping(mapping);
 	    std::cout << "Mapping: " << std::endl;
 	    for (int d = 0; d < 2; d++)
