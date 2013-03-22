@@ -62,6 +62,7 @@ Aspect aspect;
 cv::Point2f pixelCenter, screenCenter, error;
 CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
+std::vector<float> mapping;
 
 Flag procReady, saveReady;
 int runtime = 10;
@@ -203,6 +204,7 @@ void *ImageProcessThread(void *threadid)
 
     CoordList localLimbs, localPixelFiducials, localScreenFiducials;
     IndexList localIds;
+    std::vector<float> localMapping;
     cv::Point2f localPixelCenter, localScreenCenter, localError;
     
     while(1)
@@ -247,6 +249,7 @@ void *ImageProcessThread(void *threadid)
 			aspect.GetFiducialIDs(localIds);
 			aspect.GetScreenFiducials(localScreenFiducials);
 			aspect.GetScreenCenter(localScreenCenter); 
+                        aspect.GetMapping(localMapping);
 
                         pthread_mutex_lock(&mutexProcess);
 
@@ -257,9 +260,11 @@ void *ImageProcessThread(void *threadid)
                         ids = localIds;
                         screenFiducials = localScreenFiducials;
                         screenCenter = localScreenCenter;
+                        mapping = localMapping;
 
 			pthread_mutex_unlock(&mutexProcess);
 
+/*
 			std::cout << ids.size() << " fiducials found:";
 			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << pixelFiducials[i];
 			std::cout << std::endl;
@@ -271,6 +276,7 @@ void *ImageProcessThread(void *threadid)
 			std::cout << std::endl;
 			
 			std::cout << "Sun center (pixels): " << pixelCenter << ", Sun center (screen): " << screenCenter << std::endl;
+*/
 		    }
 		    else
 		    {
@@ -382,6 +388,7 @@ void *TelemetryPackagerThread(void *threadid)
     sleep(1);      // delay a little compared to the TelemetrySenderThread
 
     CoordList localLimbs, localFiducials;
+    std::vector<float> localMapping;
     cv::Point2f localCenter, localError;
     
     while(1)    // run forever
@@ -407,8 +414,12 @@ void *TelemetryPackagerThread(void *threadid)
 	    localCenter = pixelCenter;
 	    localError = error;
 	    localFiducials = pixelFiducials;
+            localMapping = mapping;
 
-            std::cout << "Telemetry packet with Sun center (pixels): " << localCenter << std::endl;
+            std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
+            std::cout << ", mapping is";
+            for(uint8_t l = 0; (l < localMapping.size()) && (l < 4); l++) std::cout << " " << localMapping[l];
+            std::cout << std::endl;
 
 	    pthread_mutex_unlock(&mutexProcess);
         } else {
@@ -477,10 +488,10 @@ void *TelemetryPackagerThread(void *threadid)
         }
 
         //Pixel to screen conversion
-        tp << (float)-3000; //X intercept
-        tp << (float)6; //X slope
-        tp << (float)3000; //Y intercept
-        tp << (float)-6; //Y slope
+        tp << localMapping[0]; //X intercept
+        tp << localMapping[1]; //X slope
+        tp << localMapping[2]; //Y intercept
+        tp << localMapping[3]; //Y slope
 
         //Image max and min
         tp << (uint8_t)255; //max
