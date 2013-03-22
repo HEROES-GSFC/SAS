@@ -8,7 +8,7 @@ GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
 
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
-CCFITSDIR = /usr/local/include/CCfits/
+CCFITSDIR = /usr/include/CCfits/
 INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR)
 
 #removed to compile on Mac -schriste
@@ -34,7 +34,7 @@ EXEC = fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test_co
 
 all: $(EXEC)
 
-fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o
+fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS) -pg
 
 fidDemo: fidDemo.cpp processing.o compression.o

@@ -56,8 +56,11 @@ pthread_mutex_t mutexProcess;
 sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
-cv::Point2f center, error;
-CoordList limbs, fiducials;
+
+Aspect aspect;
+
+cv::Point2f pixelCenter, screenCenter, error;
+CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 
 Flag procReady, saveReady;
@@ -142,8 +145,8 @@ void *CameraStreamThread( void * threadid)
 	else
 	{
 	    camera.ConfigureSnap();
-	    camera.SetROISize(960,960);
-	    camera.SetROIOffset(165,0);
+	    //camera.SetROISize(960,960);
+	    //camera.SetROIOffset(165,0);
 	    camera.SetExposure(exposure);
 	
 	    width = camera.GetROIWidth();
@@ -198,10 +201,9 @@ void *ImageProcessThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
 
-    Aspect aspect;
-    CoordList localLimbs, localFiducials;
+    CoordList localLimbs, localPixelFiducials, localScreenFiducials;
     IndexList localIds;
-    cv::Point2f localCenter, localError;
+    cv::Point2f localPixelCenter, localScreenCenter, localError;
     
     while(1)
     {
@@ -232,39 +234,49 @@ void *ImageProcessThread(void *threadid)
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
 		{
-                    aspect.LoadFrame(frame);
+		    aspect.LoadFrame(frame);
+
 		    pthread_mutex_unlock(&mutexImage); 
-		    
 
-                    aspect.GetPixelCrossings(localLimbs);
-		    aspect.GetPixelCenter(localCenter);
-		    aspect.GetPixelError(localError);
-		    aspect.GetPixelFiducials(localFiducials);
-		    aspect.GetFiducialIDs(localIds);
+		    if(!aspect.Run())
+		    {
+			aspect.GetPixelCrossings(localLimbs);
+			aspect.GetPixelCenter(localPixelCenter);
+			aspect.GetPixelError(localError);
+			aspect.GetPixelFiducials(localPixelFiducials);
+			aspect.GetFiducialIDs(localIds);
+			aspect.GetScreenFiducials(localScreenFiducials);
+			aspect.GetScreenCenter(localScreenCenter); 
 
-                    pthread_mutex_lock(&mutexProcess);
+                        pthread_mutex_lock(&mutexProcess);
 
-                    limbs = localLimbs;
-                    center = localCenter;
-                    error = localError;
-                    fiducials = localFiducials;
-                    ids = localIds;
+                        limbs = localLimbs;
+                        pixelCenter = localPixelCenter;
+                        error = localError;
+                        pixelFiducials = localPixelFiducials;
+                        ids = localIds;
+                        screenFiducials = localScreenFiducials;
+                        screenCenter = localScreenCenter;
 
-/*
-        std::cout << ids.size() << " fiducials found:";
-        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << fiducials[i];
-        std::cout << std::endl;
+			pthread_mutex_unlock(&mutexProcess);
 
-        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
-        std::cout << std::endl;
-
-        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << aspect.PixelToScreen(fiducials[i]);
-        std::cout << std::endl;
-
-        std::cout << "Sun center (pixels): " << center << ", Sun center (screen): " << aspect.PixelToScreen(center) << std::endl;
-*/
-
-                    pthread_mutex_unlock(&mutexProcess);
+			std::cout << ids.size() << " fiducials found:";
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << pixelFiducials[i];
+			std::cout << std::endl;
+			
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
+			std::cout << std::endl;
+			
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << screenFiducials[i];
+			std::cout << std::endl;
+			
+			std::cout << "Sun center (pixels): " << pixelCenter << ", Sun center (screen): " << screenCenter << std::endl;
+		    }
+		    else
+		    {
+			
+		    std::cout << "Aspect module failed for this frame." << std::endl;
+		    }
                 }
 		else
 		{
@@ -392,9 +404,9 @@ void *TelemetryPackagerThread(void *threadid)
         if(pthread_mutex_trylock(&mutexProcess) == 0) 
 	{
 	    localLimbs = limbs;
-	    localCenter = center;
+	    localCenter = pixelCenter;
 	    localError = error;
-	    localFiducials = fiducials;
+	    localFiducials = pixelFiducials;
 
             std::cout << "Telemetry packet with Sun center (pixels): " << localCenter << std::endl;
 
