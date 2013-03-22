@@ -31,7 +31,7 @@ int main(int argc, char* agrv[])
 {
   int startTime, duration, framesCapped = 0;
     ImperxStream camera;
-    int exposure = 3000;
+    int exposure;
     cv::Mat frame;
     int width, height;
     Aspect aspect;
@@ -69,7 +69,8 @@ int main(int argc, char* agrv[])
     }
     else
     {
-      
+	std::cout << "Set exposure (us): ";
+	std::cin >> exposure;
 	std::cout << "fullDemo: Configuring camera" << std::endl;
 	camera.ConfigureSnap();
 //	camera.SetROISize(960,960);

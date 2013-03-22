@@ -48,74 +48,78 @@ int main(int argc, char* argv[])
     Aspect aspect;
     for (int iterations = 0; iterations < 100; iterations++)
     {
-    for (int f = 0; f < 143; f++)
-    {
-	file = argv[1];
-	file += "/frame";
-	sprintf(number, "%03d", f);
-	file += number;
-	file += ".png";
-	frame = cv::imread(file,0);
+	for (int f = 0; f < 143; f++)
+	{
+	    file = argv[1];
+	    file += "/frame";
+	    sprintf(number, "%03d", f);
+	    file += number;
+	    file += ".png";
+	    frame = cv::imread(file,0);
 
 	    aspect.LoadFrame(frame);
 	
-	cv::Mat list[] = {frame, frame, frame};
-	cv::merge(list,3,image);
+	    cv::Mat list[] = {frame, frame, frame};
+	    cv::merge(list,3,image);
 
-	//std::cout << "AspectTest: Load Frame" << std::endl;
-	aspect.LoadFrame(frame);
+	    //std::cout << "AspectTest: Load Frame" << std::endl;
+	    aspect.LoadFrame(frame);
 
-	//std::cout << "AspectTest: Run Aspect" << std::endl;
-	aspect.Run();
+	    //std::cout << "AspectTest: Run Aspect" << std::endl;
+	    if(!aspect.Run())
+	    {
+		//std::cout << "AspectTest: Get Crossings" << std::endl;
+		aspect.GetPixelCrossings(crossings);
+		DrawCross(image, center, centerColor, 20, 1);
+		for (int k = 0; k < crossings.size(); k++)
+		    DrawCross(image, crossings[k], crossingColor, 10, 1);
 
-	//std::cout << "AspectTest: Get Crossings" << std::endl;
-	aspect.GetPixelCrossings(crossings);
-	DrawCross(image, center, centerColor, 20, 1);
-	for (int k = 0; k < crossings.size(); k++)
-	    DrawCross(image, crossings[k], crossingColor, 10, 1);
-
-	//std::cout << "AspectTest: Get Center" << std::endl;
-	aspect.GetPixelCenter(center);
-	std::cout << "AspectTest: Pixel Center: " << center.x << " " << center.y << std::endl;
-	DrawCross(image, center, centerColor, 20, 1);
+		//std::cout << "AspectTest: Get Center" << std::endl;
+		aspect.GetPixelCenter(center);
+		std::cout << "AspectTest: Pixel Center: " << center.x << " " << center.y << std::endl;
+		DrawCross(image, center, centerColor, 20, 1);
 	    
-	//std::cout << "AspectTest: Get Error" << std::endl;
-	aspect.GetPixelError(error);
-	//std::cout << "AspectTest: Error:  " << error.x << " " << error.y << std::endl;
+		//std::cout << "AspectTest: Get Error" << std::endl;
+		aspect.GetPixelError(error);
+		//std::cout << "AspectTest: Error:  " << error.x << " " << error.y << std::endl;
 	    
-	//std::cout << "AspectTest: Get Fiducials" << std::endl;
-	aspect.GetPixelFiducials(fiducials);
-	for (int k = 0; k < fiducials.size(); k++)
-	    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+		//std::cout << "AspectTest: Get Fiducials" << std::endl;
+		aspect.GetPixelFiducials(fiducials);
+		for (int k = 0; k < fiducials.size(); k++)
+		    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
 	
-	//std::cout << "AspectTest: Get IDs" << std::endl;
-	aspect.GetFiducialIDs(IDs);
-	for (int k = 0; k < IDs.size(); k++)
-	{
-	    label = "";
-	    sprintf(number, "%d", (int) IDs[k].x);
-	    label += number;
-	    label += ",";
-	    sprintf(number, "%d", (int) IDs[k].y);
-	    label += number;
-	    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-	    cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
+		//std::cout << "AspectTest: Get IDs" << std::endl;
+		aspect.GetFiducialIDs(IDs);
+		for (int k = 0; k < IDs.size(); k++)
+		{
+		    label = "";
+		    sprintf(number, "%d", (int) IDs[k].x);
+		    label += number;
+		    label += ",";
+		    sprintf(number, "%d", (int) IDs[k].y);
+		    label += number;
+		    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+		    cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
+		}
+	
+		//std::cout << "AspectTest: Getting screen center" << std::endl;
+		aspect.GetScreenCenter(IDCenter);
+		std::cout << "AspectTest: Screen Center:  " << IDCenter << std::endl;
+
+		aspect.GetScreenFiducials(fiducials);
+		std::cout << "AspectTest: Screen fiducials: " << std::endl;
+		for (int k = 0; k < fiducials.size(); k++)
+		    std::cout << fiducials[k] << std::endl;
+	
+	    }
+	    else
+	    {
+		std::cout << "AspectTest: Failure in Aspect::Run" << std::endl;
+	    }
+	    cv::imshow("Do it.", image);
+	    cv::waitKey(100);
+
 	}
-
-/*	if(!aspect.GetMapping(mapping))
-	{
-	    std::cout << "y = " << mapping[1] << "x + " << mapping[0] << std::endl;
-	    std::cout << "y = " << mapping[3] << "x + " << mapping[2] << std::endl;
-	}
-*/	
-	//std::cout << "AspectTest: Getting screen center" << std::endl;
-	aspect.GetScreenCenter(IDCenter);
-	std::cout << "AspectTest: Screen Center:  " << IDCenter << std::endl;
-
-
-	cv::imshow("Do it.", image);
-	cv::waitKey(10);
-    }
     }
     return 0;
 }

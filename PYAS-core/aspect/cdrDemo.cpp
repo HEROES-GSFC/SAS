@@ -59,8 +59,8 @@ cv::Mat frame;
 
 Aspect aspect;
 
-cv::Point2f center, error;
-CoordList limbs, fiducials;
+cv::Point2f pixelCenter, screenCenter, error;
+CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 
 Flag procReady, saveReady;
@@ -145,8 +145,8 @@ void *CameraStreamThread( void * threadid)
 	else
 	{
 	    camera.ConfigureSnap();
-	    camera.SetROISize(960,960);
-	    camera.SetROIOffset(165,0);
+	    //camera.SetROISize(960,960);
+	    //camera.SetROIOffset(165,0);
 	    camera.SetExposure(exposure);
 	
 	    width = camera.GetROIWidth();
@@ -237,24 +237,25 @@ void *ImageProcessThread(void *threadid)
 		    if(!aspect.Run())
 		    {
 			aspect.GetPixelCrossings(limbs);
-			aspect.GetPixelCenter(center);
+			aspect.GetPixelCenter(pixelCenter);
 			aspect.GetPixelError(error);
-			aspect.GetPixelFiducials(fiducials);
+			aspect.GetPixelFiducials(pixelFiducials);
 			aspect.GetFiducialIDs(ids);
+			aspect.GetScreenCenter(screenCenter); 
 
 			pthread_mutex_unlock(&mutexProcess);
 
 			std::cout << ids.size() << " fiducials found:";
-			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << fiducials[i];
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << pixelFiducials[i];
 			std::cout << std::endl;
 			
 			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
 			std::cout << std::endl;
 			
-			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << aspect.PixelToScreen(fiducials[i]);
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << screenFiducials[i];
 			std::cout << std::endl;
 			
-			std::cout << "Sun center (pixels): " << center << ", Sun center (screen): " << aspect.PixelToScreen(center) << std::endl;
+			std::cout << "Sun center (pixels): " << pixelCenter << ", Sun center (screen): " << screenCenter << std::endl;
 		    }
 		    else
 		    {
@@ -389,9 +390,9 @@ void *TelemetryPackagerThread(void *threadid)
         if(pthread_mutex_trylock(&mutexProcess) == 0) 
 	{
 	    localLimbs = limbs;
-	    localCenter = center;
+	    localCenter = pixelCenter;
 	    localError = error;
-	    localFiducials = fiducials;
+	    localFiducials = pixelFiducials;
 
 	    pthread_mutex_unlock(&mutexProcess);
         }
