@@ -488,10 +488,17 @@ void *TelemetryPackagerThread(void *threadid)
         }
 
         //Pixel to screen conversion
-        tp << localMapping[0]; //X intercept
-        tp << localMapping[1]; //X slope
-        tp << localMapping[2]; //Y intercept
-        tp << localMapping[3]; //Y slope
+        if(localMapping.size() == 4) {
+            tp << localMapping[0]; //X intercept
+            tp << localMapping[1]; //X slope
+            tp << localMapping[2]; //Y intercept
+            tp << localMapping[3]; //Y slope
+        } else {
+            tp << (float)-3000; //X intercept
+            tp << (float)6; //X slope
+            tp << (float)3000; //Y intercept
+            tp << (float)-6; //Y slope
+        }
 
         //Image max and min
         tp << (uint8_t)255; //max
