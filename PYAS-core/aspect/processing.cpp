@@ -1,5 +1,4 @@
 /* This code should encapsulate all the code necessary for generating solar aspect.
-   It generates and stores all the variables needed for determining limb crossings,
    center, fiducials, etc, as well as a local copy of the current frame. 
 
    The idea would be to call "LoadFrame" once, at which point this module would
@@ -74,14 +73,13 @@ Aspect::~Aspect()
 
 int Aspect::LoadFrame(cv::Mat inputFrame)
 {
-    int result = -1;
- 
-    std::cout << "Aspect: Loading Frame" << std::endl;
+    frameProcessed == false;
+    //std::cout << "Aspect: Loading Frame" << std::endl;
     if(inputFrame.empty())
     {
 	std::cout << "Aspect: Tried to load empty frame" << std::endl;
 	frameValid = false;
-	result = 1;
+	return 1;
     }
     else
     {
@@ -90,7 +88,7 @@ int Aspect::LoadFrame(cv::Mat inputFrame)
 	{
 	    std::cout << "Aspect: Tried to load a frame with dimension 0" << std::endl;
 	    frameValid = false;
-	    result = 1;
+	    return 1;
 	}
 	else
 	{
@@ -98,10 +96,10 @@ int Aspect::LoadFrame(cv::Mat inputFrame)
 	    frameSize = frame.size();
 
 	    frameValid = true;
-	    result = 0;
+	    return 0;
 	}
     }
-    return result;
+    return -1;
 }
 
 int Aspect::Run()
@@ -127,6 +125,8 @@ int Aspect::Run()
     conditionNumbers.clear();
     conditionNumbers.resize(2);
     mappingValid = false;
+
+    frameProcessed = false;
 
     if (frameValid == false)
     {
@@ -247,6 +247,7 @@ int Aspect::Run()
 	    mappingValid = true;
 	}
     }
+    frameProcessed = true;
     return 0;
 }
 
@@ -259,7 +260,7 @@ Data product Get functions
 
 int Aspect::GetPixelCrossings(CoordList& crossings)
 {
-    if (crossingsValid == true)
+    if (crossingsValid == true && frameProcessed == true)
     {
 	crossings.clear();
 	for (unsigned int k = 0; k <  limbCrossings.size(); k++)
@@ -271,7 +272,7 @@ int Aspect::GetPixelCrossings(CoordList& crossings)
 
 int Aspect::GetPixelCenter(cv::Point2f &center)
 {
-    if (centerValid == true)
+    if (centerValid == true && frameProcessed == true)
     {
 	center = pixelCenter;
 	return 0;
@@ -281,7 +282,7 @@ int Aspect::GetPixelCenter(cv::Point2f &center)
 
 int Aspect::GetPixelError(cv::Point2f &error)
 {
-    if (centerValid == true)
+    if (centerValid == true && frameProcessed == true)
     {
 	error = pixelError;
 	return 0;
@@ -291,7 +292,7 @@ int Aspect::GetPixelError(cv::Point2f &error)
 
 int Aspect::GetPixelFiducials(CoordList& fiducials)
 {
-    if (fiducialsValid == true)
+    if (fiducialsValid == true && frameProcessed == true)
     {
 	fiducials.clear();
 	for (unsigned int k = 0; k < pixelFiducials.size(); k++)
@@ -304,7 +305,7 @@ int Aspect::GetPixelFiducials(CoordList& fiducials)
 
 int Aspect::GetFiducialIDs(IndexList& IDs)
 {
-    if (fiducialIDsValid == true)
+    if (fiducialIDsValid == true && frameProcessed == true)
     {
 	IDs.clear();
 	for (unsigned int k = 0; k <  fiducialIDs.size(); k++)
@@ -316,7 +317,7 @@ int Aspect::GetFiducialIDs(IndexList& IDs)
 
 int Aspect::GetMapping(std::vector<float>& map)
 {
-    if(mappingValid == true)
+    if(mappingValid == true && frameProcessed == true)
     {
 	map.clear();
 	for (unsigned int k = 0; k < mapping.size(); k++)
@@ -328,8 +329,13 @@ int Aspect::GetMapping(std::vector<float>& map)
 
 int Aspect::GetScreenCenter(cv::Point2f &center)
 {
-    center = PixelToScreen(pixelCenter);
-    return 50;
+    
+    if(centerValid == true && mappingValid == true && frameProcessed == true)
+    {
+	center = PixelToScreen(pixelCenter);
+	return 0;
+    }
+    else return -1;
 }
 
 
@@ -436,20 +442,7 @@ void Aspect::SetInteger(IntParameter variable, int value)
     }
     return;
 }
-
-
-
-cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
-{
-    cv::Point2f screenPoint;
-    if (mappingValid == false)
-	FindMapping();
-    screenPoint.x = mapping[0] + mapping[1]*pixelPoint.x;
-    screenPoint.y = mapping[2] + mapping[3]*pixelPoint.y;
-    
-    return screenPoint;
-}		
-
+	
 /**********************************************************
 
 Aspect Private processing functions
@@ -876,11 +869,9 @@ void Aspect::FindFiducialIDs()
 void Aspect::FindMapping()
 {
     std::vector<float> x, y, fit;
-    IndexList trash;
-    cv::Point2f curPoint;
     cv::Point2f screenPoint;
-    if (fiducialIDsValid == false)
-	GetFiducialIDs(trash);
+    mapping.clear();
+    mapping.resize(4);
 
     for (int dim = 0; dim < 2; dim++)
     {
@@ -890,16 +881,16 @@ void Aspect::FindMapping()
 	{
             if(fiducialIDs[k].x < -10 || fiducialIDs[k].y < -10) continue;
             
-	    curPoint = fiducialIDtoScreen(fiducialIDs[k]);
+	    screenPoint = fiducialIDtoScreen(fiducialIDs[k]);         
 	    if(dim == 0)
 	    {
 		x.push_back(pixelFiducials[k].x);
-		y.push_back(curPoint.x);
+		y.push_back(screenPoint.x);
 	    }
 	    else
 	    {
 		x.push_back(pixelFiducials[k].y);
-		y.push_back(curPoint.y);
+		y.push_back(screenPoint.y);
 	    }
 	}
 	LinearFit(x,y,fit);
@@ -908,6 +899,16 @@ void Aspect::FindMapping()
     }
     mappingValid = true;
 }
+
+cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
+{
+    cv::Point2f screenPoint;
+
+    screenPoint.x = mapping[0] + mapping[1]*pixelPoint.x;
+    screenPoint.y = mapping[2] + mapping[3]*pixelPoint.y;
+    
+    return screenPoint;
+}	
 
 
 /*****************************************************
@@ -926,7 +927,8 @@ cv::Range SafeRange(int start, int stop, int size)
 
 void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit)
 {
-    cv::Mat A(2,2,CV_32FC1,0), B(2,1,CV_32FC1,0), X(2,1,CV_32FC1,0);
+    cv::Scalar init(0);
+    cv::Mat A(2,2,CV_32FC1, init), B(2,1,CV_32FC1, init), X(2,1,CV_32FC1, init);
     cv::Mat eigenvalues;
     float N, cond;
     unsigned int l;
@@ -939,24 +941,26 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
 
     N = (float) x.size();
     A.at<float>(1,1) = N;
+
     for (l = 0; l <  x.size(); l++)
     {
 	A.at<float>(0,0) += x[l]*x[l];
 	A.at<float>(0,1) += x[l];
-	B.at<float>(1,0) += y[l];
-	B.at<float>(0,0) += x[l]*y[l];
+	B.at<float>(1) += y[l];
+	B.at<float>(0) += x[l]*y[l];
     }
+
     A.at<float>(1,0) = A.at<float>(0,1);
     
     cv::eigen(A, eigenvalues);
     cond = eigenvalues.at<float>(0)/eigenvalues.at<float>(1);
-    std::cout << "Condition number is: " << cond << std::endl;
     
     cv::solve(A,B,X,cv::DECOMP_CHOLESKY);
     
     fit.clear();
-    fit.push_back(X.at<float>(1)); //intercept
-    fit.push_back(X.at<float>(0)); //slope
+    fit.resize(2);
+    fit[0] = X.at<float>(1); //intercept
+    fit[1] = X.at<float>(0); //slope
 }
 
 void matchKernel(cv::OutputArray _kernel)
