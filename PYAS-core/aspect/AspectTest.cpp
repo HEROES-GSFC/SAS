@@ -29,10 +29,9 @@ int main(int argc, char* argv[])
 	return -1;
     }
     cv::namedWindow("Do it.", CV_WINDOW_AUTOSIZE);
-    cv::Mat frame = cv::imread(argv[1],0);
+    cv::Mat frame;
     cv::Mat image;
-    cv::Point2f center;
-    cv::Point2f IDCenter;
+    cv::Point2f center,error, IDCenter;
 
     cv::Scalar crossingColor(0,128,0);
     cv::Scalar centerColor(0,0,192);
@@ -41,47 +40,82 @@ int main(int argc, char* argv[])
 
     CoordList crossings, fiducials;
     IndexList IDs;
-   
-    std::string label;
-    char number[4] = "+00";
+    std::vector<float> mapping;
     
-    cv::imshow("Do it.",frame);
-    cv::waitKey();
-    Aspect thingy;
-    while(1){
-    thingy.LoadFrame(frame);
-    cv::Mat list[] = {frame,frame,frame};
-    double start = GetSystemTime();
-    thingy.GetPixelCrossings(crossings);
-    thingy.GetPixelCenter(center);
-    thingy.GetPixelFiducials(fiducials);
-    thingy.GetFiducialIDs(IDs);
-    thingy.GetScreenCenter(IDCenter);
-    // writeFITSImage(frame, "./Stuff.fits");
-    double end = GetSystemTime();
+    std::string label, file;
+    char number[4] = "000";
     
-    cv::merge(list,3,image);
-    DrawCross(image, center, centerColor, 20, 1);
-    for (int k = 0; k < (int) crossings.size(); k++)
-	DrawCross(image, crossings[k], crossingColor, 10, 1);
-    
-    std::cout << "Fiducials\n";
-    for (int k = 0; k < (int) fiducials.size(); k++)
+    Aspect aspect;
+    for (int iterations = 0; iterations < 100; iterations++)
     {
-	label = "";
-	sprintf(number, "%d", (int) IDs[k].x);
-	label += number;
-	label += ",";
-	sprintf(number, "%d", (int) IDs[k].y);
-	label += number;
+    for (int f = 0; f < 143; f++)
+    {
+	file = argv[1];
+	file += "/frame";
+	sprintf(number, "%03d", f);
+	file += number;
+	file += ".png";
+	frame = cv::imread(file,0);
 
-//	std::cout << fiducials[k].x << "," << fiducials[k].y << "\n";
-	DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-	cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
+	    aspect.LoadFrame(frame);
+	
+	cv::Mat list[] = {frame, frame, frame};
+	cv::merge(list,3,image);
+
+	//std::cout << "AspectTest: Load Frame" << std::endl;
+	aspect.LoadFrame(frame);
+
+	//std::cout << "AspectTest: Run Aspect" << std::endl;
+	aspect.Run();
+
+	//std::cout << "AspectTest: Get Crossings" << std::endl;
+	aspect.GetPixelCrossings(crossings);
+	DrawCross(image, center, centerColor, 20, 1);
+	for (int k = 0; k < crossings.size(); k++)
+	    DrawCross(image, crossings[k], crossingColor, 10, 1);
+
+	//std::cout << "AspectTest: Get Center" << std::endl;
+	aspect.GetPixelCenter(center);
+	std::cout << "AspectTest: Pixel Center: " << center.x << " " << center.y << std::endl;
+	DrawCross(image, center, centerColor, 20, 1);
+	    
+	//std::cout << "AspectTest: Get Error" << std::endl;
+	aspect.GetPixelError(error);
+	//std::cout << "AspectTest: Error:  " << error.x << " " << error.y << std::endl;
+	    
+	//std::cout << "AspectTest: Get Fiducials" << std::endl;
+	aspect.GetPixelFiducials(fiducials);
+	for (int k = 0; k < fiducials.size(); k++)
+	    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+	
+	//std::cout << "AspectTest: Get IDs" << std::endl;
+	aspect.GetFiducialIDs(IDs);
+	for (int k = 0; k < IDs.size(); k++)
+	{
+	    label = "";
+	    sprintf(number, "%d", (int) IDs[k].x);
+	    label += number;
+	    label += ",";
+	    sprintf(number, "%d", (int) IDs[k].y);
+	    label += number;
+	    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+	    cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
+	}
+
+/*	if(!aspect.GetMapping(mapping))
+	{
+	    std::cout << "y = " << mapping[1] << "x + " << mapping[0] << std::endl;
+	    std::cout << "y = " << mapping[3] << "x + " << mapping[2] << std::endl;
+	}
+*/	
+	//std::cout << "AspectTest: Getting screen center" << std::endl;
+	aspect.GetScreenCenter(IDCenter);
+	std::cout << "AspectTest: Screen Center:  " << IDCenter << std::endl;
+
+
+	cv::imshow("Do it.", image);
+	cv::waitKey(10);
     }
-    std::cout << IDCenter.x << "," << IDCenter.y << "\n";
-    cv::imshow("Do it.", image);
-    cv::waitKey();
     }
     return 0;
 }
