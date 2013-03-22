@@ -24,6 +24,7 @@
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
+#include "Transform.hpp"
 #include "types.hpp"
 
 #include <opencv.hpp>
@@ -58,6 +59,7 @@ sig_atomic_t volatile g_running = 1;
 cv::Mat frame;
 
 Aspect aspect;
+Transform solarTransform;
 
 cv::Point2f pixelCenter, screenCenter, error;
 CoordList limbs, pixelFiducials, screenFiducials;
@@ -417,9 +419,14 @@ void *TelemetryPackagerThread(void *threadid)
             localMapping = mapping;
 
             std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
-            std::cout << ", mapping is";
-            for(uint8_t l = 0; (l < localMapping.size()) && (l < 4); l++) std::cout << " " << localMapping[l];
+            if(localMapping.size() == 4) {
+                std::cout << ", mapping is";
+                for(uint8_t l = 0; l < 4; l++) std::cout << " " << localMapping[l];
+                solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
+            }
             std::cout << std::endl;
+
+            std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
 
 	    pthread_mutex_unlock(&mutexProcess);
         } else {
