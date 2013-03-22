@@ -234,26 +234,34 @@ void *ImageProcessThread(void *threadid)
                    
 		    aspect.LoadFrame(frame);
 		    pthread_mutex_unlock(&mutexImage); 
+		    if(!aspect.Run())
+		    {
+			aspect.GetPixelCrossings(limbs);
+			aspect.GetPixelCenter(center);
+			aspect.GetPixelError(error);
+			aspect.GetPixelFiducials(fiducials);
+			aspect.GetFiducialIDs(ids);
 
-                    aspect.GetPixelCrossings(limbs);
-		    aspect.GetPixelCenter(center);
-		    aspect.GetPixelError(error);
-		    aspect.GetPixelFiducials(fiducials);
-		    aspect.GetFiducialIDs(ids);
+			pthread_mutex_unlock(&mutexProcess);
 
-        std::cout << ids.size() << " fiducials found:";
-        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << fiducials[i];
-        std::cout << std::endl;
-
-        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
-        std::cout << std::endl;
-
-        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << aspect.PixelToScreen(fiducials[i]);
-        std::cout << std::endl;
-
-        std::cout << "Sun center (pixels): " << center << ", Sun center (screen): " << aspect.PixelToScreen(center) << std::endl;
-
+			std::cout << ids.size() << " fiducials found:";
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << fiducials[i];
+			std::cout << std::endl;
+			
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
+			std::cout << std::endl;
+			
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << aspect.PixelToScreen(fiducials[i]);
+			std::cout << std::endl;
+			
+			std::cout << "Sun center (pixels): " << center << ", Sun center (screen): " << aspect.PixelToScreen(center) << std::endl;
+		    }
+		    else
+		    {
+			
                     pthread_mutex_unlock(&mutexProcess);
+		    std::cout << "Aspect module failed for this frame." << std::endl;
+		    }
                 }
 		else
 		{
