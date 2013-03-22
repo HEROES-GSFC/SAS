@@ -56,6 +56,9 @@ pthread_mutex_t mutexProcess;
 sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
+
+Aspect aspect;
+
 cv::Point2f center, error;
 CoordList limbs, fiducials;
 IndexList ids;
@@ -197,8 +200,6 @@ void *ImageProcessThread(void *threadid)
     long tid;
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
-
-    Aspect aspect;
     
     while(1)
     {
@@ -229,10 +230,10 @@ void *ImageProcessThread(void *threadid)
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
 		{
-                    aspect.LoadFrame(frame);
-		    pthread_mutex_unlock(&mutexImage); 
-		    
                     pthread_mutex_lock(&mutexProcess);
+                   
+		    aspect.LoadFrame(frame);
+		    pthread_mutex_unlock(&mutexImage); 
 
                     aspect.GetPixelCrossings(limbs);
 		    aspect.GetPixelCenter(center);

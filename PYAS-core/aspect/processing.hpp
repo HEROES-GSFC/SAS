@@ -14,19 +14,47 @@ class IndexList : public std::vector<cv::Point>
     void add(int x, int y) { this->push_back(cv::Point(x, y)); }
 };
 
+enum IntParameter
+{
+    InitialNumChords = 0,
+    ChordsPerAxis = 1,
+    LimbWidth = 2,
+    FiducialTolerance = 3,
+    SolarRadius = 4,
+    FiducialLength = 5,
+    FiducialWidth = 6,
+    FiducialThreshold = 7,
+    FiducialNeighborhood = 8,
+    NumFiducials = 9
+};
+
+enum FloatParameter
+{
+    FiducialSpacing = 0,
+    FiducialSpacingTol = 1
+};
+    
+
 class Aspect
 {
 public:
     Aspect();
     ~Aspect();
 
-    void LoadFrame(cv::Mat inputFrame);
-    void GetPixelCrossings(CoordList& crossings);
-    void GetPixelCenter(cv::Point2f& center);
-    void GetPixelError(cv::Point2f& error);
-    void GetPixelFiducials(CoordList& fiducials);
-    void GetFiducialIDs(IndexList& fiducialIDs);
-    void GetScreenCenter(cv::Point2f& center);
+    int LoadFrame(cv::Mat inputFrame);
+    int Run();
+    int GetPixelCrossings(CoordList& crossings);
+    int GetPixelCenter(cv::Point2f& center);
+    int GetPixelError(cv::Point2f& error);
+    int GetPixelFiducials(CoordList& fiducials);
+    int GetFiducialIDs(IndexList& fiducialIDs);
+    int GetMapping(std::vector<float>& map);
+    int GetScreenCenter(cv::Point2f& center);
+    
+    float GetFloat(FloatParameter variable);
+    int GetInteger(IntParameter variable);
+    void SetFloat(FloatParameter, float value);
+    void SetInteger(IntParameter, int value);
 
     cv::Point2f PixelToScreen(cv::Point2f point);
 
@@ -56,18 +84,20 @@ private:
     void FindPixelFiducials(cv::Mat image, cv::Point offset);
     void FindFiducialIDs();
     void FindMapping();
-
-    cv::Range GetSafeRange(int start, int stop, int size);
+    
 //    void LoadKernel();
 
+    bool frameValid;
     cv::Mat frame;
     cv::Size frameSize;
 
     cv::Mat kernel;
     cv::Size kernelSize;
 
-    bool centerValid;
+    bool crossingsValid;
     CoordList limbCrossings;
+
+    bool centerValid;
     cv::Point2f pixelCenter;
     cv::Point2f pixelError;
     
@@ -78,9 +108,14 @@ private:
     IndexList fiducialIDs;
 
     bool mappingValid;
-    float mapping[2][2];
+    std::vector<float> conditionNumbers;
+    std::vector<float> mapping;
+
+    bool frameProcessed;
 };
 
-void GetLinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
+
+cv::Range SafeRange(int start, int stop, int size);
+void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
 int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
 void matchKernel(cv::OutputArray);
