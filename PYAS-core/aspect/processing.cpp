@@ -32,7 +32,7 @@ Aspect::Aspect()
     chordsPerAxis = 5;
     chordThreshold = 50;
     solarRadius = 105;
-    limbWidth = 3;
+    limbWidth = 2;
     fiducialTolerance = 2;
     fiducialLength = 15;
     fiducialWidth = 2; 
@@ -73,7 +73,7 @@ Aspect::~Aspect()
 
 int Aspect::LoadFrame(cv::Mat inputFrame)
 {
-    frameProcessed == false;
+    frameProcessed = false;
     //std::cout << "Aspect: Loading Frame" << std::endl;
     if(inputFrame.empty())
     {
@@ -157,17 +157,17 @@ int Aspect::Run()
 	    pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
 	    std::isnan(pixelCenter.x) || std::isnan(pixelCenter.y))
 	{
-	  std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
+	    std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
 	    pixelCenter = cv::Point2f(-1,-1);
 	    return 1;
 	}
 	else if (pixelError.x > 50 || pixelError.y > 50 ||
 		 std::isnan(pixelError.x) || std::isnan(pixelError.y))
-	  {
+	{
 	    std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
 	    pixelCenter = cv::Point2f(-1,-1);
 	    return 1;
-	  }
+	}
 	else
 	{
 	    centerValid = true;
@@ -198,7 +198,7 @@ int Aspect::Run()
 	//Define offset for converting subimage locations to frame locations
 	offset = cv::Point(colRange.start, rowRange.start);
         if (offset.x < 0 || offset.x >= (frameSize.width - solarSize.width + 1) ||
-		offset.y < 0 || offset.y >= (frameSize.height - solarSize.height + 1))
+	    offset.y < 0 || offset.y >= (frameSize.height - solarSize.height + 1))
 	{
 	    std::cout << "Aspect: Solar Image Offset out of bounds." << std::endl;
 	    return 1;
@@ -206,7 +206,7 @@ int Aspect::Run()
 	    
 	//Find fiducials
 	//std::cout << "Aspect: Finding Fiducials" << std::endl;
-	   FindPixelFiducials(solarImage, offset);
+	FindPixelFiducials(solarImage, offset);
 	if (pixelFiducials.size() == 0)
 	{
 	    std::cout << "Aspect: No Fiducials found" << std::endl;
@@ -338,6 +338,20 @@ int Aspect::GetScreenCenter(cv::Point2f &center)
     else return -1;
 }
 
+int Aspect::GetScreenFiducials(CoordList& fiducials)
+{
+    fiducials.clear();
+    if (fiducialsValid == true && mappingValid == true && frameProcessed == true)
+    {
+	fiducials.clear();
+	fiducials.resize(pixelFiducials.size());
+	for (unsigned int k = 0; k < pixelFiducials.size(); k++)
+	    fiducials[k] =  PixelToScreen( pixelFiducials[k] );
+	return 0;
+    }
+    else return -1;
+	
+}
 
 /*************************************************************************
 
@@ -550,8 +564,7 @@ void Aspect::FindPixelCenter()
 {
     std::vector<int> rows, cols;
     std::vector<float> crossings, midpoints;
-    int rowStart, colStart, rowStep, colStep, limit;
-    unsigned int K, M, m, k, l, dim;
+    int rowStart, colStart, rowStep, colStep, limit, K, M;
     cv::Range rowRange, colRange;
     float mean, std;
 
@@ -595,7 +608,7 @@ void Aspect::FindPixelCenter()
 
     //Generate vectors of chord locations
     //std::cout << "Aspect: Generating chord location list" << std::endl;
-    for (k = 0; k < limit; k++)
+    for (int k = 0; k < limit; k++)
     {
 	rows.push_back(rowStart + k*rowStep);
 	cols.push_back(colStart + k*colStep);
@@ -606,7 +619,7 @@ void Aspect::FindPixelCenter()
     limbCrossings.clear();
 
     //For each dimension
-    for (dim = 0; dim < 2; dim++)
+    for (int dim = 0; dim < 2; dim++)
     {
 	//if (dim) std::cout << "Aspect: Searching Rows" << std::endl;
 	//else std::cout << "Aspect: Searching Cols" << std::endl;
@@ -617,7 +630,7 @@ void Aspect::FindPixelCenter()
 	//Find the midpoints of the chords.
 	//For each chord
 	midpoints.clear();
-	for (k = 0; k < K; k++)
+	for (int k = 0; k < K; k++)
 	{
 	    //Determine the limb crossings in that chord
 	    crossings.clear();
@@ -629,7 +642,7 @@ void Aspect::FindPixelCenter()
 	    else
 	    {
 		//Save the crossings
-		for (l = 0; l <  crossings.size(); l++)
+		for (unsigned int l = 0; l < crossings.size(); l++)
 		{
 		    if (dim) limbCrossings.add(crossings[l], rows[k]);
 		    else limbCrossings.add(cols[k], crossings[l]);
@@ -642,16 +655,16 @@ void Aspect::FindPixelCenter()
 	//Determine the mean of the midpoints for this dimension
 	mean = 0;
 	M =  midpoints.size();
-	for (m = 0; m < M; m++)
+	for (int m = 0; m < M; m++)
 	    mean += midpoints[m];
 	mean = (float)mean/M;
 	
 	//Determine the std dev of the midpoints
 	std = 0;
-	for (m = 0; m < M; m++)
-	  {
+	for (int m = 0; m < M; m++)
+	{
 	    std += pow(midpoints[m]-mean,2);
-	  }
+	}
 	std = sqrt(std/M);
 
 	//Store the Center and RMS Error for this dimension
@@ -722,7 +735,7 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 		    if (redundant == true)
 			continue;
 
-		    if ( pixelFiducials.size() < numFiducials)
+		    if ( (int) pixelFiducials.size() < numFiducials)
 		    {
 			pixelFiducials.add(n, m);
 		    }
@@ -787,17 +800,17 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 
 void Aspect::FindFiducialIDs()
 {
-  unsigned int d, k, l, K;
+    unsigned int d, k, l, K;
     float rowDiff, colDiff;
     IndexList rowPairs, colPairs;
     CoordList trash;
     K = pixelFiducials.size();
     fiducialIDs.clear();
-    fiducialIDs.resize(K);
+    fiducialIDs.resize(K, cv::Point2i(-100,-100));
 
 
     rowPairs.clear();
-      colPairs.clear();
+    colPairs.clear();
     //Find fiducial pairs that are spaced correctly
     //std::cout << "Aspect: Find valid fiducial pairs" << std::endl;
     //std::cout << "Aspect: Searching through " << K << " Fiducials" << std::endl;
@@ -829,7 +842,7 @@ void Aspect::FindFiducialIDs()
 	    {
 		if (rowDiff > 0) 
 		{
-		  fiducialIDs[rowPairs[k].x].y = d-7;
+		    fiducialIDs[rowPairs[k].x].y = d-7;
 		    fiducialIDs[rowPairs[k].y].y = d+1-7;
 		}
 		else
@@ -954,7 +967,8 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
     
     cv::eigen(A, eigenvalues);
     cond = eigenvalues.at<float>(0)/eigenvalues.at<float>(1);
-    
+    //std::cout << "Condition number: " << cond << std::endl;
+
     cv::solve(A,B,X,cv::DECOMP_CHOLESKY);
     
     fit.clear();
