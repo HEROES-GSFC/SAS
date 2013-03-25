@@ -154,8 +154,8 @@ void *CameraStreamThread( void * threadid)
 	else
 	{
 	    camera.ConfigureSnap();
-	    camera.SetROISize(960,960);
-	    camera.SetROIOffset(165,0);
+	    //camera.SetROISize(960,960);
+	    //camera.SetROIOffset(165,0);
 	    camera.SetExposure(exposure);
 	
 	    width = camera.GetROIWidth();
@@ -634,7 +634,7 @@ void *commandHandlerThread(void *threadargs)
 				printf("sending %d packets\n", num_packets);
 				int x, y = 0;
 				for( int i = 0; i < num_packets; i++ ){
-					if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
+					//if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
 					//printf("%d\n", i);
 					TelemetryPacket tp(0x70, 0x30);
 					
