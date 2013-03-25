@@ -625,9 +625,9 @@ void *commandHandlerThread(void *threadargs)
 				printf("sending %dx%d image\n", numXpixels, numYpixels);
 				int pixels_per_packet = 100;
 				int num_packets = numXpixels * numYpixels / pixels_per_packet;
-				//tp << (uint16_t)numXpixels;
-				//tp << (uint16_t)numYpixels;
-				//tcpSndr.send_packet( &tp );
+				tp << (uint16_t)numXpixels;
+				tp << (uint16_t)numYpixels;
+				tcpSndr.send_packet( &tp );
 				long k = 0;
 				long int count = 0;
 
