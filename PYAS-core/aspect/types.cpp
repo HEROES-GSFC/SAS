@@ -11,6 +11,21 @@ using std::ostream;
 Pair::Pair(double x, double y) : i_x(x), i_y(y) {}
 Pair::Pair(const Pair3B& p3) : i_x(p3.x()), i_y(p3.y()) {}
 
+Pair operator+(const Pair& a, const Pair& b)
+{
+  return Pair(a.x()+b.x(), a.y()+b.y());
+}
+
+Pair operator-(const Pair& a, const Pair& b)
+{
+  return Pair(a.x()-b.x(), a.y()-b.y());
+}
+
+Pair operator*(const Pair& a, const Pair& b)
+{
+  return Pair(a.x()*b.x(), a.y()*b.y());
+}
+
 ByteString& operator<<(ByteString& bs, const Pair& p)
 {
   return bs << p.x() << p.y();
