@@ -24,6 +24,7 @@
 #include "Command.hpp"
 #include "Telemetry.hpp"
 
+#include "Transform.hpp"
 #include "types.hpp"
 
 #include <opencv.hpp>
@@ -56,9 +57,14 @@ pthread_mutex_t mutexProcess;
 sig_atomic_t volatile g_running = 1;
 
 cv::Mat frame;
-cv::Point2f center, error;
-CoordList limbs, fiducials;
+
+Aspect aspect;
+Transform solarTransform;
+
+cv::Point2f pixelCenter, screenCenter, error;
+CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
+std::vector<float> mapping;
 
 Flag procReady, saveReady;
 int runtime = 10;
@@ -142,8 +148,8 @@ void *CameraStreamThread( void * threadid)
 	else
 	{
 	    camera.ConfigureSnap();
-	    camera.SetROISize(960,960);
-	    camera.SetROIOffset(165,0);
+	    //camera.SetROISize(960,960);
+	    //camera.SetROIOffset(165,0);
 	    camera.SetExposure(exposure);
 	
 	    width = camera.GetROIWidth();
@@ -198,7 +204,10 @@ void *ImageProcessThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
 
-    Aspect aspect;
+    CoordList localLimbs, localPixelFiducials, localScreenFiducials;
+    IndexList localIds;
+    std::vector<float> localMapping;
+    cv::Point2f localPixelCenter, localScreenCenter, localError;
     
     while(1)
     {
@@ -229,30 +238,53 @@ void *ImageProcessThread(void *threadid)
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
 		{
-                    aspect.LoadFrame(frame);
+		    aspect.LoadFrame(frame);
+
 		    pthread_mutex_unlock(&mutexImage); 
-		    
-                    pthread_mutex_lock(&mutexProcess);
 
-                    aspect.GetPixelCrossings(limbs);
-		    aspect.GetPixelCenter(center);
-		    aspect.GetPixelError(error);
-		    aspect.GetPixelFiducials(fiducials);
-		    aspect.GetFiducialIDs(ids);
+		    if(!aspect.Run())
+		    {
+			aspect.GetPixelCrossings(localLimbs);
+			aspect.GetPixelCenter(localPixelCenter);
+			aspect.GetPixelError(localError);
+			aspect.GetPixelFiducials(localPixelFiducials);
+			aspect.GetFiducialIDs(localIds);
+			aspect.GetScreenFiducials(localScreenFiducials);
+			aspect.GetScreenCenter(localScreenCenter); 
+                        aspect.GetMapping(localMapping);
 
-        std::cout << ids.size() << " fiducials found:";
-        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << fiducials[i];
-        std::cout << std::endl;
+                        pthread_mutex_lock(&mutexProcess);
 
-        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
-        std::cout << std::endl;
+                        limbs = localLimbs;
+                        pixelCenter = localPixelCenter;
+                        error = localError;
+                        pixelFiducials = localPixelFiducials;
+                        ids = localIds;
+                        screenFiducials = localScreenFiducials;
+                        screenCenter = localScreenCenter;
+                        mapping = localMapping;
 
-        for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << aspect.PixelToScreen(fiducials[i]);
-        std::cout << std::endl;
+			pthread_mutex_unlock(&mutexProcess);
 
-        std::cout << "Sun center (pixels): " << center << ", Sun center (screen): " << aspect.PixelToScreen(center) << std::endl;
-
-                    pthread_mutex_unlock(&mutexProcess);
+/*
+			std::cout << ids.size() << " fiducials found:";
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << pixelFiducials[i];
+			std::cout << std::endl;
+			
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
+			std::cout << std::endl;
+			
+			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << screenFiducials[i];
+			std::cout << std::endl;
+			
+			std::cout << "Sun center (pixels): " << pixelCenter << ", Sun center (screen): " << screenCenter << std::endl;
+*/
+		    }
+		    else
+		    {
+			
+		    std::cout << "Aspect module failed for this frame." << std::endl;
+		    }
                 }
 		else
 		{
@@ -358,6 +390,7 @@ void *TelemetryPackagerThread(void *threadid)
     sleep(1);      // delay a little compared to the TelemetrySenderThread
 
     CoordList localLimbs, localFiducials;
+    std::vector<float> localMapping;
     cv::Point2f localCenter, localError;
     
     while(1)    // run forever
@@ -380,11 +413,24 @@ void *TelemetryPackagerThread(void *threadid)
         if(pthread_mutex_trylock(&mutexProcess) == 0) 
 	{
 	    localLimbs = limbs;
-	    localCenter = center;
+	    localCenter = pixelCenter;
 	    localError = error;
-	    localFiducials = fiducials;
+	    localFiducials = pixelFiducials;
+            localMapping = mapping;
+
+            std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
+            if(localMapping.size() == 4) {
+                std::cout << ", mapping is";
+                for(uint8_t l = 0; l < 4; l++) std::cout << " " << localMapping[l];
+                solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
+            }
+            std::cout << std::endl;
+
+            std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
 
 	    pthread_mutex_unlock(&mutexProcess);
+        } else {
+            std::cout << "Using stale information for telemetry packet" << std::endl;
         }
 
 /*
@@ -449,10 +495,17 @@ void *TelemetryPackagerThread(void *threadid)
         }
 
         //Pixel to screen conversion
-        tp << (float)0; //X intercept
-        tp << (float)1; //X slope
-        tp << (float)0; //Y intercept
-        tp << (float)1; //Y slope
+        if(localMapping.size() == 4) {
+            tp << localMapping[0]; //X intercept
+            tp << localMapping[1]; //X slope
+            tp << localMapping[2]; //Y intercept
+            tp << localMapping[3]; //Y slope
+        } else {
+            tp << (float)-3000; //X intercept
+            tp << (float)6; //X slope
+            tp << (float)3000; //Y intercept
+            tp << (float)-6; //Y slope
+        }
 
         //Image max and min
         tp << (uint8_t)255; //max

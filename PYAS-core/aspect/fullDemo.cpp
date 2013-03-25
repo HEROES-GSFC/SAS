@@ -9,7 +9,7 @@
 
 #include "ImperxStream.hpp"
 #include "processing.hpp"
-//#include "compression.hpp"
+#include "compression.hpp"
  
 void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
 {
@@ -29,9 +29,9 @@ void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, 
 
 int main(int argc, char* agrv[])
 {
-    int startTime, endTime, duration, framesCapped = 0;
+  int startTime, duration, framesCapped = 0;
     ImperxStream camera;
-    int exposure = 15000;
+    int exposure;
     cv::Mat frame;
     int width, height;
     Aspect aspect;
@@ -59,13 +59,19 @@ int main(int argc, char* agrv[])
 
     CoordList fiducials, crossings;
     IndexList IDs;
+    std::vector<float> mapping;
+    mapping.resize(4);
+    std::cout << "fullDemo: Connecting to camera" << std::endl;
     if (camera.Connect() != 0)
     {
-	std::cout << "Error connecting to camera!\n";	
+	std::cout << "fullDemo: Error connecting to camera!\n";	
 	return -1;
     }
     else
     {
+	std::cout << "Set exposure (us): ";
+	std::cin >> exposure;
+	std::cout << "fullDemo: Configuring camera" << std::endl;
 	camera.ConfigureSnap();
 //	camera.SetROISize(960,960);
 //	camera.SetROIOffset(165,0);
@@ -75,15 +81,17 @@ int main(int argc, char* agrv[])
 	height = camera.GetROIHeight();
 	if ( height == 0 || width == 0)
 	{
-	    std::cout << "Attempting to allocate frame of size 0\n";
+	    std::cout << "fullDemo: Attempting to allocate frame of size 0\n";
 	    return -1;
 	}
 	
+	std::cout << "fullDemo: Allocating frame" << std::endl;
 	frame.create(height, width, CV_8UC1);
 	
+	std::cout << "fullDemo: Initializing camera" << std::endl;
 	if(camera.Initialize() != 0)
 	{
-	    std::cout << "Error initializing camera!\n";
+	    std::cout << "fullDemo: Error initializing camera!\n";
 	    return -1;
 	}
 	std::cout << "CameraStart Done. Running CameraSnap loop\n";
@@ -92,43 +100,55 @@ int main(int argc, char* agrv[])
 	std::cout << std::endl;
 					
 
-
-					
-#if DISPLAY
 	cv::Mat list[] = {frame,frame,frame};
-	cv::namedWindow("Solar Solution", CV_WINDOW_AUTOSIZE);
-#endif
 			
 	std::cout << "\n\n";
 	std::cout.flush();
 	startTime = time(NULL);
 	while ( time(NULL) < startTime + duration)
 	{
+	    std::cout << "fullDemo: Snap Frame" << std::endl;
 	    camera.Snap(frame);
-	    aspect.LoadFrame(frame);
-	    aspect.GetPixelCrossings(crossings);
-	    aspect.GetPixelCenter(center);
-	    aspect.GetPixelError(error);
-	    aspect.GetPixelFiducials(fiducials);
-	    aspect.GetFiducialIDs(IDs);
-	    aspect.GetScreenCenter(IDCenter);
-	    
-	    std::cout << "\x1b[A\x1b[A\x1b[A\r";
-#if DEBUG
-	    std::cout << "Center: " << center.x << " " << center.y << "\n";
-	    std::cout << "Error:  " << error.x << " " << error.y << "\n";
-	    std::cout.flush();
-#endif
 
-#if DISPLAY
 	    cv::merge(list,3,image);
+	    cv::imshow("Solar Solution", image);
+	    cv::waitKey(1);
+
+	    std::cout << "fullDemo: Load Frame" << std::endl;
+	    aspect.LoadFrame(frame);
+
+	    std::cout << "fullDemo: Run Aspect" << std::endl;
+	    aspect.Run();
+
+	    std::cout << "fullDemo: Get Crossings" << std::endl;
+	    aspect.GetPixelCrossings(crossings);
 	    DrawCross(image, center, centerColor, 20, 1);
 	    for (int k = 0; k < crossings.size(); k++)
 		DrawCross(image, crossings[k], crossingColor, 10, 1);
+	    cv::imshow("Solar Solution", image);
+	    cv::waitKey(1);
+
+	    std::cout << "fullDemo: Get Center" << std::endl;
+	    aspect.GetPixelCenter(center);
+	    std::cout << "fullDemo: Center: " << center.x << " " << center.y << std::endl;
+	    DrawCross(image, center, centerColor, 20, 1);
+	    cv::imshow("Solar Solution", image);
+	    cv::waitKey(1);
 	    
+	    std::cout << "fullDemo: Get Error" << std::endl;
+	    aspect.GetPixelError(error);
+	    std::cout << "fullDemo: Error:  " << error.x << " " << error.y << std::endl;
+	    
+	    std::cout << "fullDemo: Get Fiducials" << std::endl;
+	    aspect.GetPixelFiducials(fiducials);
 	    for (int k = 0; k < fiducials.size(); k++)
 		DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-	    for (int k = 0; k < fiducials.size(); k++)
+	    cv::imshow("Solar Solution", image);
+	    cv::waitKey(1);
+
+	    std::cout << "fullDemo: Get IDs" << std::endl;
+	    aspect.GetFiducialIDs(IDs);
+	    for (int k = 0; k < IDs.size(); k++)
 	    {
 		label = "";
 		sprintf(number, "%d", (int) IDs[k].x);
@@ -139,11 +159,28 @@ int main(int argc, char* agrv[])
 		DrawCross(image, fiducials[k], fiducialColor, 15, 1);
 		cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
 	    }
+	    cv::imshow("Solar Solution", image);
+	    cv::waitKey(1);
+
+	    /*	    std::cout << "fullDemo: Get Screen Center" << std::endl;
+	    aspect.GetScreenCenter(IDCenter);
+
+	    std::cout << "fullDemo: Get Mapping" << std::endl;
+	    aspect.GetMapping(mapping);
+	    std::cout << "Mapping: " << std::endl;
+	    for (int d = 0; d < 2; d++)
+	    {
+		for (int o = 0; o < 2; o++)
+		    std::cout << mapping[2*d+o] << " ";
+		std::cout << endl;
+		}*/
+	    
+
+	    std::cout.flush();
 
 	    std::cout << "Screen center: " << IDCenter << std::endl;
 	    imshow("Solar Solution", image);
 	    cv::waitKey(10);
-#endif
 						
 #if SAVE					
 	    sprintf(number, "%03d", framesCapped);
@@ -152,13 +189,12 @@ int main(int argc, char* agrv[])
 	    savefile += number;
 //	    savefile += ".fits";
 	    savefile += ".png";
-	    //	    cv::imwrite(frame, savefile);
+	    writePNGImage(frame, savefile);
 	    
 //	    writeFITSImage(frame, savefile);
 #endif
 	    framesCapped++;
 	}
-	endTime = time(NULL);
 	std::cout << "Frame rate was: " << ((float) framesCapped/(duration)) << "\n";
 	std::cout << "CameraSnap loop Done. Running CameraStop\n";
 	camera.Stop();
