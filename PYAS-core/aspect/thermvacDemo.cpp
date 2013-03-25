@@ -4,6 +4,11 @@
 #define SAS_IMAGE_TYPE 0x82
 #define SAS_SYNC_WORD 0xEB90
 #define SAS_CM_ACK_TYPE 0x01
+#define CTL_IP_ADDRESS 192.168.1.2
+#define FDR_IP_ADDRESS 192.168.1.1
+#define CTL_CMD_PORT 2000
+#define SAS_CMD_PORT 2001
+#define TPCPORT_FOR_IMAGE_DATA 2013
 
 // computer variables
 #define EC_INDEX 0x6f0
@@ -18,16 +23,15 @@
 #include <math.h>       /* for testing only, remove when done */
 #include <sys/io.h>     /* for outb, computer parameters */
 #include <ctime>        /* time_t, struct tm, time, gmtime */
+#include <opencv.hpp>
+#include <iostream>
+#include <string>
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
 #include "Command.hpp"
 #include "Telemetry.hpp"
 #include "TCPSender.hpp"
-
-#include <opencv.hpp>
-#include <iostream>
-#include <string>
 #include "ImperxStream.hpp"
 #include "processing.hpp"
 #include "compression.hpp"
@@ -37,8 +41,6 @@
 uint16_t command_sequence_number = 0;
 uint16_t latest_sas_command_key = 0x0000;
 uint32_t tm_frame_sequence_number = 0;
-
-char ip[] = "192.168.2.4";
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -281,7 +283,7 @@ void *TelemetrySenderThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
 
-    TelemetrySender telSender(ip, (unsigned short) 5002);
+    TelemetrySender telSender(FDR_IP_ADDRESS, (unsigned short) 5002);
 
     while(1)    // run forever
     {
@@ -421,7 +423,7 @@ void *TelemetryPackagerThread(void *threadid)
 {
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("It's me, thread #%ld!\n", tid);
     
     sleep(1);      // delay a little compared to the TelemetrySenderThread
 
@@ -433,24 +435,19 @@ void *TelemetryPackagerThread(void *threadid)
         usleep(250000);
         tm_frame_sequence_number++;
         
-        //Telemetry packet from SAS containing an array
         TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
         tp << (uint16_t)SAS_SYNC_WORD;     // SAS-1 syncword
         tp << tm_frame_sequence_number;
         tp << command_sequence_number;
         tp << latest_sas_command_key;
 
-        //printf("cpu temp is %3d\n", get_cpu_temperature());
-        //for(int i = 0; i < 5; i++){
-        //    printf("voltage is %d V\n", get_cpu_voltage(i));
-        //}
         
         if(pthread_mutex_trylock(&mutexProcess) == 0) 
-	{
-	    localLimbs = limbs;
-	    localCenter = center;
-	    localError = error;
-	    localFiducials = fiducials;
+	    {
+            localLimbs = limbs;
+            localCenter = center;
+            localError = error;
+            localFiducials = fiducials;
 
 	    pthread_mutex_unlock(&mutexProcess);
         }
@@ -496,7 +493,7 @@ void *listenForCommandsThread(void *threadid)
     long tid;
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
-    CommandReceiver comReceiver( (unsigned short) 5001);
+    CommandReceiver comReceiver( (unsigned short) SAS_CMD_PORT);
     comReceiver.init_connection();
         
     while(1)    // run forever
@@ -548,9 +545,9 @@ void *CommandSenderThread( void *threadid )
 {
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("It's me, thread #%ld!\n", tid);
 
-    CommandSender comSender( ip, (unsigned short) 5000);
+    CommandSender comSender( CTL_IP_ADDRESS, CTL_CMD_PORT);
 
     while(1)    // run forever
     {
@@ -560,7 +557,6 @@ void *CommandSenderThread( void *threadid )
             CommandPacket cp(0x01, 100);
             cm_packet_queue >> cp;
             comSender.send( &cp );
-            //std::cout << "CommandSender:" << cp << std::endl;
         }
 
         if (stop_message[tid] == 1){
@@ -612,7 +608,7 @@ void *commandHandlerThread(void *threadargs)
         case 0x1210:
         {
         	cv::Mat localFrame;
-        	TCPSender tcpSndr(ip, (unsigned short) 5010);
+        	TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
   			tcpSndr.init_connection();
 			if (pthread_mutex_trylock(&mutexImage) == 0)
 			{ 
@@ -623,13 +619,13 @@ void *commandHandlerThread(void *threadargs)
 			if( !localFrame.empty() ){
 				int numXpixels = localFrame.rows;
 				int numYpixels = localFrame.cols;	
-				TelemetryPacket tp(0x70, 0x30);
+				TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
 				printf("sending %dx%d image\n", numXpixels, numYpixels);
 				int pixels_per_packet = 100;
 				int num_packets = numXpixels * numYpixels / pixels_per_packet;
-				tp << (uint16_t)numXpixels;
-				tp << (uint16_t)numYpixels;
-				tcpSndr.send_packet( &tp );
+				//tp << (uint16_t)numXpixels;
+				//tp << (uint16_t)numYpixels;
+				//tcpSndr.send_packet( &tp );
 				long k = 0;
 				long int count = 0;
 
@@ -639,6 +635,7 @@ void *commandHandlerThread(void *threadargs)
 					if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
 					//printf("%d\n", i);
 					TelemetryPacket tp(0x70, 0x30);
+					
 					for( int j = 0; j < pixels_per_packet; j++){
 						tp << (uint8_t)2;
 						k++;
