@@ -9,6 +9,7 @@
 #define CTL_CMD_PORT 2000
 #define SAS_CMD_PORT 2001
 #define TPCPORT_FOR_IMAGE_DATA 2013
+#define UDPPORT_FOR_TM 2002
 
 // computer variables
 #define EC_INDEX 0x6f0
@@ -36,6 +37,7 @@
 #include "processing.hpp"
 #include "compression.hpp"
 #include "utilities.hpp"
+#include "commandHandler.hpp"
 
 // global declarations
 uint16_t command_sequence_number = 0;
@@ -312,7 +314,7 @@ void *TelemetrySenderThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
 
-    TelemetrySender telSender(FDR_IP_ADDRESS, (unsigned short) 5002);
+    TelemetrySender telSender(FDR_IP_ADDRESS, (unsigned short) UDPPORT_FOR_TM);
 
     while(1)    // run forever
     {
@@ -704,6 +706,8 @@ void *commandHandlerThread(void *threadargs)
     switch( command_key ){
         case 0x1210:
         {
+        	//send_image_to_ground( localFrame );
+        	
         	cv::Mat localFrame;
         	TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
   			tcpSndr.init_connection();
@@ -720,9 +724,9 @@ void *commandHandlerThread(void *threadargs)
 				printf("sending %dx%d image\n", numXpixels, numYpixels);
 				int pixels_per_packet = 100;
 				int num_packets = numXpixels * numYpixels / pixels_per_packet;
-				//tp << (uint16_t)numXpixels;
-				//tp << (uint16_t)numYpixels;
-				//tcpSndr.send_packet( &tp );
+				tp << (uint16_t)numXpixels;
+				tp << (uint16_t)numYpixels;
+				tcpSndr.send_packet( &tp );
 				long k = 0;
 				long int count = 0;
 
