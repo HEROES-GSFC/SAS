@@ -25,7 +25,11 @@ class Transform {
     //Calibrated center in screen coordinates (mils)
     Pair calibrated_center;
 
+    //Distance between lens and screen (mm)
+    float distance;
+
     //Rotation of screen coordinates to optical bench coordinates (degrees)
+    //When looking at the screen, it is the angle from +Y to "up", CCW positive
     float clocking;
 
     //Solar target in helioprojective coordinates (arcseconds)
@@ -38,8 +42,15 @@ class Transform {
   public:
     Transform();
 
-    //Retrieves azimuth/elevation of the Sun for the current time
-    Pair getAzEl(); 
+    Pair getSunAzEl(); //azimuth/elevation of the Sun
+    Pair getTargetAzEl(); //azimuth/elevation of the solar target
+    Pair getPointingAzEl(const Pair& sunPixel); //azimuth/elevation of the current pointing
+
+    Pair getAngularShift(const Pair& sunPixel);
+
+    //returns new azimuth/elevation
+    Pair addAngularShiftToAzEl(const Pair& angularShift, const Pair& azel);
+
     void report();
     Pair calculateOffset(const Pair& sunPixel);
 
