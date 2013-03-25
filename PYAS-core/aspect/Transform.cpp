@@ -14,7 +14,7 @@ Transform::Transform()
 
   distance = 3000.;
 
-  clocking = 0;
+  clocking = 97.;
 
   solar_target = Pair(0, 0);
 
@@ -116,7 +116,7 @@ Pair Transform::getAngularShift(const Pair& sunPixel)
 
   double magnitudeScreen = sqrt(pow(shiftScreen.x(),2)+pow(shiftScreen.y(),2));
   //In mils, so convert to angle (degrees)
-  double magnitudeAngle = atan2(magnitudeScreen, distance) * 180/PI;
+  double magnitudeAngle = atan2(magnitudeScreen/1000, distance/25.4) * 180/PI;
 
   //Direction is clockwise from +Y in screen coordinates
   double direction = atan2(shiftScreen.x(), shiftScreen.y()) * 180/PI;
@@ -125,7 +125,7 @@ Pair Transform::getAngularShift(const Pair& sunPixel)
   return Pair(magnitudeAngle, direction+clocking);
 }
 
-Pair addAngularShiftToAzEl(const Pair& angularShift, const Pair& azel)
+Pair Transform::addAngularShiftToAzEl(const Pair& angularShift, const Pair& azel)
 {
   //The approach here is to choose a convenient space to do these calculations
   //I use a spherical coordinate system
@@ -147,7 +147,7 @@ Pair addAngularShiftToAzEl(const Pair& angularShift, const Pair& azel)
   double z0 = cos(magnitudeAngle);
 
   //Rotate "pole" down to proper elevation
-  double x1 = -x0*sin(elevation)+z0*cos(elevation); 
+  double x1 = x0*sin(elevation)-z0*cos(elevation); 
   double y1 = y0;
   double z1 = x0*cos(elevation)+z0*sin(elevation);
 
@@ -173,16 +173,19 @@ void Transform::report()
 
 Pair Transform::calculateOffset(const Pair& sunPixel)
 {
-  Pair sunAzEl = getSunAzEl();
+/*
+  //For small angles, this calculation should be sufficient for a solar target at disc center
+  Pair angularShift = getAngularShift(sunPixel);
+  Pair result(angularShift.x()*sin(angularShift.y()*PI/180), angularShift.x()*cos(angularShift.y()*PI/180));
+*/
+
+  Pair sunAzEl = getTargetAzEl();
   Pair pointingAzEl = getPointingAzEl(sunPixel);
 
-  Pair angularShift = getAngularShift(sunPixel);
-  std::cout << "Angular shift says: " << angularShift << std::endl;
-
   Pair result = pointingAzEl-sunAzEl;
-  std::cout << "Az/El offset says: " << result << std::endl;
+
+  //std::cout << result.x()*3600. << ", " << result.y()*3600. << std::endl;
 
   return result;
-
 }
 
