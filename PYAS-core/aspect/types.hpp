@@ -53,7 +53,7 @@ class Pair {
 
     friend Pair operator+(const Pair& a, const Pair& b);
     friend Pair operator-(const Pair& a, const Pair& b);
-    friend Pair operator/(const Pair& a, const Pair& b);
+    friend Pair operator*(const Pair& a, const Pair& b);
 
     friend ByteString& operator<<(ByteString& bs, const Pair& p);
     friend std::ostream& operator<<(std::ostream& os, const Pair& p);
