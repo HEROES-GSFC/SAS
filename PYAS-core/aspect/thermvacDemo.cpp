@@ -632,14 +632,16 @@ void *commandHandlerThread(void *threadargs)
 				long int count = 0;
 
 				printf("sending %d packets\n", num_packets);
-
+				int x, y = 0;
 				for( int i = 0; i < num_packets; i++ ){
 					if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
 					//printf("%d\n", i);
 					TelemetryPacket tp(0x70, 0x30);
 					
 					for( int j = 0; j < pixels_per_packet; j++){
-						tp << (uint8_t)2;
+						x = k % numXpixels;
+						y = k / numYpixels;
+						tp << (uint8_t)localFrame.at<uint8_t>(x, y);
 						k++;
 					}
 					tcpSndr.send_packet( &tp );
