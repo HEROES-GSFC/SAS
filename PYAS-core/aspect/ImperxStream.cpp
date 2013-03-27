@@ -18,6 +18,7 @@ ImperxStream::~ImperxStream()
 
 int ImperxStream::Connect()
 {
+    std::cout << "ImperxStream::Connect starting" << std::endl;
     PvResult lResult;	
 
     // Create an GEV system and an interface.
@@ -65,31 +66,32 @@ int ImperxStream::Connect()
     // Connect to the last GEV Device found.
     if( lDeviceInfo != NULL )
     {
-	printf( "Connecting to %s\n",
+	printf( "ImpxerStream::Connect Connecting to %s\n",
 		lDeviceInfo->GetMACAddress().GetAscii() );
 
 	lResult = lDevice.Connect( lDeviceInfo );
 	if ( !lResult.IsOK() )
 	{
-	    printf( "Unable to connect to %s\n", 
+	    printf( "ImpxerStream::Connect Unable to connect to %s\n", 
 		    lDeviceInfo->GetMACAddress().GetAscii() );
 	    return -1;
 	}
 	else
 	{
-	    printf( "Successfully connected to %s\n", 
+	    printf( "ImpexStream::Connect Successfully connected to %s\n", 
 		    lDeviceInfo->GetMACAddress().GetAscii() );
 	}
     }
     else
     {
-	printf( "No device found\n" );
+	printf( "ImperxStream::Connect No device found\n" );
 	return -1;
     }
 
     // Get device parameters need to control streaming
     lDeviceParams = lDevice.GetGenParameters();
 
+    std::cout << "ImperxStream::Connect Exiting." << std::endl;
     return 0;
 }
 
@@ -178,7 +180,7 @@ int ImperxStream::Initialize()
 {
     if(lDeviceInfo == NULL)
     {
-	std::cout << "No device connected!\n";
+	std::cout << "ImperxStream::Initialize No device connected!" << std::endl;
 	return -1;
     }
 
@@ -186,7 +188,7 @@ int ImperxStream::Initialize()
     lDevice.NegotiatePacketSize();
 
     // Open stream - have the PvDevice do it for us
-    printf( "Opening stream to device\n" );
+    std::cout << "ImperxStream::Initialize Opening Stream to Device" << std::endl;
     lStream.Open( lDeviceInfo->GetIPAddress() );
 
     // Reading payload size from device
@@ -194,29 +196,37 @@ int ImperxStream::Initialize()
     lDeviceParams->GetIntegerValue( "PayloadSize", lSize );
 
     // Set the Buffer size and the Buffer count
+    std::cout << "ImperxStream::Initialize Setting Buffer Size" << std::endl;
     lPipeline.SetBufferSize( static_cast<PvUInt32>( lSize ) );
-    lPipeline.SetBufferCount( 16 ); // Increase for high frame rate without missing block IDs
+    lPipeline.SetBufferCount( 32 ); // Increase for high frame rate without missing block IDs
 
     // Have to set the Device IP destination to the Stream
     lDevice.SetStreamDestination( lStream.GetLocalIPAddress(), lStream.GetLocalPort() ); 
     // IMPORTANT: the pipeline needs to be "armed", or started before 
     // we instruct the device to send us images
-    printf( "Starting pipeline\n" );
+    std::cout << "ImperxStream::Initialize Starting Pipeline" << std::endl;
     lPipeline.Start();
 
     // Get stream parameters/stats
+    std::cout << "ImperxStream::Initialize Get Stream Parameters" << std::endl;
     lStreamParams = lStream.GetParameters();
 
     // TLParamsLocked is optional but when present, it MUST be set to 1
     // before sending the AcquisitionStart command
     lDeviceParams->SetIntegerValue( "TLParamsLocked", 1 );
 
-    printf( "Resetting timestamp counter...\n" );
+    
+    std::cout << "ImperxStream::Initialize Resetting timestamp counter..." << std::endl;
     lDeviceParams->ExecuteCommand( "GevTimestampControlReset" );
     return 0;
 }
     
 void ImperxStream::Snap(cv::Mat &frame)
+{
+    Snap(frame, 1000);
+}
+
+void ImperxStream::Snap(cv::Mat &frame, int timeout)
 {
     // The pipeline is already "armed", we just have to tell the device
     // to start sending us images
@@ -225,7 +235,7 @@ void ImperxStream::Snap(cv::Mat &frame)
     // Retrieve next buffer		
     PvBuffer *lBuffer = NULL;
     PvResult lOperationResult;
-    PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
+    PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, timeout, &lOperationResult );
         
     if ( lResult.IsOK() )
     {
@@ -235,6 +245,7 @@ void ImperxStream::Snap(cv::Mat &frame)
             
 	    if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
 	    {
+		std::cout << "ImperxStream::Snap Copying frame" << std::endl;
 		// Get image specific buffer interface
 		PvImage *lImage = lBuffer->GetImage();
 	      
@@ -255,12 +266,12 @@ void ImperxStream::Snap(cv::Mat &frame)
 	    }
 	    else
 	    {
-		std::cout << "No image\n";
+		std::cout << "ImperxStream::Snap No image in buffer" << std::endl;
 	    }
 	}
 	else
 	{
-	    std::cout << "Damaged Result\n";
+	    std::cout << "ImperxStream::Snap Operation result: " << lOperationResult << std::endl;
 	}
 	// We have an image - do some processing (...) and VERY IMPORTANT,
 	// release the buffer back to the pipeline
@@ -269,7 +280,7 @@ void ImperxStream::Snap(cv::Mat &frame)
     }
     else
     {
-	std::cout << "Timeout\n";
+	std::cout << "ImperxStream::Snap Timeout\n";
     }
 }
 

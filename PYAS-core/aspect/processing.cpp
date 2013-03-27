@@ -6,10 +6,6 @@
    Requests for data are made with the Get functions, and the necessary data is provided if
    its available, otherwise an error code is returned. Most data is stored as either CoordList or a
    cv::Point. All the functions doing real computation are private, other than "Run."
-
-   Todo:
-   -Check condition number in GetLinear
-
 */
 #include "processing.hpp"
 #include <iostream>
@@ -33,7 +29,7 @@ Aspect::Aspect()
     
     initialNumChords = 20;
     chordsPerAxis = 5;
-    chordThreshold = .3;
+    chordThreshold = .25;
     solarRadius = 105;
     limbWidth = 2;
     fiducialTolerance = 2;
