@@ -30,8 +30,9 @@ enum IntParameter
 
 enum FloatParameter
 {
-    FiducialSpacing = 0,
-    FiducialSpacingTol = 1
+    ChordThreshold = 0,
+    FiducialSpacing = 1,
+    FiducialSpacingTol = 2
 };
     
 
@@ -43,6 +44,7 @@ public:
 
     int LoadFrame(cv::Mat inputFrame);
     int Run();
+    int GetPixelMinMax(unsigned char& min, unsigned char& max);
     int GetPixelCrossings(CoordList& crossings);
     int GetPixelCenter(cv::Point2f& center);
     int GetPixelError(cv::Point2f& error);
@@ -61,7 +63,7 @@ public:
 private:
     int initialNumChords;
     int chordsPerAxis;
-    int chordThreshold;
+    float chordThreshold;
     int limbWidth;
     int fiducialTolerance;
 
@@ -91,6 +93,9 @@ private:
     bool frameValid;
     cv::Mat frame;
     cv::Size frameSize;
+
+    bool minMaxValid;
+    unsigned char frameMax, frameMin;
 
     cv::Mat kernel;
     cv::Size kernelSize;

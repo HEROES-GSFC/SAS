@@ -28,9 +28,12 @@ cv::Point2f fiducialIDtoScreen(cv::Point2i id) {
 
 Aspect::Aspect()
 {
+    frameMin = 255;
+    frameMax = 0;
+    
     initialNumChords = 20;
     chordsPerAxis = 5;
-    chordThreshold = 50;
+    chordThreshold = .3;
     solarRadius = 105;
     limbWidth = 2;
     fiducialTolerance = 2;
@@ -108,6 +111,9 @@ int Aspect::Run()
     cv::Mat solarImage;
     cv::Size solarSize;
     cv::Point offset;
+    double max, min;
+
+    minMaxValid = false;
 
     limbCrossings.clear();
     crossingsValid = false;
@@ -135,6 +141,20 @@ int Aspect::Run()
     }
     else
     {
+	//std::cout << "Aspect: Finding max and min pixel values"
+	cv::minMaxLoc(frame, &min, &max, NULL, NULL);
+	if (min >= max || std::isnan(min) || std::isnan(max))
+	{
+	    std::cout << "Aspect: Max/Min value bad" << std::endl;
+	    return 1;
+	}
+	else
+	{
+	    frameMin = (unsigned char) min;
+	    frameMax = (unsigned char) max;
+	    minMaxValid = true;
+	}
+
 	//std::cout << "Aspect: Finding Center" << std::endl;
 	FindPixelCenter();
 	if (limbCrossings.size() == 0)
@@ -257,6 +277,17 @@ int Aspect::Run()
 Data product Get functions
 
 ***************************************************/
+
+int Aspect::GetPixelMinMax(unsigned char& min, unsigned char& max)
+{
+    if (minMaxValid == true && frameProcessed == true)
+    {
+	max = frameMax;
+	min = frameMin;
+	return 0;
+    }
+    else return -1;
+}
 
 int Aspect::GetPixelCrossings(CoordList& crossings)
 {
@@ -405,6 +436,9 @@ void Aspect::SetFloat(FloatParameter variable, float value)
 {
     switch(variable)
     {
+    case ChordThreshold:
+	chordThreshold = value;
+	break;
     case FiducialSpacing:
 	fiducialSpacing = value;
 	break;
@@ -467,12 +501,16 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 {
     std::vector<int> edges;
     std::vector<float> x, y, fit;
-    int thisValue, lastValue;
+    unsigned char thisValue, lastValue, pixelThreshold;
     int K = chord.total();
     int edgeSpread;
     int edge, min, max;
     int N;
-	
+
+    float threshold = frameMin + chordThreshold*(frameMax-frameMin);
+    pixelThreshold = (unsigned char) threshold;
+    
+
     //for each pixel, check if the pixel lies on a potential limb
     lastValue = (int) chord.at<unsigned char>(0);
     for (int k = 1; k < K; k++)
@@ -480,12 +518,12 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 	thisValue = (int) chord.at<unsigned char>(k);
 
 	//check for a rising edge, save the index above the threshold
-	if (lastValue <= chordThreshold && thisValue > chordThreshold)
+	if (lastValue <= pixelThreshold && thisValue > pixelThreshold)
 	{
 	    edges.push_back(k);
 	}
 	//check for a falling edge
-	else if(lastValue > chordThreshold && thisValue <= chordThreshold)
+	else if(lastValue > pixelThreshold && thisValue <= pixelThreshold)
 	{
 	    edges.push_back(-(k-1));
 	}
@@ -497,7 +535,7 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
     for (unsigned int k = 1; k <  edges.size(); k++)
     {
 	//find distance between next edge pair
-	//positive if the region is below the chordThreshold
+	//positive if the region is below the threshold
 	edgeSpread = edges[k] + edges[k-1];
 
 	//if the pair is along a fiducial
@@ -554,7 +592,7 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 		y.push_back((float) chord.at<unsigned char>(l));
 	    }
 	    LinearFit(x,y,fit);
-	    crossings.push_back(((float)chordThreshold - fit[0])/fit[1]);
+	    crossings.push_back((threshold - fit[0])/fit[1]);
 	}
     }
     return 0; 
