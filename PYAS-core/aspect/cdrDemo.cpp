@@ -53,6 +53,7 @@ CommandPacketQueue cm_packet_queue;
 // related to threads
 unsigned int stop_message[NUM_THREADS];
 pthread_t threads[NUM_THREADS];
+bool skip[NUM_THREADS];
 pthread_attr_t attr;
 pthread_mutex_t mutexImage;
 pthread_mutex_t mutexProcess;
@@ -809,7 +810,7 @@ void start_all_threads( void ){
     pthread_mutex_init(&mutexProcess, NULL);
  
     for(int i = 0; i < NUM_THREADS; i++ ){
-        threads[i] = NULL;
+        skip[i] = true;
         // reset stop message
         stop_message[i] = 0;
     }
@@ -817,56 +818,47 @@ void start_all_threads( void ){
     // start all threads
     t = 0L;
     rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
-    if (rc){
-        threads[0] = NULL;
+    if ((skip[0] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 1L;
     rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
-    if (rc){
-        threads[1] = NULL;
+    if ((skip[1] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 2L;
     rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
-    if (rc){
-        threads[2] = NULL;
+    if ((skip[2] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 3L;
     rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
-    if (rc){
-        threads[3] = NULL;
+    if ((skip[3] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 4L;
     rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
-    if (rc){
-        threads[4] = NULL;
+    if ((skip[4] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 5L;
     rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
-    if (rc){
-        threads[5] = NULL;
+    if ((skip[5] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
     rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
-    if (rc){
-        threads[6] = NULL;
+    if ((skip[6] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 7L;
     rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
-    if (rc){
-        threads[7] = NULL;
+    if ((skip[7] = (rc != 0))) {
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }    
     t = 8L;
     rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
-    if (rc){
-        threads[8] = NULL;
+    if ((skip[8] = (rc != 0))) {
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     //Thread #9 is for the commandHandler
@@ -918,8 +910,7 @@ int main(void)
                     thread_data_array[t].var = latest_sas_command_key;
                     //thread_data_array[t].message = messages[t];
                     rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
-                    if (rc){
-                        threads[9] = NULL;
+                    if ((skip[9] = (rc != 0))) {
                         printf("ERROR; return code from pthread_create() is %d\n", rc);
                     };
             }
@@ -933,7 +924,7 @@ int main(void)
     kill_all_threads();
     sleep(2);
     for(int i = 0; i < NUM_THREADS; i++ ){
-        if (threads[i] != NULL) {
+        if (!skip[i]) {
             printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
         }
     }
