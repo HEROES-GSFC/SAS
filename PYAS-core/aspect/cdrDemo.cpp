@@ -4,8 +4,8 @@
 #define SAS_IMAGE_TYPE 0x82
 #define SAS_SYNC_WORD 0xEB90
 #define SAS_CM_ACK_TYPE 0x01
-#define CTL_IP_ADDRESS 192.168.1.2
-#define FDR_IP_ADDRESS 192.168.1.1
+#define CTL_IP_ADDRESS "192.168.1.2"
+#define FDR_IP_ADDRESS "192.168.2.4"
 #define CTL_CMD_PORT 2000
 #define SAS_CMD_PORT 2001
 #define TPCPORT_FOR_IMAGE_DATA 2013
@@ -32,12 +32,14 @@
 #include "UDPReceiver.hpp"
 #include "Command.hpp"
 #include "Telemetry.hpp"
+#include "Transform.hpp"
+#include "types.hpp"
 #include "TCPSender.hpp"
 #include "ImperxStream.hpp"
 #include "processing.hpp"
 #include "compression.hpp"
 #include "utilities.hpp"
-#include "commandHandler.hpp"
+//#include "commandHandler.hpp"
 
 // global declarations
 uint16_t command_sequence_number = 0;
@@ -459,6 +461,7 @@ void *TelemetryPackagerThread(void *threadid)
     sleep(1);      // delay a little compared to the TelemetrySenderThread
 
     CoordList localLimbs, localFiducials;
+    std::vector<float> localMapping;
     cv::Point2f localCenter, localError;
     
     while(1)    // run forever
@@ -735,13 +738,16 @@ void *commandHandlerThread(void *threadargs)
 
 				printf("sending %d packets\n", num_packets);
 
+                                int x, y;
 				for( int i = 0; i < num_packets; i++ ){
-					if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
+					//if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
 					//printf("%d\n", i);
 					TelemetryPacket tp(0x70, 0x30);
 					
 					for( int j = 0; j < pixels_per_packet; j++){
-						tp << (uint8_t)2;
+						x = k % numXpixels;
+                                                y = k / numYpixels;
+                                                tp << (uint8_t)localFrame.at<uint8_t>(x, y);
 						k++;
 					}
 					tcpSndr.send_packet( &tp );
@@ -802,12 +808,17 @@ void start_all_threads( void ){
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
-    rc = pthread_create(&threads[6],NULL, SaveImageThread,(void *)t);
+    rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
     if (rc){
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 7L;
-    rc = pthread_create(&threads[7],NULL, SaveTemperaturesThread,(void *)t);
+    rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 8L;
+    rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
     if (rc){
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
