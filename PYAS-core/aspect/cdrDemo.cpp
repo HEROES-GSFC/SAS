@@ -428,18 +428,13 @@ void *SaveImageThread(void *threadid)
 
                 time(&ltime);	
                 times = localtime(&ltime);
-                strftime(stringtemp,25,"image_%y%m%d_%H%M%S.fits",times);
+                strftime(stringtemp,25,"/mnt/disk2/image_%y%m%d_%H%M%S.fits",times);
                 strncpy(obsfilespec,stringtemp,128 - 1);
                 obsfilespec[128 - 1] = '\0';
 
                 frame.copyTo(localFrame);
                 localFrameCount = frameCount;
                 pthread_mutex_unlock(&mutexImage); 
-                fitsfile = "./test/frame";
-                sprintf(number, "%05d", (int) localFrameCount);
-                fitsfile += number;
-                fitsfile += ".fit";
-                std::cout << fitsfile << "\n";
                 writeFITSImage(frame, obsfilespec);
                 printf("Saving image %s\n", obsfilespec);
             }
