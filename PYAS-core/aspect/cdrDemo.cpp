@@ -1,4 +1,4 @@
-#define NUM_THREADS 9
+#define NUM_THREADS 10
 #define SAS_TARGET_ID 0x30
 #define SAS_TM_TYPE 0x70
 #define SAS_IMAGE_TYPE 0x82
@@ -75,10 +75,11 @@ CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 std::vector<float> mapping;
 
+bool staleFrame;
 Flag procReady, saveReady;
 int runtime = 10;
 int exposure = 10000;
-int frameRate = 250;
+timespec frameRate = {0,100000000L};
 int cameraReady = 0;
 
 timespec frameTime;
@@ -91,7 +92,7 @@ void sig_handler(int signum)
 {
     if (signum == SIGINT)
     {
-	g_running = 0;
+        g_running = 0;
     }
 }
 
@@ -111,27 +112,27 @@ unsigned long get_cpu_voltage( int index )
     switch( index )
     {
     case 0:         // +1.05V
-	outb(0x21, EC_INDEX );
-	return inb( EC_DATA ) * 2000 / 255;
-	break;
+        outb(0x21, EC_INDEX );
+        return inb( EC_DATA ) * 2000 / 255;
+        break;
     case 1:         // +2.5 V
-	outb(0x20, EC_INDEX );
-	return inb( EC_DATA ) * 3320 / 255;
-	break;
+        outb(0x20, EC_INDEX );
+        return inb( EC_DATA ) * 3320 / 255;
+        break;
     case 2:         // +3.3 V
-	outb(0x22, EC_INDEX );
-	return inb( EC_DATA ) * 4380 / 255;
-	break;
+        outb(0x22, EC_INDEX );
+        return inb( EC_DATA ) * 4380 / 255;
+        break;
     case 3:         // +5.0 V
-	outb(0x23, EC_INDEX );
-	return inb( EC_DATA ) * 6640 / 255;
-	break;
+        outb(0x23, EC_INDEX );
+        return inb( EC_DATA ) * 6640 / 255;
+        break;
     case 4:         // +12.0 V
-	outb(0x24, EC_INDEX );
-	return inb( EC_DATA ) * 1600 / 255;
-	break;
+        outb(0x24, EC_INDEX );
+        return inb( EC_DATA ) * 1600 / 255;
+        break;
     default:
-	return -1; 
+        return -1;
     }      
 }
 
@@ -150,39 +151,15 @@ void *CameraStreamThread( void * threadid)
     ImperxStream camera;
 
     cv::Mat localFrame;
+    timespec preExposure, postExposure, timeElapsed, duration;
     int width, height;
-    while(1)
-    {
-	if (camera.Connect() != 0)
-	{
-	    std::cout << "Error connecting to camera!\n";	
-	    sleep(1);
-	    continue;
-	}
-	else
-	{
-	    camera.ConfigureSnap();
-	    //camera.SetROISize(960,960);
-	    //camera.SetROIOffset(165,0);
-	    camera.SetExposure(exposure);
-	
-	    width = camera.GetROIWidth();
-	    height = camera.GetROIHeight();
-	    localFrame.create(height, width, CV_8UC1);
-	    if(camera.Initialize() != 0)
-	    {
-		std::cout << "Error initializing camera!\n";
-		sleep(1);
-		continue;
-	    }
-	    cameraReady = 1;
-	    frameCount = 0;
-	    break;
-	}
-    }	
-    while(1)
-    {
+    int hours, minutes, days;
+    int failcount = 0;
 
+    cameraReady = 0;
+    staleFrame = true;
+    while(1)
+    {
         if (stop_message[tid] == 1)
 	{
             printf("CameraStream thread #%ld exiting\n", tid);
@@ -190,26 +167,89 @@ void *CameraStreamThread( void * threadid)
             camera.Disconnect();
             pthread_exit( NULL );
         }
-	camera.Snap(localFrame);
-	procReady.raise();
-	saveReady.raise();
+        else if (cameraReady == false)
+        {
+            if (camera.Connect() != 0)
+            {
+                std::cout << "Error connecting to camera!\n";
+                sleep(1);
+                continue;
+            }
+            else
+            {
+                camera.ConfigureSnap();
+                //camera.SetROISize(960,960);
+                //camera.SetROIOffset(165,0);
+                camera.SetExposure(exposure);
 
-        //printf("CameraStreamThread: trying to lock\n");
-        pthread_mutex_lock(&mutexImage);
-	clock_gettime(CLOCK_REALTIME, &frameTime);
-        //printf("CameraStreamThread: got lock, copying over\n");
-	localFrame.copyTo(frame);
-        //printf("%d\n", frame.at<uint8_t>(0,0));
-	frameCount++;
-        pthread_mutex_unlock(&mutexImage);
+                width = camera.GetROIWidth();
+                height = camera.GetROIHeight();
+                localFrame.create(height, width, CV_8UC1);
+                if(camera.Initialize() != 0)
+                {
+                    std::cout << "Error initializing camera!\n";
+                    //may need disconnect here
+                    sleep(1);
+                    continue;
+                }
+                cameraReady = 1;
+                frameCount = 0;
+            }
+        }
+        else
+        {
+            clock_gettime(CLOCK_REALTIME, &preExposure);
+            minutes = preExposure.tv_sec/60;
+            hours = minutes/60;
+            days = hours/24;
+            std::cout << days << " "
+                      << hours - 24*days << ":"
+                      << minutes - 60*hours << ":"
+                      << preExposure.tv_sec - 60*minutes << "."
+                      << preExposure.tv_nsec/1000000 << "."
+                      << (preExposure.tv_nsec/1000)%1000 << "."
+                      << (preExposure.tv_nsec/1000000) << std::endl;
 
-	//printf("camera temp is %lld\n", camera.getTemperature());
-	camera_temperature = camera.getTemperature();
-	
-	
-	procReady.raise();
-	saveReady.raise();
-	fine_wait(0,frameRate - exposure,0,0);
+            if(!camera.Snap(localFrame))
+            {
+                failcount = 0;
+                procReady.raise();
+                saveReady.raise();
+
+                //printf("CameraStreamThread: trying to lock\n");
+                pthread_mutex_lock(&mutexImage);
+                //printf("CameraStreamThread: got lock, copying over\n");
+                localFrame.copyTo(frame);
+                frameTime = preExposure;
+                //printf("%d\n", frame.at<uint8_t>(0,0));
+                frameCount++;
+                pthread_mutex_unlock(&mutexImage);
+                staleFrame = false;
+
+                //printf("camera temp is %lld\n", camera.getTemperature());
+                camera_temperature = camera.getTemperature();
+            }
+            else
+            {
+                failcount++;
+                std::cout << "Frame failure count = " << failcount << std::endl;
+                if (failcount >= 10)
+                {
+                    camera.Stop();
+                    camera.Disconnect();
+                    cameraReady = false;
+                    staleFrame = true;
+                    std::cout << "*********************** RESETTING CAMERA ***********************************" << std::endl;
+                    continue;
+                }
+            }
+            clock_gettime(CLOCK_REALTIME, &postExposure);
+            timeElapsed = TimespecDiff(preExposure, postExposure);
+            duration.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
+            duration.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
+            std::cout << timeElapsed.tv_sec << " " << timeElapsed.tv_nsec << "\n";
+            nanosleep(&duration, NULL);
+        }
     }
 }
 
@@ -223,49 +263,53 @@ void *ImageProcessThread(void *threadid)
     IndexList localIds;
     std::vector<float> localMapping;
     cv::Point2f localPixelCenter, localScreenCenter, localError;
+    timespec waittime;
+
+    waittime.tv_sec = frameRate.tv_sec/10;
+    waittime.tv_nsec = frameRate.tv_nsec/10;
     
     while(1)
     {
-	if (stop_message[tid] == 1)
-	{
+        if (stop_message[tid] == 1)
+        {
             printf("ImageProcess thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
         
         if (cameraReady)
-	{
+        {
             while(1)
-	    {
+            {
                 if(procReady.check())
-		{
-		    procReady.lower();
+                {
+                    procReady.lower();
                     break;
                 }
-		else
-		{
-		    usleep(1000*frameRate/10);
-		}
-	    }
+                else
+                {
+                    nanosleep(&waittime, NULL);
+                }
+            }
     
             //printf("ImageProcessThread: trying to lock\n");
             if (pthread_mutex_trylock(&mutexImage) == 0)
-	    {
+            {
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
-		{
-		    aspect.LoadFrame(frame);
+                {
+                    aspect.LoadFrame(frame);
 
-		    pthread_mutex_unlock(&mutexImage); 
+                    pthread_mutex_unlock(&mutexImage);
 
-		    if(!aspect.Run())
-		    {
-			aspect.GetPixelCrossings(localLimbs);
-			aspect.GetPixelCenter(localPixelCenter);
-			aspect.GetPixelError(localError);
-			aspect.GetPixelFiducials(localPixelFiducials);
-			aspect.GetFiducialIDs(localIds);
-			aspect.GetScreenFiducials(localScreenFiducials);
-			aspect.GetScreenCenter(localScreenCenter); 
+                    if(!aspect.Run())
+                    {
+                        aspect.GetPixelCrossings(localLimbs);
+                        aspect.GetPixelCenter(localPixelCenter);
+                        aspect.GetPixelError(localError);
+                        aspect.GetPixelFiducials(localPixelFiducials);
+                        aspect.GetFiducialIDs(localIds);
+                        aspect.GetScreenFiducials(localScreenFiducials);
+                        aspect.GetScreenCenter(localScreenCenter);
                         aspect.GetMapping(localMapping);
 
                         pthread_mutex_lock(&mutexProcess);
@@ -279,32 +323,31 @@ void *ImageProcessThread(void *threadid)
                         screenCenter = localScreenCenter;
                         mapping = localMapping;
 
-			pthread_mutex_unlock(&mutexProcess);
+                        pthread_mutex_unlock(&mutexProcess);
 
-/*
-			std::cout << ids.size() << " fiducials found:";
-			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << pixelFiducials[i];
-			std::cout << std::endl;
-			
-			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
-			std::cout << std::endl;
-			
-			for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << screenFiducials[i];
-			std::cout << std::endl;
-			
-			std::cout << "Sun center (pixels): " << pixelCenter << ", Sun center (screen): " << screenCenter << std::endl;
-*/
-		    }
-		    else
-		    {
-			
-		    std::cout << "Aspect module failed for this frame." << std::endl;
-		    }
+                        /*
+                          std::cout << ids.size() << " fiducials found:";
+                          for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << pixelFiducials[i];
+                          std::cout << std::endl;
+
+                          for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
+                          std::cout << std::endl;
+
+                          for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << screenFiducials[i];
+                          std::cout << std::endl;
+
+                          std::cout << "Sun center (pixels): " << pixelCenter << ", Sun center (screen): " << screenCenter << std::endl;
+                        */
+                    }
+                    else
+                    {
+                        //std::cout << "Aspect module failed for this frame." << std::endl;
+                    }
                 }
-		else
-		{
-		    pthread_mutex_unlock(&mutexImage);  
-		}
+                else
+                {
+                    pthread_mutex_unlock(&mutexImage);
+                }
             }
         }
     }
@@ -388,7 +431,8 @@ void *SaveImageThread(void *threadid)
     
     cv::Mat localFrame;
     std::string fitsfile;
-
+    timespec waittime = {60,0};
+    //timespec thetimenow;
     while(1)
     {
         if (stop_message[tid] == 1)
@@ -396,51 +440,51 @@ void *SaveImageThread(void *threadid)
             printf("SaveImage thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
-	sleep(60);        
         if (cameraReady)
-    	{
+        {
             while(1)
-	        {
+            {
                 if(saveReady.check())
-		        {
-		            saveReady.lower();
+                {
+                    saveReady.lower();
                     break;
                 }
-		    else
-		    {
-		        usleep(1000*frameRate/10);
-		    }
-	    }
-    
-        printf("SaveImageThread: trying to lock\n");
-        if (pthread_mutex_trylock(&mutexImage) == 0)
-	    {
-            //printf("ImageProcessThread: got lock\n");
-            if(!frame.empty())
-		    {
-                char stringtemp[80];
-                char obsfilespec[128];    
-                time_t ltime;
-                struct tm *times;
-
-                time(&ltime);	
-                times = localtime(&ltime);
-                strftime(stringtemp,40,"/mnt/disk2/image_%y%m%d_%H%M%S.fits",times);
-                strncpy(obsfilespec,stringtemp,128 - 1);
-                obsfilespec[128 - 1] = '\0';
-
-                frame.copyTo(localFrame);
-                pthread_mutex_unlock(&mutexImage); 
-                writeFITSImage(frame, obsfilespec);
-                printf("Saving image %s\n", obsfilespec);
+                else
+                {
+                    nanosleep(&waittime, NULL);
+                }
             }
-		    else
-		    {
-		        pthread_mutex_unlock(&mutexImage);  
-		    }
+    
+            //printf("SaveImageThread: trying to lock\n");
+            if (pthread_mutex_trylock(&mutexImage) == 0)
+            {
+                //printf("ImageProcessThread: got lock\n");
+                if(!frame.empty())
+                {
+                    char stringtemp[80];
+                    char obsfilespec[128];
+                    time_t ltime;
+                    struct tm *times;
+
+                    //Use clock_gettime instead?
+                    time(&ltime);
+                    times = localtime(&ltime);
+                    strftime(stringtemp,40,"/mnt/disk2/image_%y%m%d_%H%M%S.fits",times);
+                    strncpy(obsfilespec,stringtemp,128 - 1);
+                    obsfilespec[128 - 1] = '\0';
+
+                    frame.copyTo(localFrame);
+                    pthread_mutex_unlock(&mutexImage);
+                    writeFITSImage(frame, obsfilespec);
+                    printf("Saving image %s\n", obsfilespec);
+                }
+                else
+                {
+                    pthread_mutex_unlock(&mutexImage);
+                }
+            }
         }
     }
-}
 }
 
 void *TelemetryPackagerThread(void *threadid)
@@ -468,11 +512,11 @@ void *TelemetryPackagerThread(void *threadid)
 
         
         if(pthread_mutex_trylock(&mutexProcess) == 0) 
-	{
-	    localLimbs = limbs;
-	    localCenter = pixelCenter;
-	    localError = error;
-	    localFiducials = pixelFiducials;
+        {
+            localLimbs = limbs;
+            localCenter = pixelCenter;
+            localError = error;
+            localFiducials = pixelFiducials;
             localMapping = mapping;
 
             std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
@@ -485,35 +529,35 @@ void *TelemetryPackagerThread(void *threadid)
 
             std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
 
-	    pthread_mutex_unlock(&mutexProcess);
+            pthread_mutex_unlock(&mutexProcess);
         } else {
             std::cout << "Using stale information for telemetry packet" << std::endl;
         }
 
-/*
-        tp << (double)localCenter.x;
-        tp << (double)localCenter.y;
+        /*
+          tp << (double)localCenter.x;
+          tp << (double)localCenter.y;
 
-        for(uint8_t i = 0; i < 20; i++){
-            if (i < localFiducials.size()) {
-                tp << (float) localFiducials[i].x;
-                tp << (float) localFiducials[i].y;
-            } else {
-                tp << (float)0 << (float)0;
-            }
-        }
+          for(uint8_t i = 0; i < 20; i++){
+          if (i < localFiducials.size()) {
+          tp << (float) localFiducials[i].x;
+          tp << (float) localFiducials[i].y;
+          } else {
+          tp << (float)0 << (float)0;
+          }
+          }
 
-        for(uint8_t j = 0; j < 20; j++) {
-            if (j < localLimbs.size()) {
-                tp << localLimbs[j].x;
-                tp << localLimbs[j].y;
-            } else {
-                tp << (float)0 << (float)0;
-            }
-        }
+          for(uint8_t j = 0; j < 20; j++) {
+          if (j < localLimbs.size()) {
+          tp << localLimbs[j].x;
+          tp << localLimbs[j].y;
+          } else {
+          tp << (float)0 << (float)0;
+          }
+          }
         
-        tp << (int) camera_temperature;
-*/
+          tp << (int) camera_temperature;
+        */
 
         //Housekeeping fields, two of them
         tp << (uint16_t)camera_temperature;
@@ -606,9 +650,9 @@ void *listenForCommandsThread(void *threadid)
         
         if (command_packet.valid()){
             printf("listenForCommandsThread: good command packet\n");
-            	        
+
             command_sequence_number = command_packet.getSequenceNumber();
-            	        
+
             // add tm ack packet
             TelemetryPacket ack_tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
             ack_tp << command_sequence_number;
@@ -678,7 +722,7 @@ void *sendCTLCommandsThread( void *threadid )
         CommandPacket cp(0x01, 100);
         cp << (uint16_t)0x1100;
         cm_packet_queue << cp;
-        	    
+
         if (stop_message[tid] == 1){
             printf("sendCTLCommands thread #%ld exiting\n", tid);
             pthread_exit( NULL );
@@ -764,8 +808,9 @@ void start_all_threads( void ){
     pthread_mutex_init(&mutexImage, NULL);
     pthread_mutex_init(&mutexProcess, NULL);
  
-    // reset stop message
     for(int i = 0; i < NUM_THREADS; i++ ){
+        threads[i] = NULL;
+        // reset stop message
         stop_message[i] = 0;
     }
     
@@ -773,49 +818,58 @@ void start_all_threads( void ){
     t = 0L;
     rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        threads[0] = NULL;
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 1L;
     rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        threads[1] = NULL;
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 2L;
     rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        threads[2] = NULL;
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 3L;
     rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        threads[3] = NULL;
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 4L;
     rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        threads[4] = NULL;
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 5L;
     rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        threads[5] = NULL;
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
     rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        threads[6] = NULL;
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 7L;
     rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
     if (rc){
+        threads[7] = NULL;
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }    
     t = 8L;
     rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
     if (rc){
+        threads[8] = NULL;
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
-    
+    //Thread #9 is for the commandHandler
 }
 
 
@@ -852,24 +906,22 @@ int main(void)
                     kill_all_threads();
                     break;
                 case 0x1020:    // (re)start all worker threads
-                    {// kill them all just in case
-						kill_all_threads();
-						sleep(1);
-						start_all_threads();
-					}
+                    // kill them all just in case
+                    kill_all_threads();
+                    sleep(1);
+                    start_all_threads();
                     break;
                 default:
-                	{
-						long t = 8L;
-						int rc;
-						thread_data_array[t].thread_id = t;
-						thread_data_array[t].var = latest_sas_command_key;
-						//thread_data_array[t].message = messages[t];
-						rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
-						if (rc){
-							printf("ERROR; return code from pthread_create() is %d\n", rc);
-						};
-                    }
+                    long t = 9L;
+                    int rc;
+                    thread_data_array[t].thread_id = t;
+                    thread_data_array[t].var = latest_sas_command_key;
+                    //thread_data_array[t].message = messages[t];
+                    rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
+                    if (rc){
+                        threads[9] = NULL;
+                        printf("ERROR; return code from pthread_create() is %d\n", rc);
+                    };
             }
         }   
     }
@@ -881,7 +933,9 @@ int main(void)
     kill_all_threads();
     sleep(2);
     for(int i = 0; i < NUM_THREADS; i++ ){
-        printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
+        if (threads[i] != NULL) {
+            printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
+        }
     }
     pthread_mutex_destroy(&mutexImage);
     pthread_mutex_destroy(&mutexProcess);

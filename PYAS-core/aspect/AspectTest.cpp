@@ -70,7 +70,6 @@ int main(int argc, char* argv[])
 	    {
 		//std::cout << "AspectTest: Get Crossings" << std::endl;
 		aspect.GetPixelCrossings(crossings);
-		DrawCross(image, center, centerColor, 20, 1);
 		for (int k = 0; k < crossings.size(); k++)
 		    DrawCross(image, crossings[k], crossingColor, 10, 1);
 
@@ -117,7 +116,7 @@ int main(int argc, char* argv[])
 		std::cout << "AspectTest: Failure in Aspect::Run" << std::endl;
 	    }
 	    cv::imshow("Do it.", image);
-	    cv::waitKey(100);
+	    cv::waitKey(0);
 
 	}
     }
