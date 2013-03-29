@@ -107,46 +107,45 @@ int main(int argc, char* agrv[])
 	startTime = time(NULL);
 	while ( time(NULL) < startTime + duration)
 	{
-	    std::cout << "fullDemo: Snap Frame" << std::endl;
+	    //std::cout << "fullDemo: Snap Frame" << std::endl;
 	    camera.Snap(frame);
 
 	    cv::merge(list,3,image);
 	    cv::imshow("Solar Solution", image);
 	    cv::waitKey(1);
 
-	    std::cout << "fullDemo: Load Frame" << std::endl;
+	    //std::cout << "fullDemo: Load Frame" << std::endl;
 	    aspect.LoadFrame(frame);
 
-	    std::cout << "fullDemo: Run Aspect" << std::endl;
+	    //std::cout << "fullDemo: Run Aspect" << std::endl;
 	    aspect.Run();
 
-	    std::cout << "fullDemo: Get Crossings" << std::endl;
+	    //std::cout << "fullDemo: Get Crossings" << std::endl;
 	    aspect.GetPixelCrossings(crossings);
-	    DrawCross(image, center, centerColor, 20, 1);
 	    for (int k = 0; k < crossings.size(); k++)
 		DrawCross(image, crossings[k], crossingColor, 10, 1);
 	    cv::imshow("Solar Solution", image);
 	    cv::waitKey(1);
 
-	    std::cout << "fullDemo: Get Center" << std::endl;
+	    //std::cout << "fullDemo: Get Center" << std::endl;
 	    aspect.GetPixelCenter(center);
-	    std::cout << "fullDemo: Center: " << center.x << " " << center.y << std::endl;
+	    //std::cout << "fullDemo: Center: " << center.x << " " << center.y << std::endl;
 	    DrawCross(image, center, centerColor, 20, 1);
 	    cv::imshow("Solar Solution", image);
 	    cv::waitKey(1);
 	    
-	    std::cout << "fullDemo: Get Error" << std::endl;
+	    //std::cout << "fullDemo: Get Error" << std::endl;
 	    aspect.GetPixelError(error);
-	    std::cout << "fullDemo: Error:  " << error.x << " " << error.y << std::endl;
+	    //std::cout << "fullDemo: Error:  " << error.x << " " << error.y << std::endl;
 	    
-	    std::cout << "fullDemo: Get Fiducials" << std::endl;
+	    //std::cout << "fullDemo: Get Fiducials" << std::endl;
 	    aspect.GetPixelFiducials(fiducials);
 	    for (int k = 0; k < fiducials.size(); k++)
 		DrawCross(image, fiducials[k], fiducialColor, 15, 1);
 	    cv::imshow("Solar Solution", image);
 	    cv::waitKey(1);
 
-	    std::cout << "fullDemo: Get IDs" << std::endl;
+	    //std::cout << "fullDemo: Get IDs" << std::endl;
 	    aspect.GetFiducialIDs(IDs);
 	    for (int k = 0; k < IDs.size(); k++)
 	    {

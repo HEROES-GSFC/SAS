@@ -15,7 +15,10 @@
 *~
 #*#
 *.out
+*Demo
 frame*.png
+temp*.dat
+image*.fits
 
 # Mac Files
 .DS_Store

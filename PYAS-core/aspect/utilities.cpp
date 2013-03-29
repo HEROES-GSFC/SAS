@@ -63,20 +63,15 @@ bool Flag::check()
     return temp;
 }
 
-void fine_wait(int sec, int msec, int usec, int nsec)
+timespec TimespecDiff(timespec start, timespec end)
 {
-    timespec waittime;
-    waittime.tv_sec = sec;
-    waittime.tv_nsec = (long) 1000*(1000*msec + usec) + nsec;
-    nanosleep(&waittime, NULL);
+	timespec temp;
+	if ((end.tv_nsec-start.tv_nsec)<0) {
+		temp.tv_sec = end.tv_sec-start.tv_sec-1;
+		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+	} else {
+		temp.tv_sec = end.tv_sec-start.tv_sec;
+		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+	}
+	return temp;
 }
-
-double GetSystemTime()
-{
-    using namespace std::chrono;
-
-    system_clock::time_point tp = system_clock::now();
-    system_clock::duration dtn = tp.time_since_epoch();
-    return (double) dtn.count() * system_clock::period::num / system_clock::period::den;
-}
-
