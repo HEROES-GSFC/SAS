@@ -205,6 +205,7 @@ void *CameraStreamThread( void * threadid)
             minutes = preExposure.tv_sec/60;
             hours = minutes/60;
             days = hours/24;
+/*
             std::cout << days << " "
                       << hours - 24*days << ":"
                       << minutes - 60*hours << ":"
@@ -212,6 +213,7 @@ void *CameraStreamThread( void * threadid)
                       << preExposure.tv_nsec/1000000 << "."
                       << (preExposure.tv_nsec/1000)%1000 << "."
                       << (preExposure.tv_nsec % 1000) << std::endl;
+*/
 
             if(!camera.Snap(localFrame))
             {
@@ -250,7 +252,7 @@ void *CameraStreamThread( void * threadid)
             timeElapsed = TimespecDiff(preExposure, postExposure);
             duration.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
             duration.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
-            std::cout << timeElapsed.tv_sec << " " << timeElapsed.tv_nsec << "\n";
+//            std::cout << timeElapsed.tv_sec << " " << timeElapsed.tv_nsec << "\n";
             nanosleep(&duration, NULL);
         }
     }
