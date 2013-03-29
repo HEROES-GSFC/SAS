@@ -230,7 +230,7 @@ int ImperxStream::Snap(cv::Mat &frame)
 
 int ImperxStream::Snap(cv::Mat &frame, int timeout)
 {
-  std::cout << "ImperxStream::Snap starting" << std::endl;
+//  std::cout << "ImperxStream::Snap starting" << std::endl;
     // The pipeline is already "armed", we just have to tell the device
     // to start sending us images
     lDeviceParams->ExecuteCommand( "AcquisitionStart" );
@@ -248,7 +248,7 @@ int ImperxStream::Snap(cv::Mat &frame, int timeout)
             
 	    if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
 	    {
-		std::cout << "ImperxStream::Snap Copying frame" << std::endl;
+//		std::cout << "ImperxStream::Snap Copying frame" << std::endl;
 		// Get image specific buffer interface
 		PvImage *lImage = lBuffer->GetImage();
 	      
@@ -276,12 +276,12 @@ int ImperxStream::Snap(cv::Mat &frame, int timeout)
     }
     else
     {
-	std::cout << "ImperxStream::Snap Timeout\n";
+	std::cout << "ImperxStream::Snap Timeout: " << lResult << std::endl;
 	result = 1;
     }
     
     lPipeline.ReleaseBuffer( lBuffer );
-    std::cout << "ImperxStream::Snap Exiting" << std::endl;
+//    std::cout << "ImperxStream::Snap Exiting" << std::endl;
     return result;
 }
 
