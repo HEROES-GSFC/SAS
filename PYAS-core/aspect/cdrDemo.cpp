@@ -511,6 +511,9 @@ void *TelemetryPackagerThread(void *threadid)
         tp << (uint8_t)255; //max
         tp << (uint8_t)0; //min
 
+        //Tacking on the offset numbers intended for CTL
+        tp << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y));
+
         //add telemetry packet to the queue
         tm_packet_queue << tp;
                 
