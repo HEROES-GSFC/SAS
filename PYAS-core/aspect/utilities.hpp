@@ -26,6 +26,4 @@ private:
     pthread_mutex_t mutex;
 };
 
-void fine_wait(int sec, int msec, int usec, int nsec);
-
-double GetSystemTime();
+timespec TimespecDiff(timespec start, timespec end);

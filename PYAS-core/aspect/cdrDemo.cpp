@@ -69,7 +69,7 @@ std::vector<float> mapping;
 Flag procReady, saveReady;
 int runtime = 10;
 int exposure = 10000;
-int frameRate = 250;
+timespec frameRate = {0,250000000L};
 int cameraReady = 0;
 
 timespec frameTime;
@@ -136,6 +136,7 @@ void *CameraStreamThread( void * threadid)
     ImperxStream camera;
 
     cv::Mat localFrame;
+    timespec preExposure, postExposure, timeElapsed, duration;
     int width, height;
     while(1)
     {
@@ -176,25 +177,28 @@ void *CameraStreamThread( void * threadid)
             camera.Disconnect();
             pthread_exit( NULL );
         }
+	clock_gettime(CLOCK_REALTIME, &preExposure);
 	camera.Snap(localFrame);
 	procReady.raise();
 	saveReady.raise();
 
         //printf("CameraStreamThread: trying to lock\n");
         pthread_mutex_lock(&mutexImage);
-	clock_gettime(CLOCK_REALTIME, &frameTime);
         //printf("CameraStreamThread: got lock, copying over\n");
 	localFrame.copyTo(frame);
+	frameTime = preExposure;
         //printf("%d\n", frame.at<uint8_t>(0,0));
 	frameCount++;
         pthread_mutex_unlock(&mutexImage);
 
 	//printf("camera temp is %lld\n", camera.getTemperature());
 	camera_temperature = camera.getTemperature();
-	
-	procReady.raise();
-	saveReady.raise();
-	fine_wait(0,frameRate - exposure,0,0);
+
+	clock_gettime(CLOCK_REALTIME, &postExposure);
+	timeElapsed = TimespecDiff(preExposure, postExposure);
+	duration.tv_sec = timeElapsed.tv_sec + frameRate.tv_sec;
+	duration.tv_nsec = timeElapsed.tv_nsec + frameRate.tv_nsec;
+	nanosleep(&duration, NULL);
     }
 }
 
@@ -208,6 +212,10 @@ void *ImageProcessThread(void *threadid)
     IndexList localIds;
     std::vector<float> localMapping;
     cv::Point2f localPixelCenter, localScreenCenter, localError;
+    timespec waittime;
+    
+    waittime.tv_sec = frameRate.tv_sec/10;
+    waittime.tv_nsec = frameRate.tv_nsec/10;
     
     while(1)
     {
@@ -228,7 +236,7 @@ void *ImageProcessThread(void *threadid)
                 }
 		else
 		{
-		    usleep(1000*frameRate/10);
+		    nanosleep(&waittime, NULL);
 		}
 	    }
     
@@ -331,6 +339,7 @@ void *SaveImageThread(void *threadid)
     long int localFrameCount;
     char number[6] = "00000";
     std::string fitsfile;
+    timespec waittime = {1,0};
 
     while(1)
     {
@@ -351,7 +360,7 @@ void *SaveImageThread(void *threadid)
                 }
 		else
 		{
-		    usleep(1000*frameRate/10);
+		    nanosleep(&waittime, NULL);
 		}
 	    }
     
