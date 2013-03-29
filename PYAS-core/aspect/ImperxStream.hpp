@@ -46,7 +46,7 @@ public:
     int GetROIOffsetX();
     int GetROIOffsetY();
 
-    long long int getTemperature( void );
+    int8_t getTemperature( void );
 
 private:
     PvDevice lDevice;

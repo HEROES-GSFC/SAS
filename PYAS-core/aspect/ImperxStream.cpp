@@ -274,12 +274,13 @@ void ImperxStream::Snap(cv::Mat &frame)
 }
 
 
-long long int ImperxStream::getTemperature()
+int8_t ImperxStream::getTemperature()
 {		
-    long long int lTempValue = 0.0;
+    long long int lTempValue = -128;
     lDevice.GetGenParameters()->GetIntegerValue( "CurrentTemperature", lTempValue );
-	
-    return lTempValue;	
+    if (lTempValue > 127) lTempValue = lTempValue-256;
+
+    return (int8_t)lTempValue; 
 }
 
 
