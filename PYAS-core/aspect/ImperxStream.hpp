@@ -20,7 +20,8 @@ public:
     //get/set parameters(name, value);
     int Initialize();
     void ConfigureSnap();
-    void Snap(cv::Mat &frame);
+    int Snap(cv::Mat &frame, int timeout);
+    int Snap(cv::Mat &frame);
     void Stop();
     void Disconnect();
     
@@ -46,7 +47,7 @@ public:
     int GetROIOffsetX();
     int GetROIOffsetY();
 
-    long long int getTemperature( void );
+    int8_t getTemperature( void );
 
 private:
     PvDevice lDevice;

@@ -28,7 +28,7 @@ int TCPReceiver::accept_packet( void ){
     memset(&payload, 0, sizeof(payload));
     
     // Wait for a client to connect
-    int sender_sock = accept(my_sock, (struct sockaddr *) &senderAddr, &senderAddrLen);
+    sender_sock = accept(my_sock, (struct sockaddr *) &senderAddr, &senderAddrLen);
     if (sender_sock < 0){ 
         printf("Accept() failed\n");
         return -1;
@@ -56,18 +56,18 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
     }
     numBytesRcvd += bytes;
     // Receive again until end of stream
-    printf("packet size %ld\n", packet_size);
+    //printf("packet size %ld\n", packet_size);
 
     int no_bytes_count;
     no_bytes_count = 0;
 
-    while (numBytesRcvd < packet_size) { // 0 indicates end of stream
+    //while (numBytesRcvd < packet_size) { // 0 indicates end of stream
         // See if there is more data to receive
-        bytes = recv(client_socket, payload, BUFSIZE, 0);
-        printf("received %i\n, %i\n", bytes, no_bytes_count);
-        if (bytes == 0){ no_bytes_count++; if (no_bytes_count > 5){ close_connection(); break; } }
-        if (bytes < 0){ printf("recv() failed\n"); } else { numBytesRcvd += bytes; }
-    }
+    //    bytes = recv(client_socket, payload, BUFSIZE, 0);
+        // printf("received %i\n, %i\n", bytes, no_bytes_count);
+    //if (bytes == 0){ no_bytes_count++; if (no_bytes_count > 5){ close_connection(); break; } }
+    //    if (bytes < 0){ printf("recv() failed\n"); } else { numBytesRcvd += bytes; }
+   // }
     //close(client_socket); // Close client socket
     return numBytesRcvd;
 }
@@ -99,11 +99,10 @@ void TCPReceiver::init_connection( void ){
 }
 
 void TCPReceiver::get_packet( uint8_t *packet ){
-    if( numBytesRcvd > 0 ){ memcpy( packet, payload, numBytesRcvd); }
+    if( numBytesRcvd >= 0 ){ memcpy( packet, payload, numBytesRcvd); }
 }
 
 void TCPReceiver::close_connection( void ){
-    close( my_sock );
     close( sender_sock );
 }
 

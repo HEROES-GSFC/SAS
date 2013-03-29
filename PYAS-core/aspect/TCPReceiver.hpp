@@ -18,7 +18,7 @@ class TCPReceiver {
 
         char payload[MAX_PACKET_SIZE];  /* Buffer for echo string */
         unsigned short listeningPort;   /* The port to listen to */
-        unsigned int numBytesRcvd;                /* Size of received message */
+        int numBytesRcvd;                /* Size of received message */
         unsigned int packet_size;
     public:
         TCPReceiver( void );
