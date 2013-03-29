@@ -11,6 +11,7 @@
 #define TPCPORT_FOR_IMAGE_DATA 2013
 #define UDPPORT_FOR_TM 2002
 #define SAVE_LOCATION "/mnt/disk2/"
+#define SECONDS_AFTER_SAVE 5
 
 // computer variables
 #define EC_INDEX 0x6f0
@@ -482,6 +483,8 @@ void *SaveImageThread(void *threadid)
 
                     printf("Saving image %s\n", obsfilespec);
                     writeFITSImage(localFrame, obsfilespec);
+
+                    sleep(SECONDS_AFTER_SAVE);
                 }
                 else
                 {
