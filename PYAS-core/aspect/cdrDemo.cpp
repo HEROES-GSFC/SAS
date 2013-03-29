@@ -145,7 +145,7 @@ void *CameraStreamThread( void * threadid)
 {    
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("CameraStream thread #%ld!\n", tid);
 
     ImperxStream camera;
 
@@ -185,7 +185,7 @@ void *CameraStreamThread( void * threadid)
 
         if (stop_message[tid] == 1)
 	{
-            printf("thread #%ld exiting\n", tid);
+            printf("CameraStream thread #%ld exiting\n", tid);
             camera.Stop();
             camera.Disconnect();
             pthread_exit( NULL );
@@ -217,7 +217,7 @@ void *ImageProcessThread(void *threadid)
 {
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("ImageProcess thread #%ld!\n", tid);
 
     CoordList localLimbs, localPixelFiducials, localScreenFiducials;
     IndexList localIds;
@@ -228,7 +228,7 @@ void *ImageProcessThread(void *threadid)
     {
 	if (stop_message[tid] == 1)
 	{
-            printf("thread #%ld exiting\n", tid);
+            printf("ImageProcess thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
         
@@ -314,7 +314,7 @@ void *TelemetrySenderThread(void *threadid)
 {    
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("TelemetrySender thread #%ld!\n", tid);
 
     TelemetrySender telSender(FDR_IP_ADDRESS, (unsigned short) UDPPORT_FOR_TM);
 
@@ -330,7 +330,7 @@ void *TelemetrySenderThread(void *threadid)
         }
         
         if (stop_message[tid] == 1){
-            printf("thread #%ld exiting\n", tid);
+            printf("TelemetrySender thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
     }
@@ -340,7 +340,7 @@ void *SaveTemperaturesThread(void *threadid)
 {
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("SaveTemperatures thread #%ld!\n", tid);
  
     char stringtemp[80];
     char obsfilespec[100];    
@@ -366,11 +366,11 @@ void *SaveTemperaturesThread(void *threadid)
             char current_time[25];
             if (stop_message[tid] == 1)
             {
-                printf("thread #%ld exiting\n", tid);
+                printf("SaveTemperatures thread #%ld exiting\n", tid);
                 fclose(file);
                 pthread_exit( NULL );
             }
-            sleep(1);
+            sleep(5);
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
@@ -384,7 +384,7 @@ void *SaveImageThread(void *threadid)
 {
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("SaveImage thread #%ld!\n", tid);
     
     cv::Mat localFrame;
     std::string fitsfile;
@@ -393,7 +393,7 @@ void *SaveImageThread(void *threadid)
     {
         if (stop_message[tid] == 1)
         {
-            printf("thread #%ld exiting\n", tid);
+            printf("SaveImage thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
 	sleep(60);        
@@ -425,7 +425,7 @@ void *SaveImageThread(void *threadid)
 
                 time(&ltime);	
                 times = localtime(&ltime);
-                strftime(stringtemp,25,"/mnt/disk2/image_%y%m%d_%H%M%S.fits",times);
+                strftime(stringtemp,40,"/mnt/disk2/image_%y%m%d_%H%M%S.fits",times);
                 strncpy(obsfilespec,stringtemp,128 - 1);
                 obsfilespec[128 - 1] = '\0';
 
@@ -447,7 +447,7 @@ void *TelemetryPackagerThread(void *threadid)
 {
     long tid;
     tid = (long)threadid;
-    printf("It's me, thread #%ld!\n", tid);
+    printf("TelemetryPackager thread #%ld!\n", tid);
     
     sleep(1);      // delay a little compared to the TelemetrySenderThread
 
@@ -575,7 +575,7 @@ void *TelemetryPackagerThread(void *threadid)
         tm_packet_queue << tp;
                 
         if (stop_message[tid] == 1){
-            printf("thread #%ld exiting\n", tid);
+            printf("TelemetryPackager thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
     }
@@ -588,7 +588,7 @@ void *listenForCommandsThread(void *threadid)
 {  
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("listenForCommands thread #%ld!\n", tid);
     CommandReceiver comReceiver( (unsigned short) SAS_CMD_PORT);
     comReceiver.init_connection();
         
@@ -627,7 +627,7 @@ void *listenForCommandsThread(void *threadid)
         }
         
         if (stop_message[tid] == 1){
-            printf("thread #%ld exiting\n", tid);
+            printf("listenForCommands thread #%ld exiting\n", tid);
             comReceiver.close_connection();
             pthread_exit( NULL );
         }
@@ -641,7 +641,7 @@ void *CommandSenderThread( void *threadid )
 {
     long tid;
     tid = (long)threadid;
-    printf("It's me, thread #%ld!\n", tid);
+    printf("CommandSender thread #%ld!\n", tid);
 
     CommandSender comSender( CTL_IP_ADDRESS, CTL_CMD_PORT);
 
@@ -656,7 +656,7 @@ void *CommandSenderThread( void *threadid )
         }
 
         if (stop_message[tid] == 1){
-            printf("thread #%ld exiting\n", tid);
+            printf("CommandSender thread #%ld exiting\n", tid);
             comSender.close_connection();
             pthread_exit( NULL );
         }
@@ -668,7 +668,7 @@ void *sendCTLCommandsThread( void *threadid )
 {
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("sendCTLCommands thread #%ld!\n", tid);
 
     sleep(0.2);      // delay a little compared to the SenderThread
 
@@ -680,7 +680,7 @@ void *sendCTLCommandsThread( void *threadid )
         cm_packet_queue << cp;
         	    
         if (stop_message[tid] == 1){
-            printf("thread #%ld exiting\n", tid);
+            printf("sendCTLCommands thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
     }
@@ -697,7 +697,7 @@ void *commandHandlerThread(void *threadargs)
     tid = (long)my_data->thread_id;
     uint16_t command_key = my_data->var;
 
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("commandHandler thread #%ld!\n", tid);
     printf("Received data 0x%04x\n", command_key);
     
     switch( command_key ){
@@ -771,10 +771,10 @@ void start_all_threads( void ){
     
     // start all threads
     t = 0L;
-    //rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
-    //if (rc){
-	//printf("ERROR; return code from pthread_create() is %d\n", rc);
-    //}
+    rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
+    if (rc){
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
     t = 1L;
     rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
     if (rc){
@@ -809,7 +809,7 @@ void start_all_threads( void ){
     rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
     if (rc){
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
+    }    
     t = 8L;
     rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
     if (rc){
