@@ -211,7 +211,7 @@ void *CameraStreamThread( void * threadid)
                       << preExposure.tv_sec - 60*minutes << "."
                       << preExposure.tv_nsec/1000000 << "."
                       << (preExposure.tv_nsec/1000)%1000 << "."
-                      << (preExposure.tv_nsec/1000000) << std::endl;
+                      << (preExposure.tv_nsec % 1000) << std::endl;
 
             if(!camera.Snap(localFrame))
             {
