@@ -51,6 +51,10 @@ class Pair {
     double x() const { return i_x; };
     double y() const { return i_y; };
 
+    friend Pair operator+(const Pair& a, const Pair& b);
+    friend Pair operator-(const Pair& a, const Pair& b);
+    friend Pair operator*(const Pair& a, const Pair& b);
+
     friend ByteString& operator<<(ByteString& bs, const Pair& p);
     friend std::ostream& operator<<(std::ostream& os, const Pair& p);
 
