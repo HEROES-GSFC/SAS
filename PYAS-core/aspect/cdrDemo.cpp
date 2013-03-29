@@ -10,6 +10,7 @@
 #define SAS_CMD_PORT 2001
 #define TPCPORT_FOR_IMAGE_DATA 2013
 #define UDPPORT_FOR_TM 2002
+#define SAVE_LOCATION "/mnt/disk2/"
 
 // computer variables
 #define EC_INDEX 0x6f0
@@ -431,8 +432,9 @@ void *SaveImageThread(void *threadid)
     printf("SaveImage thread #%ld!\n", tid);
     
     cv::Mat localFrame;
+    long int localFrameCount;
     std::string fitsfile;
-    timespec waittime = {60,0};
+    timespec waittime = {1,0};
     //timespec thetimenow;
     while(1)
     {
@@ -462,6 +464,10 @@ void *SaveImageThread(void *threadid)
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
                 {
+                    localFrameCount = frameCount;
+                    frame.copyTo(localFrame);
+                    pthread_mutex_unlock(&mutexImage);
+
                     char stringtemp[80];
                     char obsfilespec[128];
                     time_t ltime;
@@ -470,14 +476,12 @@ void *SaveImageThread(void *threadid)
                     //Use clock_gettime instead?
                     time(&ltime);
                     times = localtime(&ltime);
-                    strftime(stringtemp,40,"/mnt/disk2/image_%y%m%d_%H%M%S.fits",times);
-                    strncpy(obsfilespec,stringtemp,128 - 1);
-                    obsfilespec[128 - 1] = '\0';
+                    strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
 
-                    frame.copyTo(localFrame);
-                    pthread_mutex_unlock(&mutexImage);
-                    writeFITSImage(frame, obsfilespec);
+                    sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
+
                     printf("Saving image %s\n", obsfilespec);
+                    writeFITSImage(localFrame, obsfilespec);
                 }
                 else
                 {
