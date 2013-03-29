@@ -4,6 +4,13 @@
 #define SAS_IMAGE_TYPE 0x82
 #define SAS_SYNC_WORD 0xEB90
 #define SAS_CM_ACK_TYPE 0x01
+#define CTL_IP_ADDRESS "192.168.1.2"
+//#define FDR_IP_ADDRESS "192.168.1.1"
+#define FDR_IP_ADDRESS "192.168.2.4"
+
+#define CTL_CMD_PORT 2000
+#define SAS_CMD_PORT 2001
+#define TPCPORT_FOR_IMAGE_DATA 2013
 
 // computer variables
 #define EC_INDEX 0x6f0
@@ -18,15 +25,15 @@
 #include <math.h>       /* for testing only, remove when done */
 #include <sys/io.h>     /* for outb, computer parameters */
 #include <ctime>        /* time_t, struct tm, time, gmtime */
+#include <opencv.hpp>
+#include <iostream>
+#include <string>
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
 #include "Command.hpp"
 #include "Telemetry.hpp"
-
-#include <opencv.hpp>
-#include <iostream>
-#include <string>
+#include "TCPSender.hpp"
 #include "ImperxStream.hpp"
 #include "processing.hpp"
 #include "compression.hpp"
@@ -36,8 +43,6 @@
 uint16_t command_sequence_number = 0;
 uint16_t latest_sas_command_key = 0x0000;
 uint32_t tm_frame_sequence_number = 0;
-
-char ip[] = "192.168.2.4";
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -149,8 +154,8 @@ void *CameraStreamThread( void * threadid)
 	else
 	{
 	    camera.ConfigureSnap();
-	    camera.SetROISize(960,960);
-	    camera.SetROIOffset(165,0);
+	    //camera.SetROISize(960,960);
+	    //camera.SetROIOffset(165,0);
 	    camera.SetExposure(exposure);
 	
 	    width = camera.GetROIWidth();
@@ -246,7 +251,7 @@ void *ImageProcessThread(void *threadid)
 		    aspect.GetPixelCenter(center);
 		    aspect.GetPixelError(error);
 		    aspect.GetPixelFiducials(fiducials);
-		    aspect.GetFiducialIDs(ids);
+		    //aspect.GetFiducialIDs(ids);
 
         std::cout << ids.size() << " fiducials found:";
         for(int i = 0; i < 20; i++){
@@ -280,7 +285,7 @@ void *TelemetrySenderThread(void *threadid)
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
 
-    TelemetrySender telSender(ip, (unsigned short) 5002);
+    TelemetrySender telSender(FDR_IP_ADDRESS, (unsigned short) 5002);
 
     while(1)    // run forever
     {
@@ -420,7 +425,7 @@ void *TelemetryPackagerThread(void *threadid)
 {
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("It's me, thread #%ld!\n", tid);
     
     sleep(1);      // delay a little compared to the TelemetrySenderThread
 
@@ -432,24 +437,19 @@ void *TelemetryPackagerThread(void *threadid)
         usleep(250000);
         tm_frame_sequence_number++;
         
-        //Telemetry packet from SAS containing an array
         TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
         tp << (uint16_t)SAS_SYNC_WORD;     // SAS-1 syncword
         tp << tm_frame_sequence_number;
         tp << command_sequence_number;
         tp << latest_sas_command_key;
 
-        //printf("cpu temp is %3d\n", get_cpu_temperature());
-        //for(int i = 0; i < 5; i++){
-        //    printf("voltage is %d V\n", get_cpu_voltage(i));
-        //}
         
         if(pthread_mutex_trylock(&mutexProcess) == 0) 
-	{
-	    localLimbs = limbs;
-	    localCenter = center;
-	    localError = error;
-	    localFiducials = fiducials;
+	    {
+            localLimbs = limbs;
+            localCenter = center;
+            localError = error;
+            localFiducials = fiducials;
 
 	    pthread_mutex_unlock(&mutexProcess);
         }
@@ -495,7 +495,7 @@ void *listenForCommandsThread(void *threadid)
     long tid;
     tid = (long)threadid;
     printf("Hello World! It's me, thread #%ld!\n", tid);
-    CommandReceiver comReceiver( (unsigned short) 5001);
+    CommandReceiver comReceiver( (unsigned short) SAS_CMD_PORT);
     comReceiver.init_connection();
         
     while(1)    // run forever
@@ -547,9 +547,9 @@ void *CommandSenderThread( void *threadid )
 {
     long tid;
     tid = (long)threadid;
-    printf("Hello World! It's me, thread #%ld!\n", tid);
+    printf("It's me, thread #%ld!\n", tid);
 
-    CommandSender comSender( ip, (unsigned short) 5000);
+    CommandSender comSender( CTL_IP_ADDRESS, CTL_CMD_PORT);
 
     while(1)    // run forever
     {
@@ -559,7 +559,6 @@ void *CommandSenderThread( void *threadid )
             CommandPacket cp(0x01, 100);
             cm_packet_queue >> cp;
             comSender.send( &cp );
-            //std::cout << "CommandSender:" << cp << std::endl;
         }
 
         if (stop_message[tid] == 1){
@@ -607,7 +606,52 @@ void *commandHandlerThread(void *threadargs)
     printf("Hello World! It's me, thread #%ld!\n", tid);
     printf("Received data 0x%04x\n", command_key);
     
-    switch( latest_sas_command_key ){
+    switch( command_key ){
+        case 0x1210:
+        {
+        	cv::Mat localFrame;
+        	TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
+  			tcpSndr.init_connection();
+			if (pthread_mutex_trylock(&mutexImage) == 0)
+			{ 
+				if( !frame.empty() ){ frame.copyTo(localFrame); }
+				for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
+				pthread_mutex_unlock(&mutexImage);
+			}
+			if( !localFrame.empty() ){
+				int numXpixels = localFrame.rows;
+				int numYpixels = localFrame.cols;	
+				TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
+				printf("sending %dx%d image\n", numXpixels, numYpixels);
+				int pixels_per_packet = 100;
+				int num_packets = numXpixels * numYpixels / pixels_per_packet;
+				tp << (uint16_t)numXpixels;
+				tp << (uint16_t)numYpixels;
+				tcpSndr.send_packet( &tp );
+				long k = 0;
+				long int count = 0;
+
+				printf("sending %d packets\n", num_packets);
+				int x, y = 0;
+				for( int i = 0; i < num_packets; i++ ){
+					//if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
+					//printf("%d\n", i);
+					TelemetryPacket tp(0x70, 0x30);
+					
+					for( int j = 0; j < pixels_per_packet; j++){
+						x = k % numXpixels;
+						y = k / numYpixels;
+						tp << (uint8_t)localFrame.at<uint8_t>(x, y);
+						k++;
+					}
+					tcpSndr.send_packet( &tp );
+					//printf("sending %d bytes\n", tp.getLength());
+					count++;
+				}
+			}
+			tcpSndr.close_connection();
+		}
+		break;
         default:
             printf("Unknown command!\n");
     }
@@ -698,27 +742,30 @@ int main(void)
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
             
             switch( latest_sas_command_key ){
-                case 0x0100:     // test, do nothing
+                case 0x1000:     // test, do nothing
                     break;
-                case 0x0101:    // kill all worker threads
+                case 0x1010:    // kill all worker threads
                     kill_all_threads();
                     break;
-                    case 0x0102:    // (re)start all worker threads
-                    // kill them all just in case
-                    kill_all_threads();
-                    sleep(1);
-                    start_all_threads();
+                case 0x1020:    // (re)start all worker threads
+                    {// kill them all just in case
+						kill_all_threads();
+						sleep(1);
+						start_all_threads();
+					}
                     break;
                 default:
-                    long t = 8L;
-                    int rc;
-                    thread_data_array[t].thread_id = t;
-                    thread_data_array[t].var = latest_sas_command_key;
-                    //thread_data_array[t].message = messages[t];
-                    rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
-                    if (rc){
-	                    printf("ERROR; return code from pthread_create() is %d\n", rc);
-                    };
+                	{
+						long t = 8L;
+						int rc;
+						thread_data_array[t].thread_id = t;
+						thread_data_array[t].var = latest_sas_command_key;
+						//thread_data_array[t].message = messages[t];
+						rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
+						if (rc){
+							printf("ERROR; return code from pthread_create() is %d\n", rc);
+						};
+                    }
             }
         }   
     }
