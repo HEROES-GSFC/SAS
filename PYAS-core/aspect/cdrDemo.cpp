@@ -387,8 +387,6 @@ void *SaveImageThread(void *threadid)
     printf("Hello World! It's me, thread #%ld!\n", tid);
     
     cv::Mat localFrame;
-    long int localFrameCount;
-    char number[6] = "00000";
     std::string fitsfile;
 
     while(1)
@@ -422,7 +420,6 @@ void *SaveImageThread(void *threadid)
 		    {
                 char stringtemp[80];
                 char obsfilespec[128];    
-                FILE *file;
                 time_t ltime;
                 struct tm *times;
 
@@ -433,7 +430,6 @@ void *SaveImageThread(void *threadid)
                 obsfilespec[128 - 1] = '\0';
 
                 frame.copyTo(localFrame);
-                localFrameCount = frameCount;
                 pthread_mutex_unlock(&mutexImage); 
                 writeFITSImage(frame, obsfilespec);
                 printf("Saving image %s\n", obsfilespec);
@@ -756,7 +752,9 @@ void *commandHandlerThread(void *threadargs)
         default:
             printf("Unknown command!\n");
     }
-    
+
+    /* NEVER REACHED */
+    return NULL;
 }
 
 void start_all_threads( void ){
