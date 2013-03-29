@@ -20,8 +20,8 @@ public:
     //get/set parameters(name, value);
     int Initialize();
     void ConfigureSnap();
-    void Snap(cv::Mat &frame, int timeout);
-    void Snap(cv::Mat &frame);
+    int Snap(cv::Mat &frame, int timeout);
+    int Snap(cv::Mat &frame);
     void Stop();
     void Disconnect();
     

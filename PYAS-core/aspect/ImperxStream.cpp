@@ -178,6 +178,7 @@ int ImperxStream::Connect(const std::string &IP)
 
 int ImperxStream::Initialize()
 {
+  std::cout << "ImperxStream::Initialize starting" << std::endl;
     if(lDeviceInfo == NULL)
     {
 	std::cout << "ImperxStream::Initialize No device connected!" << std::endl;
@@ -218,20 +219,22 @@ int ImperxStream::Initialize()
     
     std::cout << "ImperxStream::Initialize Resetting timestamp counter..." << std::endl;
     lDeviceParams->ExecuteCommand( "GevTimestampControlReset" );
+    std::cout << "ImperxStream::Initialize Exiting" << std::endl;
     return 0;
 }
     
-void ImperxStream::Snap(cv::Mat &frame)
+int ImperxStream::Snap(cv::Mat &frame)
 {
-    Snap(frame, 1000);
+    return Snap(frame, 1000);
 }
 
-void ImperxStream::Snap(cv::Mat &frame, int timeout)
+int ImperxStream::Snap(cv::Mat &frame, int timeout)
 {
+  std::cout << "ImperxStream::Snap starting" << std::endl;
     // The pipeline is already "armed", we just have to tell the device
     // to start sending us images
     lDeviceParams->ExecuteCommand( "AcquisitionStart" );
-    int lWidth, lHeight;
+    int lWidth, lHeight, result = 0;
     // Retrieve next buffer		
     PvBuffer *lBuffer = NULL;
     PvResult lOperationResult;
@@ -253,35 +256,33 @@ void ImperxStream::Snap(cv::Mat &frame, int timeout)
 		lWidth = (int) lImage->GetWidth();
 		lHeight = (int) lImage->GetHeight();
 		unsigned char *img = lImage->GetDataPointer();
-//		cv::Mat lframe(lHeight,lWidth,CV_8UC1,img, cv::Mat::AUTO_STEP);
-//		lframe.copyTo(frame);
-		for (int m = 0; m < lHeight; m++)
-		{
-		    for (int n = 0; n < lWidth; n++)
-		    {
-			frame.at<unsigned char>(m,n) = img[m*lWidth + n];
-//			std::cout << (short int) img[n*lHeight +m] << " ";
-		    }
-		}
+		cv::Mat lframe(lHeight,lWidth,CV_8UC1,img, cv::Mat::AUTO_STEP);
+		lframe.copyTo(frame);
+		result = 0;
 	    }
 	    else
 	    {
 		std::cout << "ImperxStream::Snap No image in buffer" << std::endl;
+		result = 1;
 	    }
 	}
 	else
 	{
 	    std::cout << "ImperxStream::Snap Operation result: " << lOperationResult << std::endl;
+	    result = 1;;
 	}
 	// We have an image - do some processing (...) and VERY IMPORTANT,
 	// release the buffer back to the pipeline
-
-	lPipeline.ReleaseBuffer( lBuffer );
     }
     else
     {
 	std::cout << "ImperxStream::Snap Timeout\n";
+	result = 1;
     }
+    
+    lPipeline.ReleaseBuffer( lBuffer );
+    std::cout << "ImperxStream::Snap Exiting" << std::endl;
+    return result;
 }
 
 

@@ -141,7 +141,7 @@ int Aspect::Run()
 	cv::minMaxLoc(frame, &min, &max, NULL, NULL);
 	if (min >= max || std::isnan(min) || std::isnan(max))
 	{
-	    std::cout << "Aspect: Max/Min value bad" << std::endl;
+	    //std::cout << "Aspect: Max/Min value bad" << std::endl;
 	    return 1;
 	}
 	else
@@ -155,12 +155,12 @@ int Aspect::Run()
 	FindPixelCenter();
 	if (limbCrossings.size() == 0)
 	{
-	    std::cout << "Aspect: No Limb Crossings." << std::endl;
+	    //std::cout << "Aspect: No Limb Crossings." << std::endl;
 	    return 1;
 	}
 	else if (limbCrossings.size() < 4)
 	{
-	    std::cout << "Aspect: Too Few Limb Crossings." << std::endl;
+	    //std::cout << "Aspect: Too Few Limb Crossings." << std::endl;
 	    return 1;
 	}
 	else
@@ -173,14 +173,14 @@ int Aspect::Run()
 	    pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
 	    std::isnan(pixelCenter.x) || std::isnan(pixelCenter.y))
 	{
-	    std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
+	    //std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
 	    pixelCenter = cv::Point2f(-1,-1);
 	    return 1;
 	}
 	else if (pixelError.x > 50 || pixelError.y > 50 ||
 		 std::isnan(pixelError.x) || std::isnan(pixelError.y))
 	{
-	    std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
+	    //std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
 	    pixelCenter = cv::Point2f(-1,-1);
 	    return 1;
 	}
@@ -196,7 +196,7 @@ int Aspect::Run()
 	solarImage = frame(rowRange, colRange);
 	if (solarImage.empty())
 	{
-	    std::cout << "Aspect: Solar Image too empty." << std::endl;
+	    //std::cout << "Aspect: Solar Image too empty." << std::endl;
 	    return 1;  
 	}
 	else
@@ -207,7 +207,7 @@ int Aspect::Run()
 	if (solarSize.width < (int) fiducialSpacing + 2*fiducialLength || 
 	    solarSize.height < (int) fiducialSpacing + 2*fiducialLength)
         {
-	    std::cout << "Aspect: Solar Image too small." << std::endl;
+	    //std::cout << "Aspect: Solar Image too small." << std::endl;
 	    return 1;
 	}
 
@@ -216,7 +216,7 @@ int Aspect::Run()
         if (offset.x < 0 || offset.x >= (frameSize.width - solarSize.width + 1) ||
 	    offset.y < 0 || offset.y >= (frameSize.height - solarSize.height + 1))
 	{
-	    std::cout << "Aspect: Solar Image Offset out of bounds." << std::endl;
+	    //std::cout << "Aspect: Solar Image Offset out of bounds." << std::endl;
 	    return 1;
 	}
 	    
@@ -225,12 +225,12 @@ int Aspect::Run()
 	FindPixelFiducials(solarImage, offset);
 	if (pixelFiducials.size() == 0)
 	{
-	    std::cout << "Aspect: No Fiducials found" << std::endl;
+	    //std::cout << "Aspect: No Fiducials found" << std::endl;
 	    return 1;
 	}
 	else if (pixelFiducials.size() < 3)
 	{
-	    std::cout << "Aspect: Too Few Fiducials" << std::endl;
+	    //std::cout << "Aspect: Too Few Fiducials" << std::endl;
 	    return 1;
 	}
 	else
@@ -243,7 +243,7 @@ int Aspect::Run()
 	FindFiducialIDs();
 	if (fiducialIDs.size() == 0)
 	{
-	    std::cout << "Aspect: No Valid IDs" << std::endl;
+	    //std::cout << "Aspect: No Valid IDs" << std::endl;
 	    return 1;
 	}
 	else
@@ -255,7 +255,7 @@ int Aspect::Run()
 	FindMapping();
 	if (/*ILL CONDITIONED*/ false)
 	{
-	    std::cout << "Aspect: Mapping is ill-conditioned." << std::endl;
+	    //std::cout << "Aspect: Mapping is ill-conditioned." << std::endl;
 	    return 1;
 	}
 	else
