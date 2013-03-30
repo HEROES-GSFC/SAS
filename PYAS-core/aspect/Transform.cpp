@@ -112,7 +112,9 @@ Pair Transform::getAngularShift(const Pair& sunPixel)
 {
   Pair sunScreen = conversion_intercept+conversion_slope*sunPixel;
 
-  Pair shiftScreen = calibrated_center-sunScreen;
+  //The difference we want here is pointing vector minus Sun-center vector
+  //There is an extra inversion through the optics, hence the direction of subtraction
+  Pair shiftScreen = sunScreen-calibrated_center;
 
   double magnitudeScreen = sqrt(pow(shiftScreen.x(),2)+pow(shiftScreen.y(),2));
   //In mils, so convert to angle (degrees)
@@ -173,6 +175,9 @@ void Transform::report()
 
 Pair Transform::calculateOffset(const Pair& sunPixel)
 {
+  //If we get (0,0), assume that it's not a valid Sun center, and return a "no-move" offset
+  if ((sunPixel.x() == 0) && (sunPixel.y() == 0)) return Pair(0,0);
+
 /*
   //For small angles, this calculation should be sufficient for a solar target at disc center
   Pair angularShift = getAngularShift(sunPixel);

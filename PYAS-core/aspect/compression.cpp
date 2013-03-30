@@ -32,7 +32,7 @@ int writePNGImage(cv::InputArray _image, const std::string fileName)
     return 0;
 }
 
-int writeFITSImage(cv::InputArray _image, const std::string fileName)
+int writeFITSImage(cv::InputArray _image, const uint16_t exposure, const std::string fileName)
 {
    
     cv::Mat image = _image.getMat();
@@ -83,8 +83,7 @@ int writeFITSImage(cv::InputArray _image, const std::string fileName)
     long  fpixel(1);
        
     //add two keys to the primary header, one long, one complex.
-    long exposure(1500);
-    pFits->pHDU().addKey("EXPOSURE", exposure,"Total Exposure Time"); 
+    pFits->pHDU().addKey("EXPOSURE", (long)exposure,"Total Exposure Time"); 
 
     try
     {
