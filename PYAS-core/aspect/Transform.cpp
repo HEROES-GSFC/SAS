@@ -112,7 +112,9 @@ Pair Transform::getAngularShift(const Pair& sunPixel)
 {
   Pair sunScreen = conversion_intercept+conversion_slope*sunPixel;
 
-  Pair shiftScreen = calibrated_center-sunScreen;
+  //The difference we want here is pointing vector minus Sun-center vector
+  //There is an extra inversion through the optics, hence the direction of subtraction
+  Pair shiftScreen = sunScreen-calibrated_center;
 
   double magnitudeScreen = sqrt(pow(shiftScreen.x(),2)+pow(shiftScreen.y(),2));
   //In mils, so convert to angle (degrees)
