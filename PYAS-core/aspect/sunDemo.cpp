@@ -73,6 +73,7 @@ cv::Mat frame;
 Aspect aspect;
 Transform solarTransform;
 
+unsigned char frameMin, frameMax;
 cv::Point2f pixelCenter, screenCenter, error;
 CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
@@ -81,7 +82,7 @@ std::vector<float> mapping;
 bool staleFrame;
 Flag procReady, saveReady;
 int runtime = 10;
-int exposure = 10000;
+uint16_t exposure = 4500;
 timespec frameRate = {0,100000000L};
 int cameraReady = 0;
 
@@ -159,6 +160,9 @@ void *CameraStreamThread( void * threadid)
     int hours, minutes, days;
     int failcount = 0;
 
+    uint16_t localExposure;
+    localExposure = exposure;
+
     cameraReady = 0;
     staleFrame = true;
     while(1)
@@ -201,6 +205,11 @@ void *CameraStreamThread( void * threadid)
         }
         else
         {
+            if (localExposure != exposure) {
+                localExposure = exposure;
+                camera.SetExposure(localExposure);
+            }
+
             clock_gettime(CLOCK_REALTIME, &preExposure);
             minutes = preExposure.tv_sec/60;
             hours = minutes/60;
@@ -308,6 +317,7 @@ void *ImageProcessThread(void *threadid)
 
                     if(!aspect.Run())
                     {
+			aspect.GetPixelMinMax(frameMin, frameMax);
                         aspect.GetPixelCrossings(localLimbs);
                         aspect.GetPixelCenter(localPixelCenter);
                         aspect.GetPixelError(localError);
@@ -483,8 +493,8 @@ void *SaveImageThread(void *threadid)
 
                     sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
 
-                    printf("Saving image %s\n", obsfilespec);
-                    writeFITSImage(localFrame, obsfilespec);
+                    printf("Saving image %s with exposure %d microseconds\n", obsfilespec, exposure);
+                    writeFITSImage(localFrame, exposure, obsfilespec);
 
                     sleep(SECONDS_AFTER_SAVE);
                 }
@@ -505,9 +515,11 @@ void *TelemetryPackagerThread(void *threadid)
     
     sleep(1);      // delay a little compared to the TelemetrySenderThread
 
+	unsigned char localMin, localMax;
     CoordList localLimbs, localFiducials;
     std::vector<float> localMapping;
     cv::Point2f localCenter, localError;
+
     
     while(1)    // run forever
     {
@@ -523,6 +535,8 @@ void *TelemetryPackagerThread(void *threadid)
         
         if(pthread_mutex_trylock(&mutexProcess) == 0) 
         {
+		localMin = frameMin;
+		localMax = frameMax;
             localLimbs = limbs;
             localCenter = pixelCenter;
             localError = error;
@@ -619,8 +633,8 @@ void *TelemetryPackagerThread(void *threadid)
         }
 
         //Image max and min
-        tp << (uint8_t)255; //max
-        tp << (uint8_t)0; //min
+        tp << (uint8_t) localMax; //max
+        tp << (uint8_t) localMin; //min
 
         //Tacking on the offset numbers intended for CTL
         tp << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y));
@@ -657,7 +671,7 @@ void *listenForCommandsThread(void *threadid)
         comReceiver.get_packet( packet );
         
         CommandPacket command_packet( packet, packet_length );
-        
+
         if (command_packet.valid()){
             printf("listenForCommandsThread: good command packet\n");
 
@@ -754,7 +768,8 @@ void *commandHandlerThread(void *threadargs)
     printf("commandHandler thread #%ld!\n", tid);
     printf("Received data 0x%04x\n", command_key);
     
-    switch( command_key ){
+    switch( command_key )
+    {
         case 0x1210:
         {
         	//send_image_to_ground( localFrame );
@@ -901,6 +916,8 @@ int main(void)
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
             
             switch( latest_sas_command_key ){
+                case 0xFFFF:     // dummy command, has sequence number
+                    break;
                 case 0x1000:     // test, do nothing
                     break;
                 case 0x1010:    // kill all worker threads
@@ -911,6 +928,11 @@ int main(void)
                     kill_all_threads();
                     sleep(1);
                     start_all_threads();
+                    break;
+		case 0x1151:    // set exposure time
+                    //Currently put here due to lack of avenue to pass command variables down to commandHandler
+                    command >> exposure; //overwrites global
+                    std::cout << "Requested exposure time is: " << exposure << std::endl;
                     break;
                 default:
                     long t = 9L;
