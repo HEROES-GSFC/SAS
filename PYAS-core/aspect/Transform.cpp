@@ -175,6 +175,9 @@ void Transform::report()
 
 Pair Transform::calculateOffset(const Pair& sunPixel)
 {
+  //If we get (0,0), assume that it's not a valid Sun center, and return a "no-move" offset
+  if ((sunPixel.x() == 0) && (sunPixel.y() == 0)) return Pair(0,0);
+
 /*
   //For small angles, this calculation should be sufficient for a solar target at disc center
   Pair angularShift = getAngularShift(sunPixel);
