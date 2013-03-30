@@ -769,8 +769,8 @@ void *commandHandlerThread(void *threadargs)
 				pthread_mutex_unlock(&mutexImage);
 			}
 			if( !localFrame.empty() ){
-				int numXpixels = localFrame.rows;
-				int numYpixels = localFrame.cols;	
+				int numXpixels = localFrame.cols;
+				int numYpixels = localFrame.rows;	
 				TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
 				printf("sending %dx%d image\n", numXpixels, numYpixels);
 				int pixels_per_packet = 100;
