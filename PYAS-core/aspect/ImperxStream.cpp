@@ -190,7 +190,11 @@ int ImperxStream::Initialize()
 
     // Open stream - have the PvDevice do it for us
     std::cout << "ImperxStream::Initialize Opening Stream to Device" << std::endl;
-    lStream.Open( lDeviceInfo->GetIPAddress() );
+    PvResult lResult = lStream.Open( lDeviceInfo->GetIPAddress() );
+    if(!lResult.IsOK()) {
+        std::cout << "ImperxStream::Initialize error on opening stream: " << lResult << std::endl;
+        return -1;
+    }
 
     // Reading payload size from device
     PvInt64 lSize = 0;
