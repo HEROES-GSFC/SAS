@@ -791,8 +791,8 @@ void *commandHandlerThread(void *threadargs)
 					
 					for( int j = 0; j < pixels_per_packet; j++){
 						x = k % numXpixels;
-                                                y = k / numYpixels;
-                                                tp << (uint8_t)localFrame.at<uint8_t>(x, y);
+                                                y = k / numXpixels;
+                                                tp << (uint8_t)localFrame.at<uint8_t>(y, x);
 						k++;
 					}
 					tcpSndr.send_packet( &tp );
