@@ -515,7 +515,7 @@ void *TelemetryPackagerThread(void *threadid)
     
     sleep(1);      // delay a little compared to the TelemetrySenderThread
 
-	unsigned char localMin, localMax;
+    unsigned char localMin, localMax;
     CoordList localLimbs, localFiducials;
     std::vector<float> localMapping;
     cv::Point2f localCenter, localError;
@@ -535,8 +535,8 @@ void *TelemetryPackagerThread(void *threadid)
         
         if(pthread_mutex_trylock(&mutexProcess) == 0) 
         {
-		localMin = frameMin;
-		localMax = frameMax;
+            localMin = frameMin;
+            localMax = frameMax;
             localLimbs = limbs;
             localCenter = pixelCenter;
             localError = error;
@@ -771,53 +771,53 @@ void *commandHandlerThread(void *threadargs)
     switch( command_key )
     {
         case 0x1210:
-        {
-        	//send_image_to_ground( localFrame );
-        	
-        	cv::Mat localFrame;
-        	TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
-  			tcpSndr.init_connection();
-			if (pthread_mutex_trylock(&mutexImage) == 0)
-			{ 
-				if( !frame.empty() ){ frame.copyTo(localFrame); }
-				for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
-				pthread_mutex_unlock(&mutexImage);
-			}
-			if( !localFrame.empty() ){
-				int numXpixels = localFrame.cols;
-				int numYpixels = localFrame.rows;	
-				TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
-				printf("sending %dx%d image\n", numXpixels, numYpixels);
-				int pixels_per_packet = 100;
-				int num_packets = numXpixels * numYpixels / pixels_per_packet;
-				tp << (uint16_t)numXpixels;
-				tp << (uint16_t)numYpixels;
-				tcpSndr.send_packet( &tp );
-				long k = 0;
-				long int count = 0;
+            {
+                //send_image_to_ground( localFrame );
 
-				printf("sending %d packets\n", num_packets);
+                cv::Mat localFrame;
+                TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
+                tcpSndr.init_connection();
+                if (pthread_mutex_trylock(&mutexImage) == 0)
+                { 
+                    if( !frame.empty() ){ frame.copyTo(localFrame); }
+                    for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
+                    pthread_mutex_unlock(&mutexImage);
+                }
+                if( !localFrame.empty() ){
+                    int numXpixels = localFrame.cols;
+                    int numYpixels = localFrame.rows;	
+                    TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
+                    printf("sending %dx%d image\n", numXpixels, numYpixels);
+                    int pixels_per_packet = 100;
+                    int num_packets = numXpixels * numYpixels / pixels_per_packet;
+                    tp << (uint16_t)numXpixels;
+                    tp << (uint16_t)numYpixels;
+                    tcpSndr.send_packet( &tp );
+                    long k = 0;
+                    long int count = 0;
 
-                                int x, y;
-				for( int i = 0; i < num_packets; i++ ){
-					//if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
-					//printf("%d\n", i);
-					TelemetryPacket tp(0x70, 0x30);
-					
-					for( int j = 0; j < pixels_per_packet; j++){
-						x = k % numXpixels;
-                                                y = k / numXpixels;
-                                                tp << (uint8_t)localFrame.at<uint8_t>(y, x);
-						k++;
-					}
-					tcpSndr.send_packet( &tp );
-					//printf("sending %d bytes\n", tp.getLength());
-					count++;
-				}
-			}
-			tcpSndr.close_connection();
-		}
-		break;
+                    printf("sending %d packets\n", num_packets);
+
+                    int x, y;
+                    for( int i = 0; i < num_packets; i++ ){
+                        //if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
+                        //printf("%d\n", i);
+                        TelemetryPacket tp(0x70, 0x30);
+
+                        for( int j = 0; j < pixels_per_packet; j++){
+                            x = k % numXpixels;
+                            y = k / numXpixels;
+                            tp << (uint8_t)localFrame.at<uint8_t>(y, x);
+                            k++;
+                        }
+                        tcpSndr.send_packet( &tp );
+                        //printf("sending %d bytes\n", tp.getLength());
+                        count++;
+                    }
+                }
+                tcpSndr.close_connection();
+            }
+            break;
         default:
             printf("Unknown command!\n");
     }
@@ -929,7 +929,7 @@ int main(void)
                     sleep(1);
                     start_all_threads();
                     break;
-		case 0x1151:    // set exposure time
+                case 0x1151:    // set exposure time
                     //Currently put here due to lack of avenue to pass command variables down to commandHandler
                     command >> exposure; //overwrites global
                     std::cout << "Requested exposure time is: " << exposure << std::endl;
