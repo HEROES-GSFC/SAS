@@ -1,7 +1,9 @@
 #include "processing.hpp"
 #include "utilities.hpp"
 #include "compression.hpp"
-#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
 {
@@ -23,11 +25,16 @@ void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, 
 int main(int argc, char* argv[])
 {
 
-    if (argc != 2)
+    if (argc != 3)
     {
 	std::cout << "Correct whatever is: kill <yourself>\n";
 	return -1;
     }
+
+    size_t found;
+    char line[256];
+    std::string filename, label;
+    char number[4] = "000";
     cv::namedWindow("Do it.", CV_WINDOW_AUTOSIZE);
     cv::Mat frame;
     cv::Mat image;
@@ -41,22 +48,44 @@ int main(int argc, char* argv[])
     CoordList crossings, fiducials;
     IndexList IDs;
     std::vector<float> mapping;
-    
-    std::string label, file;
-    char number[4] = "000";
-    
+        
     Aspect aspect;
-    for (int iterations = 0; iterations < 100; iterations++)
+    cv::VideoWriter summary;
+    std::ifstream frames(argv[1]);
+    if (!frames.good())
     {
-	for (int f = 0; f < 143; f++)
+	std::cout << "Failed to whatever file list" << std::endl;
+    }
+    else	
+    {
+	bool videoReady = false;
+	while (frames.getline(line,256))
 	{
-	    file = argv[1];
-	    file += "/frame";
-	    sprintf(number, "%03d", f);
-	    file += number;
-	    file += ".png";
-	    frame = cv::imread(file,0);
-
+	    filename = line; 
+	    std::cout << "Opening file: " << filename << std::endl;
+	    found = filename.find("png",0);
+	    std::cout << found << " " << std::string::npos << std::endl;
+	    if (found != std::string::npos)
+	    {
+		std::cout << "Loading png file: " << filename << std::endl;
+		frame = cv::imread(filename, 0);
+	    }
+	    else
+	    {
+		found = filename.find("fit",0);
+		if (found!=std::string::npos)
+		{
+		    std::cout << "Loading fits file: " << filename << std::endl;
+		    readFITSImage(filename, frame);
+		}
+		else
+		{
+		    std::cout << "ERROR: " << filename << "isn't a valid type";
+		    break;
+		}
+	    }
+		    
+	    
 	    aspect.LoadFrame(frame);
 	
 	    cv::Mat list[] = {frame, frame, frame};
@@ -116,10 +145,17 @@ int main(int argc, char* argv[])
 		std::cout << "AspectTest: Failure in Aspect::Run" << std::endl;
 	    }
 	    cv::imshow("Do it.", image);
-	    cv::waitKey(0);
+	    cv::waitKey(10);
+	    if (!videoReady)
+	    {
+		summary.open(argv[2], CV_FOURCC('D','I','V','X'), 10, frame.size(), true);
+		videoReady = true;
+	    }
+	    summary << image;
 
 	}
     }
+    frames.close();
     return 0;
 }
 
