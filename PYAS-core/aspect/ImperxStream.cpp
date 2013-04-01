@@ -21,9 +21,6 @@ int ImperxStream::Connect()
     std::cout << "ImperxStream::Connect starting" << std::endl;
     PvResult lResult;	
 
-    // Create an GEV system and an interface.
-    PvSystem lSystem;
-
     // Find all GEV Devices on the network.
     lSystem.SetDetectionTimeout( 2000 );
     lResult = lSystem.Find();
@@ -99,9 +96,6 @@ int ImperxStream::Connect(const std::string &IP)
 {
     PvResult lResult;
     
-    // Create an GEV system and an interface.
-    PvSystem lSystem;
-
     // Find all GEV Devices on the network.
     lSystem.SetDetectionTimeout( 2000 );
     lResult = lSystem.Find();
