@@ -30,18 +30,12 @@ OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
 CCFITS = -lCCfits
 
-EXEC = sunDemo fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test_command test_sender
+EXEC = sunDemo fullDemo packetDemo commandingDemo networkDemo test_command test_sender AspectTest
 
 all: $(EXEC)
 
 fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS) -pg
-
-fidDemo: fidDemo.cpp processing.o compression.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) -pg
-
-threadDemo: threadDemo.cpp processing.o utilities.o ImperxStream.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) -pg
 
 packetDemo: packetDemo.cpp ImperxStream.o utilities.o
 	$(CC) $(CFLAGS) $^ -o $@ $(IMPERX)
@@ -69,12 +63,6 @@ test_command: test_command.cpp Packet.o Command.o lib_crc.o UDPSender.o
 
 test_sender: test_sender.cpp UDPSender.o Packet.o lib_crc.o Telemetry.o
 	$(CC) $(CFLAGS) $^ -o $@
-
-compressTest: compressTest.cpp compression.o
-	$(CC) $(CFLAGS) $^ -o $@ $(CCFITS) $(OPENCV)
-
-saveTest: saveTest.cpp compression.o utilities.o
-	$(CC) $(CFLAGS) $^ -o $@ $(CCFITS) $(OPENCV)
 
 AspectTest: AspectTest.cpp processing.o utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
