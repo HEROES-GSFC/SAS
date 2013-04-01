@@ -579,7 +579,7 @@ void *TelemetryPackagerThread(void *threadid)
 
         //Housekeeping fields, two of them
         tp << (uint16_t)camera_temperature;
-        tp << (uint16_t)0x0;
+        tp << (uint16_t)sbc_temperature;
 
         //Sun center and error
         tp << Pair3B(localCenter.x, localCenter.y);
