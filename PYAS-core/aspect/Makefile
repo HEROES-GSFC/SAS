@@ -30,7 +30,7 @@ OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
 CCFITS = -lCCfits
 
-EXEC = sunDemo fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test_command test_sender
+EXEC = sunDemo fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test_command test_sender sbc_info
 
 all: $(EXEC)
 
@@ -78,6 +78,10 @@ saveTest: saveTest.cpp compression.o utilities.o
 
 AspectTest: AspectTest.cpp processing.o utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
+
+#This executable need to be copied to /usr/local/bin/ after it is built
+sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp

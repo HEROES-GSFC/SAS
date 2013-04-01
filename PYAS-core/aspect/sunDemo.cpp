@@ -100,46 +100,6 @@ void sig_handler(int signum)
     }
 }
 
-signed char get_cpu_temperature( void )
-{
-    signed char start;
-    outb(0x40, EC_INDEX );
-    start = 0x01 | inb( EC_DATA );
-    outb( start, EC_DATA );
-    outb(0x26, EC_INDEX );
-    return inb( EC_DATA );
-}
-
-unsigned long get_cpu_voltage( int index )
-{
-
-    switch( index )
-    {
-    case 0:         // +1.05V
-        outb(0x21, EC_INDEX );
-        return inb( EC_DATA ) * 2000 / 255;
-        break;
-    case 1:         // +2.5 V
-        outb(0x20, EC_INDEX );
-        return inb( EC_DATA ) * 3320 / 255;
-        break;
-    case 2:         // +3.3 V
-        outb(0x22, EC_INDEX );
-        return inb( EC_DATA ) * 4380 / 255;
-        break;
-    case 3:         // +5.0 V
-        outb(0x23, EC_INDEX );
-        return inb( EC_DATA ) * 6640 / 255;
-        break;
-    case 4:         // +12.0 V
-        outb(0x24, EC_INDEX );
-        return inb( EC_DATA ) * 1600 / 255;
-        break;
-    default:
-        return -1;
-    }      
-}
-
 void kill_all_threads( void ){
     for(int i = 0; i < NUM_THREADS; i++ ){
         stop_message[i] = 1;
@@ -399,7 +359,16 @@ void *SaveTemperaturesThread(void *threadid)
     long tid;
     tid = (long)threadid;
     printf("SaveTemperatures thread #%ld!\n", tid);
- 
+
+    UDPReceiver receiver(3456);
+    receiver.init_connection();
+
+    uint16_t packet_length;
+    uint8_t *array;
+
+    uint16_t dump;
+    int8_t sbc_temperature;
+        
     char stringtemp[80];
     char obsfilespec[100];    
     FILE *file;
@@ -429,11 +398,20 @@ void *SaveTemperaturesThread(void *threadid)
                 pthread_exit( NULL );
             }
             sleep(5);
+
+            //As currently implemented, requires the temperature service to be running or will block forever
+            packet_length = receiver.listen();
+            array = new uint8_t[packet_length];
+            receiver.get_packet(array);
+
+            Packet packet( array, packet_length );
+            packet >> dump >> sbc_temperature; //can also grab SBC voltages
+
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %d, %d\n", current_time, camera_temperature, cpu_temperature);
-            printf("%s, %d, %d\n", current_time, camera_temperature, cpu_temperature);
+            fprintf(file, "%s, %d, %d\n", current_time, camera_temperature, sbc_temperature);
+            printf("%s, %d, %d\n", current_time, camera_temperature, sbc_temperature);
         }
     }
 }

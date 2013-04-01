@@ -15,7 +15,7 @@ class UDPSender {
         UDPSender( const char *ip, unsigned short port );
 	    ~UDPSender();
         
-        virtual void send(  TelemetryPacket *packet  );
+        virtual void send(  Packet *packet  );
         int init_connection( void );
         void close_connection( void );
 };

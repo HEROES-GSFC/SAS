@@ -45,13 +45,13 @@ void UDPSender::close_connection( void )
     close(sock);
 }
 
-void UDPSender::send( TelemetryPacket *packet )
+void UDPSender::send( Packet *packet )
 {    
     int bytesSent;
 
     if( init_connection() >= 0){
         // update the frame number every time we send out a packet
-        printf("UDPSender: Sending to %s\n", sendtoIP);
+        //printf("UDPSender: Sending to %s\n", sendtoIP);
         
         uint8_t *payload = new uint8_t[packet->getLength()];
         packet->outputTo(payload);
@@ -59,9 +59,9 @@ void UDPSender::send( TelemetryPacket *packet )
         bytesSent = sendto(sock, payload, packet->getLength(), 0, (struct sockaddr *)
                    &sendAddr, sizeof(sendAddr));
         if (bytesSent != packet->getLength()){
-                printf("CommandSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
+                printf("UDPSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
             }
-        if (bytesSent == -1){ printf("CommandSender: sendto() failed!\n"); }
+        if (bytesSent == -1){ printf("UDPSender: sendto() failed!\n"); }
     }
     close_connection();
 }
@@ -83,9 +83,9 @@ void TelemetrySender::send( TelemetryPacket *packet )
         bytesSent = sendto(sock, payload, packet->getLength(), 0, (struct sockaddr *)
                    &sendAddr, sizeof(sendAddr));
         if (bytesSent != packet->getLength()){
-                printf("CommandSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
+                printf("TelemetrySender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
             }
-        if (bytesSent == -1){ printf("CommandSender: sendto() failed!\n"); }
+        if (bytesSent == -1){ printf("TelemetrySender: sendto() failed!\n"); }
     }
     close_connection();
 }
