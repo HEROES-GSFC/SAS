@@ -1,4 +1,4 @@
-#define NUM_THREADS 10
+#define NUM_THREADS 11
 #define SAS_TARGET_ID 0x30
 #define SAS_TM_TYPE 0x70
 #define SAS_IMAGE_TYPE 0x82
@@ -90,7 +90,8 @@ timespec frameTime;
 long int frameCount = 0;
 
 int8_t camera_temperature;
-signed char cpu_temperature;
+int8_t sbc_temperature;
+float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 
 void sig_handler(int signum)
 {
@@ -354,11 +355,11 @@ void *TelemetrySenderThread(void *threadid)
     }
 }
 
-void *SaveTemperaturesThread(void *threadid)
+void *SBCInfoThread(void *threadid)
 {
     long tid;
     tid = (long)threadid;
-    printf("SaveTemperatures thread #%ld!\n", tid);
+    printf("SBCInfo thread #%ld!\n", tid);
 
     UDPReceiver receiver(3456);
     receiver.init_connection();
@@ -367,20 +368,43 @@ void *SaveTemperaturesThread(void *threadid)
     uint8_t *array;
 
     uint16_t dump;
-    int8_t sbc_temperature;
         
+    while(1)
+    {
+        if (stop_message[tid] == 1)
+        {
+            printf("SBCInfo thread #%ld exiting\n", tid);
+            pthread_exit( NULL );
+        }
+
+        //This call will block forever if the service is not running
+        packet_length = receiver.listen();
+        array = new uint8_t[packet_length];
+        receiver.get_packet(array);
+
+        Packet packet( array, packet_length );
+        packet >> dump >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
+    }
+}
+
+void *SaveTemperaturesThread(void *threadid)
+{
+    long tid;
+    tid = (long)threadid;
+    printf("SaveTemperatures thread #%ld!\n", tid);
+
     char stringtemp[80];
     char obsfilespec[100];    
     FILE *file;
     time_t ltime;
     struct tm *times;
 
-	time(&ltime);	
-	times = localtime(&ltime);
-	strftime(stringtemp,30,"temp_data_%y%m%d_%H%M%S.dat",times);
-	strncpy(obsfilespec,stringtemp,128 - 1);
-	obsfilespec[128 - 1] = '\0';
-	printf("Creating file %s \n",obsfilespec);
+    time(&ltime);	
+    times = localtime(&ltime);
+    strftime(stringtemp,30,"temp_data_%y%m%d_%H%M%S.dat",times);
+    strncpy(obsfilespec,stringtemp,128 - 1);
+    obsfilespec[128 - 1] = '\0';
+    printf("Creating file %s \n",obsfilespec);
 	
     if((file = fopen(obsfilespec, "w")) == NULL){
         printf("Cannot open file\n");
@@ -398,14 +422,6 @@ void *SaveTemperaturesThread(void *threadid)
                 pthread_exit( NULL );
             }
             sleep(5);
-
-            //As currently implemented, requires the temperature service to be running or will block forever
-            packet_length = receiver.listen();
-            array = new uint8_t[packet_length];
-            receiver.get_packet(array);
-
-            Packet packet( array, packet_length );
-            packet >> dump >> sbc_temperature; //can also grab SBC voltages
 
             time(&ltime);
             times = localtime(&ltime);
@@ -820,50 +836,55 @@ void start_all_threads( void ){
     // start all threads
     t = 0L;
     rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
-    if ((skip[0] = (rc != 0))) {
+    if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 1L;
     rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
-    if ((skip[1] = (rc != 0))) {
+    if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 2L;
     rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
-    if ((skip[2] = (rc != 0))) {
+    if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 3L;
     rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
-    if ((skip[3] = (rc != 0))) {
+    if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 4L;
     rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
-    if ((skip[4] = (rc != 0))) {
+    if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 5L;
     rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
-    if ((skip[5] = (rc != 0))) {
+    if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
     rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
-    if ((skip[6] = (rc != 0))) {
+    if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 7L;
     rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
-    if ((skip[7] = (rc != 0))) {
+    if ((skip[t] = (rc != 0))) {
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }    
     t = 8L;
     rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
-    if ((skip[8] = (rc != 0))) {
+    if ((skip[t] = (rc != 0))) {
 	printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
-    //Thread #9 is for the commandHandler
+    t = 9L;
+    rc = pthread_create(&threads[9],NULL, SBCInfoThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+	printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    //Thread #10 is for the commandHandler
 }
 
 
@@ -913,13 +934,13 @@ int main(void)
                     std::cout << "Requested exposure time is: " << exposure << std::endl;
                     break;
                 default:
-                    long t = 9L;
+                    long t = 10L;
                     int rc;
                     thread_data_array[t].thread_id = t;
                     thread_data_array[t].var = latest_sas_command_key;
                     //thread_data_array[t].message = messages[t];
                     rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
-                    if ((skip[9] = (rc != 0))) {
+                    if ((skip[t] = (rc != 0))) {
                         printf("ERROR; return code from pthread_create() is %d\n", rc);
                     };
             }
