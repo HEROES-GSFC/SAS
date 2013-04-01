@@ -93,5 +93,10 @@ lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
 spa.o: spa/spa.c spa/spa.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
+install: sbc_info
+	sudo systemctl stop sbc_info
+	sudo cp $^ /usr/local/bin
+	sudo systemctl start sbc_info
+
 clean:
 	rm -rf *.o *.out $(EXEC)
