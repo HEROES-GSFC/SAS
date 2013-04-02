@@ -473,23 +473,25 @@ int ImperxStream::SetAnalogGain(int gain)
 int ImperxStream::SetPreAmpGain(int gain)
 {
     PvResult outcome;
+    PvString value;
     switch(gain)
     {
     case -3: 
-	outcome = lDeviceParams->SetEnumValue("PreAmpGain","minus3dB");
+        value = "minus3dB";
 	break;
     case 0: 
-	outcome = lDeviceParams->SetEnumValue("PreAmpGain","zero_dB");
+	value = "zero_dB";
 	break;
     case 3: 
-	outcome = lDeviceParams->SetEnumValue("PreAmpGain","plus3dB");
+	value = "plus3dB";
 	break;
     case 6:
-	outcome = lDeviceParams->SetEnumValue("PreAmpGain","plus6dB");
+        value = "plus6dB";
 	break;
     default:
 	return -1;
     }
+    outcome = lDeviceParams->SetEnumValue("PreAmpRaw",value);
     if (outcome.IsSuccess())
     {
 	return 0;
@@ -578,9 +580,10 @@ int ImperxStream::GetBlackLevel()
 
 int ImperxStream::GetPreAmpGain()
 {
-    PvInt64 gain;
-    lDeviceParams->GetEnumValue("PreAmpGain", gain);
-    switch(gain)
+    int gain;
+    PvInt64 name;
+    lDeviceParams->GetEnumValue("PreAmpRaw", name);
+    switch((int) name)
     {
     case 0:
 	gain = -3;
@@ -594,6 +597,8 @@ int ImperxStream::GetPreAmpGain()
     case 3:
 	gain = 6;
 	break;
+    default:
+        gain = name;
     }
-    return (int) gain;
+   return gain;
 }
