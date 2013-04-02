@@ -158,7 +158,6 @@ void *CameraStreamThread( void * threadid)
     cv::Mat localFrame;
     timespec preExposure, postExposure, timeElapsed, duration;
     int width, height;
-    int hours, minutes, days;
     int failcount = 0;
 
     uint16_t localExposure;
@@ -212,18 +211,6 @@ void *CameraStreamThread( void * threadid)
             }
 
             clock_gettime(CLOCK_REALTIME, &preExposure);
-            minutes = preExposure.tv_sec/60;
-            hours = minutes/60;
-            days = hours/24;
-/*
-  std::cout << days << " "
-  << hours - 24*days << ":"
-  << minutes - 60*hours << ":"
-  << preExposure.tv_sec - 60*minutes << "."
-  << preExposure.tv_nsec/1000000 << "."
-  << (preExposure.tv_nsec/1000)%1000 << "."
-  << (preExposure.tv_nsec % 1000) << std::endl;
-*/
 
             if(!camera.Snap(localFrame))
             {

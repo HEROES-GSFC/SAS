@@ -268,6 +268,11 @@ AspectCode Aspect::Run()
 	    state = MIN_MAX_BAD;
 	    return state;
 	}
+	else if(max - min < 64)
+	{
+	    state = DYNAMIC_RANGE_LOW;
+	    return state;
+	}
 	else
 	{
 	    frameMin = (unsigned char) min;
