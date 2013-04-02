@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 
 	    //std::cout << "AspectTest: Run Aspect" << std::endl;
 	    runResult = aspect.Run();
-	    switch(validProducts(runResult))
+	    switch(GeneralizeError(runResult))
 	    {
 	    case NO_ERROR:
 		aspect.GetScreenCenter(IDCenter);
@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
 		break;
 	    }
 
-	    switch(validProducts(runResult))
+	    switch(GeneralizeError(runResult))
 	    {
 	    case NO_ERROR:
 	    case MAPPING_ERROR:

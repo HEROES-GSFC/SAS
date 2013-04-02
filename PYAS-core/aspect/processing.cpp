@@ -22,7 +22,7 @@ cv::Point2f fiducialIDtoScreen(cv::Point2i id) {
     return result;
 }
 
-AspectCode validProducts(AspectCode code)
+AspectCode GeneralizeError(AspectCode code)
 {
     switch(code)
     {

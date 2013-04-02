@@ -70,7 +70,7 @@ enum AspectCode
     STALE_DATA
 };
 
-AspectCode validProducts(AspectCode code);
+AspectCode GeneralizeError(AspectCode code);
 std::ostream& operator<<(std::ostream&, const AspectCode& code);
 
 class Aspect
