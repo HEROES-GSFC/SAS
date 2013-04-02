@@ -40,10 +40,11 @@ int main(int argc, char* argv[])
     cv::Mat image;
     cv::Point2f center,error, IDCenter;
 
-    cv::Scalar crossingColor(0,128,0);
-    cv::Scalar centerColor(0,0,192);
-    cv::Scalar fiducialColor(128,0,0);
-    cv::Scalar textColor(0,0,0);
+    cv::Scalar crossingColor(0,255,0);
+    cv::Scalar centerColor(0,0,255);
+    cv::Scalar fiducialColor(255,0,0);
+    cv::Scalar IDColor(165,0,165);
+    cv::Scalar textColor(0,165,255);
 
     CoordList crossings, fiducials;
     IndexList IDs;
@@ -61,10 +62,8 @@ int main(int argc, char* argv[])
 	bool videoReady = false;
 	while (frames.getline(line,256))
 	{
-	    filename = line; 
-	    std::cout << "Opening file: " << filename << std::endl;
+	    filename = line;
 	    found = filename.find("png",0);
-	    std::cout << found << " " << std::string::npos << std::endl;
 	    if (found != std::string::npos)
 	    {
 		std::cout << "Loading png file: " << filename << std::endl;
@@ -95,7 +94,7 @@ int main(int argc, char* argv[])
 	    aspect.LoadFrame(frame);
 
 	    //std::cout << "AspectTest: Run Aspect" << std::endl;
-	    if(!aspect.Run())
+	    if(aspect.Run() == NO_ERROR)
 	    {
 		//std::cout << "AspectTest: Get Crossings" << std::endl;
 		aspect.GetPixelCrossings(crossings);
@@ -127,10 +126,11 @@ int main(int argc, char* argv[])
 		    sprintf(number, "%d", (int) IDs[k].y);
 		    label += number;
 		    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-		    cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
+		    cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
 		}
 	
-		//std::cout << "AspectTest: Getting screen center" << std::endl;
+
+/*		//std::cout << "AspectTest: Getting screen center" << std::endl;
 		aspect.GetScreenCenter(IDCenter);
 		std::cout << "AspectTest: Screen Center:  " << IDCenter << std::endl;
 
@@ -138,17 +138,19 @@ int main(int argc, char* argv[])
 		std::cout << "AspectTest: Screen fiducials: " << std::endl;
 		for (int k = 0; k < fiducials.size(); k++)
 		    std::cout << fiducials[k] << std::endl;
-	
+*/	
 	    }
 	    else
 	    {
 		std::cout << "AspectTest: Failure in Aspect::Run" << std::endl;
 	    }
+
+	    cv::putText(image, filename, cv::Point(0,(frame.size()).height-5), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
 	    cv::imshow("Do it.", image);
 	    cv::waitKey(10);
 	    if (!videoReady)
 	    {
-		summary.open(argv[2], CV_FOURCC('D','I','V','X'), 10, frame.size(), true);
+		summary.open(argv[2], CV_FOURCC('F','F','V','1'), 10, frame.size(), true);
 		videoReady = true;
 	    }
 	    summary << image;

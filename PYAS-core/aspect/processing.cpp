@@ -32,7 +32,6 @@ Aspect::Aspect()
     chordThreshold = .25;
     solarRadius = 105;
     limbWidth = 2;
-    fiducialTolerance = 2;
     fiducialLength = 15;
     fiducialWidth = 2; 
     fiducialThreshold = 5;
@@ -63,6 +62,7 @@ Aspect::Aspect()
 	}
     }
     mapping.resize(4);
+    state = STALE_DATA;
 }
 
 Aspect::~Aspect()
@@ -70,15 +70,15 @@ Aspect::~Aspect()
 
 }
 
-int Aspect::LoadFrame(cv::Mat inputFrame)
+ErrorCode Aspect::LoadFrame(cv::Mat inputFrame)
 {
     frameProcessed = false;
     //std::cout << "Aspect: Loading Frame" << std::endl;
     if(inputFrame.empty())
     {
 	std::cout << "Aspect: Tried to load empty frame" << std::endl;
-	frameValid = false;
-	return 1;
+	state = FRAME_EMPTY;
+	return state;
     }
     else
     {
@@ -86,8 +86,8 @@ int Aspect::LoadFrame(cv::Mat inputFrame)
 	if (inputSize.width == 0 || inputSize.height == 0)
 	{
 	    std::cout << "Aspect: Tried to load a frame with dimension 0" << std::endl;
-	    frameValid = false;
-	    return 1;
+	    state = FRAME_EMPTY;
+	    return state;
 	}
 	else
 	{
@@ -95,13 +95,13 @@ int Aspect::LoadFrame(cv::Mat inputFrame)
 	    frameSize = frame.size();
 
 	    frameValid = true;
-	    return 0;
+	    state = NO_ERROR;
+	    return state;
 	}
     }
-    return -1;
 }
 
-int Aspect::Run()
+ErrorCode Aspect::Run()
 {
     cv::Range rowRange, colRange;
     cv::Mat solarImage;
@@ -109,95 +109,79 @@ int Aspect::Run()
     cv::Point offset;
     double max, min;
 
-    minMaxValid = false;
-
-    limbCrossings.clear();
-    crossingsValid = false;
-    
-    centerValid = false;
-    
+    limbCrossings.clear();    
     pixelFiducials.clear();
-    fiducialsValid = false;
-
     fiducialIDs.clear();
-    fiducialIDsValid = false;
-    
     mapping.clear();
     mapping.resize(4);
     conditionNumbers.clear();
     conditionNumbers.resize(2);
-    mappingValid = false;
 
-    frameProcessed = false;
-
-    if (frameValid == false)
+    if (state == FRAME_EMPTY)
     {
 	std::cout << "Aspect: Frame is empty." << std::endl;
-	return 1;
+	state = FRAME_EMPTY;
+	return state;
     }
     else
     {
-	//std::cout << "Aspect: Finding max and min pixel values"
+	std::cout << "Aspect: Finding max and min pixel values" << std::endl;
 	cv::minMaxLoc(frame, &min, &max, NULL, NULL);
 	if (min >= max || std::isnan(min) || std::isnan(max))
 	{
-	    //std::cout << "Aspect: Max/Min value bad" << std::endl;
-	    return 1;
+	    std::cout << "Aspect: Max/Min value bad" << std::endl;
+	    state = MIN_MAX_BAD;
+	    return state;
 	}
 	else
 	{
 	    frameMin = (unsigned char) min;
 	    frameMax = (unsigned char) max;
-	    minMaxValid = true;
 	}
 
-	//std::cout << "Aspect: Finding Center" << std::endl;
+	std::cout << "Aspect: Finding Center" << std::endl;
 	FindPixelCenter();
 	if (limbCrossings.size() == 0)
 	{
-	    //std::cout << "Aspect: No Limb Crossings." << std::endl;
-	    return 1;
+	    std::cout << "Aspect: No Limb Crossings." << std::endl;
+	    state = NO_LIMB_CROSSINGS;
+	    return state;
 	}
 	else if (limbCrossings.size() < 4)
 	{
-	    //std::cout << "Aspect: Too Few Limb Crossings." << std::endl;
-	    return 1;
+	    std::cout << "Aspect: Too Few Limb Crossings." << std::endl;
+	    state = FEW_LIMB_CROSSINGS;
+	    return state;
 	}
-	else
-	{
-	    crossingsValid = true;
-	}
-
 
 	if (pixelCenter.x < 0 || pixelCenter.x >= frameSize.width ||
 	    pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
 	    std::isnan(pixelCenter.x) || std::isnan(pixelCenter.y))
 	{
-	    //std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
+	    std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
 	    pixelCenter = cv::Point2f(-1,-1);
-	    return 1;
+	    state = CENTER_OUT_OF_BOUNDS;
+	    return state;
 	}
 	else if (pixelError.x > 50 || pixelError.y > 50 ||
 		 std::isnan(pixelError.x) || std::isnan(pixelError.y))
 	{
-	    //std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
+	    std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
 	    pixelCenter = cv::Point2f(-1,-1);
-	    return 1;
-	}
-	else
-	{
-	    centerValid = true;
+	    state = CENTER_ERROR_LARGE;
+	    return state;
 	}
 	
 	//Find solar subImage
-	//std::cout << "Aspect: Finding solar subimage" << std::endl;
+	std::cout << "Aspect: Finding solar subimage" << std::endl;
 	rowRange = SafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
 	colRange = SafeRange(pixelCenter.x-solarRadius, pixelCenter.x+solarRadius, frameSize.width);
 	solarImage = frame(rowRange, colRange);
 	if (solarImage.empty())
 	{
-	    //std::cout << "Aspect: Solar Image too empty." << std::endl;
-	    return 1;  
+	    std::cout << "Aspect: Solar Image too empty." << std::endl;
+	    state = SOLAR_IMAGE_EMPTY;
+	    return state;  
 	}
 	else
 	{
@@ -207,8 +191,9 @@ int Aspect::Run()
 	if (solarSize.width < (int) fiducialSpacing + 2*fiducialLength || 
 	    solarSize.height < (int) fiducialSpacing + 2*fiducialLength)
         {
-	    //std::cout << "Aspect: Solar Image too small." << std::endl;
-	    return 1;
+	    std::cout << "Aspect: Solar Image too small." << std::endl;
+	    state = SOLAR_IMAGE_SMALL;
+	    return state;
 	}
 
 	//Define offset for converting subimage locations to frame locations
@@ -216,55 +201,48 @@ int Aspect::Run()
         if (offset.x < 0 || offset.x >= (frameSize.width - solarSize.width + 1) ||
 	    offset.y < 0 || offset.y >= (frameSize.height - solarSize.height + 1))
 	{
-	    //std::cout << "Aspect: Solar Image Offset out of bounds." << std::endl;
-	    return 1;
+	    std::cout << "Aspect: Solar Image Offset out of bounds." << std::endl;
+	    state = SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS;
+	    return state;
 	}
 	    
 	//Find fiducials
-	//std::cout << "Aspect: Finding Fiducials" << std::endl;
+	std::cout << "Aspect: Finding Fiducials" << std::endl;
 	FindPixelFiducials(solarImage, offset);
 	if (pixelFiducials.size() == 0)
 	{
-	    //std::cout << "Aspect: No Fiducials found" << std::endl;
-	    return 1;
+	    std::cout << "Aspect: No Fiducials found" << std::endl;
+	    state = NO_FIDUCIALS;
+	    return state;
 	}
 	else if (pixelFiducials.size() < 3)
 	{
-	    //std::cout << "Aspect: Too Few Fiducials" << std::endl;
-	    return 1;
-	}
-	else
-	{
-	    fiducialsValid = true;
+	    std::cout << "Aspect: Too Few Fiducials" << std::endl;
+	    state = FEW_FIDUCIALS;
+	    return state;
 	}
 
 	//Find fiducial IDs
-	//std::cout << "Aspect: Finding fiducial IDs" << std::endl;
+	std::cout << "Aspect: Finding fiducial IDs" << std::endl;
 	FindFiducialIDs();
 	if (fiducialIDs.size() == 0)
 	{
-	    //std::cout << "Aspect: No Valid IDs" << std::endl;
-	    return 1;
-	}
-	else
-	{
-	    fiducialIDsValid = true;
+	    std::cout << "Aspect: No Valid IDs" << std::endl;
+	    state = NO_IDS;
+	    return state;
 	}
 	
-	//std::cout << "Aspect: Finding Mapping" << std::endl;
+	std::cout << "Aspect: Finding Mapping" << std::endl;
 	FindMapping();
 	if (/*ILL CONDITIONED*/ false)
 	{
-	    //std::cout << "Aspect: Mapping is ill-conditioned." << std::endl;
-	    return 1;
-	}
-	else
-	{
-	    mappingValid = true;
+	    std::cout << "Aspect: Mapping is ill-conditioned." << std::endl;
+	    state = MAPPING_ILL_CONDITIONED;
+	    return state;
 	}
     }
-    frameProcessed = true;
-    return 0;
+    state = NO_ERROR;
+    return state;
 }
 
 
@@ -274,109 +252,109 @@ Data product Get functions
 
 ***************************************************/
 
-int Aspect::GetPixelMinMax(unsigned char& min, unsigned char& max)
+ErrorCode Aspect::GetPixelMinMax(unsigned char& min, unsigned char& max)
 {
-    if (minMaxValid == true && frameProcessed == true)
+    if (state > MIN_MAX_BAD || state == NO_ERROR)
     {
 	max = frameMax;
 	min = frameMin;
-	return 0;
+	return NO_ERROR;
     }
-    else return -1;
+    else return state;
 }
 
-int Aspect::GetPixelCrossings(CoordList& crossings)
+ErrorCode Aspect::GetPixelCrossings(CoordList& crossings)
 {
-    if (crossingsValid == true && frameProcessed == true)
+    if (state > FEW_LIMB_CROSSINGS || state == NO_ERROR)
     {
 	crossings.clear();
 	for (unsigned int k = 0; k <  limbCrossings.size(); k++)
 	    crossings.push_back(limbCrossings[k]);
-	return 0;
+	return NO_ERROR;
     }
-    else return -1;
+    else return state;
 }
 
-int Aspect::GetPixelCenter(cv::Point2f &center)
+ErrorCode Aspect::GetPixelCenter(cv::Point2f &center)
 {
-    if (centerValid == true && frameProcessed == true)
+    if (state > CENTER_ERROR_LARGE || state == NO_ERROR)
     {
 	center = pixelCenter;
-	return 0;
+	return NO_ERROR;
     }
-    else return -1;
+    else return state;
 }
 
-int Aspect::GetPixelError(cv::Point2f &error)
+ErrorCode Aspect::GetPixelError(cv::Point2f &error)
 {
-    if (centerValid == true && frameProcessed == true)
+    if (state > CENTER_ERROR_LARGE || state == NO_ERROR)
     {
 	error = pixelError;
-	return 0;
+	return NO_ERROR;
     }
-    else return -1;
+    else return state;
 }
 
-int Aspect::GetPixelFiducials(CoordList& fiducials)
+ErrorCode Aspect::GetPixelFiducials(CoordList& fiducials)
 {
-    if (fiducialsValid == true && frameProcessed == true)
+    if (state > FEW_FIDUCIALS || state == NO_ERROR)
     {
 	fiducials.clear();
 	for (unsigned int k = 0; k < pixelFiducials.size(); k++)
 	    fiducials.push_back(pixelFiducials[k]);
-	return 0;
+	return NO_ERROR;
     }
-    else return -1;
+    else return state;
 	
 }
 
-int Aspect::GetFiducialIDs(IndexList& IDs)
+ErrorCode Aspect::GetFiducialIDs(IndexList& IDs)
 {
-    if (fiducialIDsValid == true && frameProcessed == true)
+    if (state > FEW_IDS || state == NO_ERROR)
     {
 	IDs.clear();
 	for (unsigned int k = 0; k <  fiducialIDs.size(); k++)
 	    IDs.push_back(fiducialIDs[k]);
-	return 0;
+	return NO_ERROR;
     }
-    else return -1;
+    else return state;
 }
 
-int Aspect::GetMapping(std::vector<float>& map)
+ErrorCode Aspect::GetMapping(std::vector<float>& map)
 {
-    if(mappingValid == true && frameProcessed == true)
+    if(state > MAPPING_ILL_CONDITIONED)
     {
 	map.clear();
 	for (unsigned int k = 0; k < mapping.size(); k++)
 	    map.push_back(mapping[k]);
-	return 0;
+	return NO_ERROR;
     }
-    else return -1;
+    else return state;
 }
 
-int Aspect::GetScreenCenter(cv::Point2f &center)
+ErrorCode Aspect::GetScreenCenter(cv::Point2f &center)
 {
     
-    if(centerValid == true && mappingValid == true && frameProcessed == true)
+    if(state > MAPPING_ILL_CONDITIONED || state == NO_ERROR)
     {
 	center = PixelToScreen(pixelCenter);
-	return 0;
+	return NO_ERROR;
     }
-    else return -1;
+    else return state;
 }
 
-int Aspect::GetScreenFiducials(CoordList& fiducials)
+ErrorCode Aspect::GetScreenFiducials(CoordList& fiducials)
 {
     fiducials.clear();
-    if (fiducialsValid == true && mappingValid == true && frameProcessed == true)
+    if (state > MAPPING_ILL_CONDITIONED || state == NO_ERROR)
     {
 	fiducials.clear();
 	fiducials.resize(pixelFiducials.size());
 	for (unsigned int k = 0; k < pixelFiducials.size(); k++)
 	    fiducials[k] =  PixelToScreen( pixelFiducials[k] );
-	return 0;
+	return NO_ERROR;
     }
-    else return -1;
+    else return state;
 	
 }
 
@@ -390,10 +368,14 @@ float Aspect::GetFloat(FloatParameter variable)
 {
     switch(variable)
     {
-    case FiducialSpacing:
+    case CHORD_THRESHOLD:
+	return chordThreshold;
+    case FIDUCIAL_THRESHOLD:
+	return fiducialThreshold;
+    case FIDUCIAL_SPACING:
 	return fiducialSpacing;
-    case FiducialSpacingTol:
-	return fiducialSpacingTol;
+    case FIDUCIAL_SPACING_TOL:
+   	return fiducialSpacingTol;
     default:
 	return 0;
     }
@@ -403,25 +385,21 @@ int Aspect::GetInteger(IntParameter variable)
 {
     switch(variable)
     {
-    case InitialNumChords:
+    case NUM_CHORDS_SEARCHING:
 	return initialNumChords;
-    case ChordsPerAxis:
+    case NUM_CHORDS_OPERATING:
 	return chordsPerAxis;
-    case LimbWidth:
+    case LIMB_WIDTH:
 	return limbWidth; 
-    case FiducialTolerance:
-	return fiducialTolerance;
-    case SolarRadius:
+    case SOLAR_RADIUS:
 	return solarRadius;
-    case FiducialLength:
+    case FIDUCIAL_LENGTH:
 	return fiducialLength;
-    case FiducialWidth:
+    case FIDUCIAL_WIDTH:
 	return fiducialWidth;
-    case FiducialThreshold:
-	return fiducialThreshold;
-    case FiducialNeighborhood:
+    case FIDUCIAL_NEIGHBORHOOD:
 	return fiducialNeighborhood;
-    case NumFiducials:
+    case NUM_FIDUCIALS:
 	return numFiducials;
     default:
 	return 0;
@@ -432,13 +410,16 @@ void Aspect::SetFloat(FloatParameter variable, float value)
 {
     switch(variable)
     {
-    case ChordThreshold:
+    case CHORD_THRESHOLD:
 	chordThreshold = value;
 	break;
-    case FiducialSpacing:
+    case FIDUCIAL_THRESHOLD:
+	fiducialThreshold = value;
+	break;
+    case FIDUCIAL_SPACING:
 	fiducialSpacing = value;
 	break;
-    case FiducialSpacingTol:
+    case FIDUCIAL_SPACING_TOL:
 	fiducialSpacingTol = value;
 	break;
     default:
@@ -451,38 +432,32 @@ void Aspect::SetInteger(IntParameter variable, int value)
 {
     switch(variable)
     {
-    case InitialNumChords:
-	initialNumChords = value;
+    case NUM_CHORDS_SEARCHING:
+	initialNumChords= value;
 	break;
-    case ChordsPerAxis:
+    case NUM_CHORDS_OPERATING:
 	chordsPerAxis = value;
 	break;
-    case LimbWidth:
-	limbWidth = value;
+    case LIMB_WIDTH:
+	limbWidth = value; 
 	break;
-    case FiducialTolerance:
-	fiducialTolerance = value;
-	break;
-    case SolarRadius:
+    case SOLAR_RADIUS:
 	solarRadius = value;
 	break;
-    case FiducialLength:
+    case FIDUCIAL_LENGTH:
 	fiducialLength = value;
 	break;
-    case FiducialWidth:
+    case FIDUCIAL_WIDTH:
 	fiducialWidth = value;
 	break;
-    case FiducialThreshold:
-	fiducialThreshold = value;
-	break;
-    case FiducialNeighborhood:
+    case FIDUCIAL_NEIGHBORHOOD:
 	fiducialNeighborhood = value;
 	break;
-    case NumFiducials:
+    case NUM_FIDUCIALS:
 	numFiducials = value;
 	break;
     default:
-	return ;
+	return;
     }
     return;
 }
@@ -535,9 +510,9 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 	edgeSpread = edges[k] + edges[k-1];
 
 	//if the pair is along a fiducial
-	if(abs(edgeSpread - fiducialLength) <= fiducialTolerance || 
+	if(abs(edgeSpread - fiducialLength) <= limbWidth || 
 	   // or across a fiducial
-	   abs(edgeSpread - fiducialWidth) <= fiducialTolerance ||
+	   abs(edgeSpread - fiducialWidth) <= limbWidth ||
 	   // or too close together
 	   abs(edgeSpread) < limbWidth)
 	{

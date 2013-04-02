@@ -16,25 +16,44 @@ public:
 
 enum IntParameter
 {
-    InitialNumChords = 0,
-    ChordsPerAxis = 1,
-    LimbWidth = 2,
-    FiducialTolerance = 3,
-    SolarRadius = 4,
-    FiducialLength = 5,
-    FiducialWidth = 6,
-    FiducialThreshold = 7,
-    FiducialNeighborhood = 8,
-    NumFiducials = 9
+    NUM_CHORDS_SEARCHING = 0,
+    NUM_CHORDS_OPERATING,
+    LIMB_WIDTH,
+    SOLAR_RADIUS,
+    FIDUCIAL_LENGTH,
+    FIDUCIAL_WIDTH,
+    FIDUCIAL_NEIGHBORHOOD,
+    NUM_FIDUCIALS
 };
 
 enum FloatParameter
 {
-    ChordThreshold = 0,
-    FiducialSpacing = 1,
-    FiducialSpacingTol = 2
+    CHORD_THRESHOLD = 0,
+    FIDUCIAL_THRESHOLD ,
+    FIDUCIAL_SPACING,
+    FIDUCIAL_SPACING_TOL,
 };
     
+enum ErrorCode
+{
+    NO_ERROR = 0,
+    FRAME_EMPTY,
+    MIN_MAX_BAD,
+    DYNAMIC_RANGE_LOW,
+    NO_LIMB_CROSSINGS,
+    FEW_LIMB_CROSSINGS,
+    CENTER_OUT_OF_BOUNDS,
+    CENTER_ERROR_LARGE,
+    SOLAR_IMAGE_EMPTY,
+    SOLAR_IMAGE_SMALL,
+    SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS,
+    NO_FIDUCIALS,
+    FEW_FIDUCIALS,
+    NO_IDS,
+    FEW_IDS,
+    MAPPING_ILL_CONDITIONED,
+    STALE_DATA
+};
 
 class Aspect
 {
@@ -42,17 +61,17 @@ public:
     Aspect();
     ~Aspect();
 
-    int LoadFrame(cv::Mat inputFrame);
-    int Run();
-    int GetPixelMinMax(unsigned char& min, unsigned char& max);
-    int GetPixelCrossings(CoordList& crossings);
-    int GetPixelCenter(cv::Point2f& center);
-    int GetPixelError(cv::Point2f& error);
-    int GetPixelFiducials(CoordList& fiducials);
-    int GetFiducialIDs(IndexList& fiducialIDs);
-    int GetMapping(std::vector<float>& map);
-    int GetScreenCenter(cv::Point2f& center);
-    int GetScreenFiducials(CoordList& fiducials);
+    ErrorCode LoadFrame(cv::Mat inputFrame);
+    ErrorCode Run();
+    ErrorCode GetPixelMinMax(unsigned char& min, unsigned char& max);
+    ErrorCode GetPixelCrossings(CoordList& crossings);
+    ErrorCode GetPixelCenter(cv::Point2f& center);
+    ErrorCode GetPixelError(cv::Point2f& error);
+    ErrorCode GetPixelFiducials(CoordList& fiducials);
+    ErrorCode GetFiducialIDs(IndexList& fiducialIDs);
+    ErrorCode GetMapping(std::vector<float>& map);
+    ErrorCode GetScreenCenter(cv::Point2f& center);
+    ErrorCode GetScreenFiducials(CoordList& fiducials);
     
     float GetFloat(FloatParameter variable);
     int GetInteger(IntParameter variable);
@@ -61,11 +80,12 @@ public:
 
 
 private:
+    ErrorCode state;
+
     int initialNumChords;
     int chordsPerAxis;
     float chordThreshold;
     int limbWidth;
-    int fiducialTolerance;
 
     int solarRadius;
 
