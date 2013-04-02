@@ -32,6 +32,8 @@ CCFITS = -lCCfits
 
 EXEC = sunDemo fullDemo fidDemo threadDemo packetDemo commandingDemo networkDemo test_command test_sender sbc_info
 
+default: sunDemo sbc_info
+
 all: $(EXEC)
 
 fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o

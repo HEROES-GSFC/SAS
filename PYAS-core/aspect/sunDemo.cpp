@@ -2,7 +2,6 @@
 #define SAS_TARGET_ID 0x30
 #define SAS_TM_TYPE 0x70
 #define SAS_IMAGE_TYPE 0x82
-#define SAS_SYNC_WORD 0xEB90
 #define SAS_CM_ACK_TYPE 0x01
 #define CTL_IP_ADDRESS "192.168.1.2"
 #define FDR_IP_ADDRESS "192.168.2.4"
@@ -13,9 +12,8 @@
 #define SAVE_LOCATION "/mnt/disk2/"
 #define SECONDS_AFTER_SAVE 5
 
-// computer variables
-#define EC_INDEX 0x6f0
-#define EC_DATA 0x6f1
+#define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
+#define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -68,6 +66,8 @@ struct thread_data thread_data_array[NUM_THREADS];
 
 sig_atomic_t volatile g_running = 1;
 
+int sas_id;
+
 cv::Mat frame;
 
 Aspect aspect;
@@ -107,6 +107,33 @@ void kill_all_threads( void ){
     }
 }
 
+void identifySAS()
+{
+    FILE *in;
+    char buff[128];
+
+    if(!(in = popen("ifconfig sbc | grep ether", "r"))) {
+        std::cout << "Error identifying computer, defaulting to SAS-1\n";
+        sas_id = 1;
+        return;
+    }
+
+    fgets(buff, sizeof(buff), in);
+
+    if(strstr(buff, SAS1_MAC_ADDRESS) != NULL) {
+        std::cout << "SAS-1 identified\n";
+        sas_id = 1;
+    } else if(strstr(buff, SAS2_MAC_ADDRESS) != NULL) {
+        std::cout << "SAS-2 identified\n";
+        sas_id = 2;
+    } else {
+        std::cout << "Unknown computer, defaulting to SAS-1\n";
+        sas_id = 1;
+    }
+
+    pclose(in);
+}
+
 void *CameraStreamThread( void * threadid)
 {    
     long tid;
@@ -129,7 +156,7 @@ void *CameraStreamThread( void * threadid)
     while(1)
     {
         if (stop_message[tid] == 1)
-	{
+        {
             printf("CameraStream thread #%ld exiting\n", tid);
             camera.Stop();
             camera.Disconnect();
@@ -278,7 +305,7 @@ void *ImageProcessThread(void *threadid)
 
                     if(!aspect.Run())
                     {
-			aspect.GetPixelMinMax(frameMin, frameMax);
+                        aspect.GetPixelMinMax(frameMin, frameMax);
                         aspect.GetPixelCrossings(localLimbs);
                         aspect.GetPixelCenter(localPixelCenter);
                         aspect.GetPixelError(localError);
@@ -342,7 +369,7 @@ void *TelemetrySenderThread(void *threadid)
         usleep(50000);
         
         if( !tm_packet_queue.empty() ){
-            TelemetryPacket tp(0x70, 0x30);
+            TelemetryPacket tp(NULL);
             tm_packet_queue >> tp;
             telSender.send( &tp );
             //std::cout << "TelemetrySender:" << tp << std::endl;
@@ -367,8 +394,6 @@ void *SBCInfoThread(void *threadid)
     uint16_t packet_length;
     uint8_t *array;
 
-    uint16_t dump;
-        
     while(1)
     {
         if (stop_message[tid] == 1)
@@ -383,7 +408,7 @@ void *SBCInfoThread(void *threadid)
         receiver.get_packet(array);
 
         Packet packet( array, packet_length );
-        packet >> dump >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
+        packet >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
     }
 }
 
@@ -394,18 +419,18 @@ void *SaveTemperaturesThread(void *threadid)
     printf("SaveTemperatures thread #%ld!\n", tid);
 
     char stringtemp[80];
-    char obsfilespec[100];    
+    char obsfilespec[128];
     FILE *file;
     time_t ltime;
     struct tm *times;
 
-    time(&ltime);	
+    time(&ltime);
     times = localtime(&ltime);
-    strftime(stringtemp,30,"temp_data_%y%m%d_%H%M%S.dat",times);
-    strncpy(obsfilespec,stringtemp,128 - 1);
+    strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+    sprintf(obsfilespec, "%stemp_data_%s,dat", SAVE_LOCATION, stringtemp);
     obsfilespec[128 - 1] = '\0';
     printf("Creating file %s \n",obsfilespec);
-	
+
     if((file = fopen(obsfilespec, "w")) == NULL){
         printf("Cannot open file\n");
         pthread_exit( NULL );
@@ -521,7 +546,7 @@ void *TelemetryPackagerThread(void *threadid)
         tm_frame_sequence_number++;
         
         TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
-        tp << (uint16_t)SAS_SYNC_WORD;     // SAS-1 syncword
+        tp.setSAS(sas_id);
         tp << tm_frame_sequence_number;
         tp << command_sequence_number;
         tp << latest_sas_command_key;
@@ -779,7 +804,7 @@ void *commandHandlerThread(void *threadargs)
                 }
                 if( !localFrame.empty() ){
                     int numXpixels = localFrame.cols;
-                    int numYpixels = localFrame.rows;	
+                    int numYpixels = localFrame.rows;
                     TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
                     printf("sending %dx%d image\n", numXpixels, numYpixels);
                     int pixels_per_packet = 100;
@@ -796,7 +821,7 @@ void *commandHandlerThread(void *threadargs)
                     for( int i = 0; i < num_packets; i++ ){
                         //if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
                         //printf("%d\n", i);
-                        TelemetryPacket tp(0x70, 0x30);
+                        TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
 
                         for( int j = 0; j < pixels_per_packet; j++){
                             x = k % numXpixels;
@@ -872,17 +897,17 @@ void start_all_threads( void ){
     t = 7L;
     rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }    
     t = 8L;
     rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 9L;
     rc = pthread_create(&threads[9],NULL, SBCInfoThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     //Thread #10 is for the commandHandler
 }
@@ -893,7 +918,9 @@ int main(void)
 {  
     // to catch a Ctrl-C and clean up
     signal(SIGINT, &sig_handler);
-    
+
+    identifySAS();
+
     recvd_command_queue = CommandQueue();
     tm_packet_queue = TelemetryPacketQueue();
     cm_packet_queue = CommandPacketQueue();
