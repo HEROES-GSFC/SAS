@@ -111,9 +111,9 @@ void kill_all_threads( void ){
 void identifySAS()
 {
     FILE *in;
-    char buff[20];
+    char buff[128];
 
-    if(!(in = popen("ifconfig en0 | grep ether | cut -d ' ' -f 2", "r"))) {
+    if(!(in = popen("ifconfig sbc | grep ether", "r"))) {
         std::cout << "Error identifying computer, defaulting to SAS-1\n";
         sas_id = 1;
         return;
@@ -121,10 +121,10 @@ void identifySAS()
 
     fgets(buff, sizeof(buff), in);
 
-    if(!strncmp(buff, SAS1_MAC_ADDRESS, 17)) {
+    if(strstr(buff, SAS1_MAC_ADDRESS) != NULL) {
         std::cout << "SAS-1 identified\n";
         sas_id = 1;
-    } else if(!strncmp(buff, SAS2_MAC_ADDRESS, 17)) {
+    } else if(strstr(buff, SAS2_MAC_ADDRESS) != NULL) {
         std::cout << "SAS-2 identified\n";
         sas_id = 2;
     } else {
