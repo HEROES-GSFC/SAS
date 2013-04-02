@@ -175,6 +175,7 @@ Packet::Packet()
 Packet::Packet(const uint8_t *ptr, uint16_t num)
 {
   this->append_bytes(ptr, num);
+  setReadIndex(sizeof(PACKET_HEROES_SYNC_WORD));
 }
 
 bool Packet::valid()
