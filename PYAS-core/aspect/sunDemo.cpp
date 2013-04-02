@@ -427,7 +427,7 @@ void *SaveTemperaturesThread(void *threadid)
     time(&ltime);
     times = localtime(&ltime);
     strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-    sprintf(obsfilespec, "%stemp_data_%s,dat", SAVE_LOCATION, stringtemp);
+    sprintf(obsfilespec, "%stemp_data_%s.dat", SAVE_LOCATION, stringtemp);
     obsfilespec[128 - 1] = '\0';
     printf("Creating file %s \n",obsfilespec);
 
