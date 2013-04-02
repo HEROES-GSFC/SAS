@@ -28,6 +28,8 @@ if(!tpq.empty()) tpq >> tp;
 #include "Packet.hpp"
 
 #define TELEMETRY_PACKET_MAX_SIZE 1024
+#define SAS1_SYNC_WORD 0xEB90
+#define SAS2_SYNC_WORD 0xF626
 
 class TelemetryPacket : public Packet {
   private:
@@ -56,6 +58,11 @@ class TelemetryPacket : public Packet {
     
     uint16_t getSync();
     uint32_t getSeconds();
+
+    //Helper functions for SAS usage
+    int getSAS(); //returns 1 or 2, throws exception otherwise
+                  //if read pointer is at the sync word, it will be advanced
+    void setSAS(int id); //only pass this 1 or 2, throws exception otherwise
 };
 
 class TelemetryPacketQueue : public ByteStringQueue {

@@ -88,6 +88,7 @@ class ByteString {
     void readAtTo(uint16_t loc, T& value);
 
     //Sequential reading using a read pointer
+    uint16_t getReadIndex();
     void setReadIndex(uint16_t loc);
     void readNextTo_bytes(void *ptr, uint16_t num);
     template <class T>

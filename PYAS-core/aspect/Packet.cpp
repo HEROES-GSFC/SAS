@@ -96,6 +96,11 @@ void ByteString::readAtTo_bytes(uint16_t loc, void *ptr, uint16_t num)
   memcpy(ptr, buffer+loc, num);
 }
 
+uint16_t ByteString::getReadIndex()
+{
+  return read_index;
+}
+
 void ByteString::setReadIndex(uint16_t loc)
 {
   read_index = loc;

@@ -14,8 +14,6 @@
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
-#define SAS1_SYNC_WORD 0xEB90
-#define SAS2_SYNC_WORD 0xF626
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -118,7 +116,6 @@ void identifySAS()
     if(!(in = popen("ifconfig en0 | grep ether | cut -d ' ' -f 2", "r"))) {
         std::cout << "Error identifying computer, defaulting to SAS-1\n";
         sas_id = 1;
-        sas_sync_word = SAS1_SYNC_WORD;
         return;
     }
 
@@ -127,15 +124,12 @@ void identifySAS()
     if(!strncmp(buff, SAS1_MAC_ADDRESS, 17)) {
         std::cout << "SAS-1 identified\n";
         sas_id = 1;
-        sas_sync_word = SAS1_SYNC_WORD;
     } else if(!strncmp(buff, SAS2_MAC_ADDRESS, 17)) {
         std::cout << "SAS-2 identified\n";
         sas_id = 2;
-        sas_sync_word = SAS2_SYNC_WORD;
     } else {
         std::cout << "Unknown computer, defaulting to SAS-1\n";
         sas_id = 1;
-        sas_sync_word = SAS1_SYNC_WORD;
     }
 
     pclose(in);
@@ -553,7 +547,7 @@ void *TelemetryPackagerThread(void *threadid)
         tm_frame_sequence_number++;
         
         TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
-        tp << (uint16_t)sas_sync_word;
+        tp.setSAS(sas_id);
         tp << tm_frame_sequence_number;
         tp << command_sequence_number;
         tp << latest_sas_command_key;

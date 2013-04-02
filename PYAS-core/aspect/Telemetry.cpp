@@ -23,6 +23,14 @@ class TelemetryPacketSizeException : public std::exception
   }
 } tpSizeException;
 
+class TelemetryPacketSASException : public std::exception
+{
+  virtual const char* what() const throw()
+  {
+    return "TelemetryPacket error manipulating SAS ID";
+  }
+} tpSASException;
+
 TelemetryPacket::TelemetryPacket(uint8_t typeID, uint8_t sourceID)
 {
   //Zeros are payload length and checksum
@@ -102,6 +110,44 @@ uint32_t TelemetryPacket::getSeconds()
     this->readAtTo(INDEX_SECONDS, value);
     return value;
 }
+
+int TelemetryPacket::getSAS()
+{
+    uint16_t value;
+    if(getLength() < INDEX_PAYLOAD+sizeof(value)) throw tpSASException;
+    this->readAtTo(INDEX_PAYLOAD, value);
+    if(getReadIndex() == INDEX_PAYLOAD) setReadIndex(INDEX_PAYLOAD+sizeof(value));
+    switch(value) {
+        case SAS1_SYNC_WORD:
+            return 1;
+        case SAS2_SYNC_WORD:
+            return 2;
+        default:
+            throw tpSASException;
+    }
+    return 0; //never reached
+}
+
+void TelemetryPacket::setSAS(int id)
+{
+    uint16_t value;
+    switch(id) {
+        case 1:
+            value = SAS1_SYNC_WORD;
+            break;
+        case 2:
+            value = SAS2_SYNC_WORD;
+            break;
+        default:
+            throw tpSASException;
+    }
+    if(getLength() == INDEX_PAYLOAD) {
+        append(value);
+    } else if(getLength() >= INDEX_PAYLOAD+sizeof(value)) {
+        replace(INDEX_PAYLOAD, value);
+    } else throw tpSASException;
+}
+
 
 TelemetryPacketQueue::TelemetryPacketQueue() : filter_typeID(false), filter_sourceID(false)
 {
