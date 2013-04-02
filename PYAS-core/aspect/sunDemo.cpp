@@ -428,15 +428,15 @@ void *SaveTemperaturesThread(void *threadid)
     printf("SaveTemperatures thread #%ld!\n", tid);
 
     char stringtemp[80];
-    char obsfilespec[100];    
+    char obsfilespec[128];
     FILE *file;
     time_t ltime;
     struct tm *times;
 
     time(&ltime);
     times = localtime(&ltime);
-    strftime(stringtemp,30,"temp_data_%y%m%d_%H%M%S.dat",times);
-    strncpy(obsfilespec,stringtemp,128 - 1);
+    strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+    sprintf(obsfilespec, "%stemp_data_%s,dat", SAVE_LOCATION, stringtemp);
     obsfilespec[128 - 1] = '\0';
     printf("Creating file %s \n",obsfilespec);
 
