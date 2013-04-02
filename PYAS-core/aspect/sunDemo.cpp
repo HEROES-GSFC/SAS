@@ -71,6 +71,7 @@ sig_atomic_t volatile g_running = 1;
 cv::Mat frame;
 
 Aspect aspect;
+ErrorCode runResult;
 Transform solarTransform;
 
 unsigned char frameMin, frameMax;
@@ -168,7 +169,7 @@ void *CameraStreamThread( void * threadid)
     while(1)
     {
         if (stop_message[tid] == 1)
-	{
+        {
             printf("CameraStream thread #%ld exiting\n", tid);
             camera.Stop();
             camera.Disconnect();
@@ -215,13 +216,13 @@ void *CameraStreamThread( void * threadid)
             hours = minutes/60;
             days = hours/24;
 /*
-            std::cout << days << " "
-                      << hours - 24*days << ":"
-                      << minutes - 60*hours << ":"
-                      << preExposure.tv_sec - 60*minutes << "."
-                      << preExposure.tv_nsec/1000000 << "."
-                      << (preExposure.tv_nsec/1000)%1000 << "."
-                      << (preExposure.tv_nsec % 1000) << std::endl;
+  std::cout << days << " "
+  << hours - 24*days << ":"
+  << minutes - 60*hours << ":"
+  << preExposure.tv_sec - 60*minutes << "."
+  << preExposure.tv_nsec/1000000 << "."
+  << (preExposure.tv_nsec/1000)%1000 << "."
+  << (preExposure.tv_nsec % 1000) << std::endl;
 */
 
             if(!camera.Snap(localFrame))
@@ -315,17 +316,41 @@ void *ImageProcessThread(void *threadid)
 
                     pthread_mutex_unlock(&mutexImage);
 
-                    if(!aspect.Run())
+                    if((runResult = aspect.Run()) == NO_ERROR)
                     {
-			aspect.GetPixelMinMax(frameMin, frameMax);
-                        aspect.GetPixelCrossings(localLimbs);
-                        aspect.GetPixelCenter(localPixelCenter);
-                        aspect.GetPixelError(localError);
-                        aspect.GetPixelFiducials(localPixelFiducials);
-                        aspect.GetFiducialIDs(localIds);
-                        aspect.GetScreenFiducials(localScreenFiducials);
-                        aspect.GetScreenCenter(localScreenCenter);
-                        aspect.GetMapping(localMapping);
+                        switch(runResult)
+                        {
+                        case NO_ERROR:
+                            aspect.GetScreenFiducials(localScreenFiducials);
+                            aspect.GetScreenCenter(localScreenCenter);
+                            aspect.GetMapping(localMapping);
+        
+                        case MAPPING_ILL_CONDITIONED:
+                            aspect.GetPixelFiducials(localPixelFiducials);
+       
+                        case FEW_IDS:
+                        case NO_IDS:
+                            aspect.GetFiducialIDs(localIds);
+
+                        case FEW_FIDUCIALS:
+                        case NO_FIDUCIALS:
+                        case SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS:
+                        case SOLAR_IMAGE_SMALL:
+                        case SOLAR_IMAGE_EMPTY:
+                            aspect.GetPixelCenter(localPixelCenter);
+                            aspect.GetPixelError(localError);
+                
+                        case CENTER_ERROR_LARGE:
+                        case CENTER_OUT_OF_BOUNDS:
+                            aspect.GetPixelCrossings(localLimbs);
+
+                        case FEW_LIMB_CROSSINGS:
+                        case NO_LIMB_CROSSINGS:
+                            aspect.GetPixelMinMax(frameMin, frameMax);
+			    break;
+                        default:
+                            std::cout << "why?\n";
+                        }
 
                         pthread_mutex_lock(&mutexProcess);
 
@@ -406,13 +431,13 @@ void *SaveTemperaturesThread(void *threadid)
     time_t ltime;
     struct tm *times;
 
-	time(&ltime);	
-	times = localtime(&ltime);
-	strftime(stringtemp,30,"temp_data_%y%m%d_%H%M%S.dat",times);
-	strncpy(obsfilespec,stringtemp,128 - 1);
-	obsfilespec[128 - 1] = '\0';
-	printf("Creating file %s \n",obsfilespec);
-	
+    time(&ltime);   
+    times = localtime(&ltime);
+    strftime(stringtemp,30,"temp_data_%y%m%d_%H%M%S.dat",times);
+    strncpy(obsfilespec,stringtemp,128 - 1);
+    obsfilespec[128 - 1] = '\0';
+    printf("Creating file %s \n",obsfilespec);
+        
     if((file = fopen(obsfilespec, "w")) == NULL){
         printf("Cannot open file\n");
         pthread_exit( NULL );
@@ -770,56 +795,56 @@ void *commandHandlerThread(void *threadargs)
     
     switch( command_key )
     {
-        case 0x1210:
-            {
-                //send_image_to_ground( localFrame );
+    case 0x1210:
+    {
+        //send_image_to_ground( localFrame );
 
-                cv::Mat localFrame;
-                TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
-                tcpSndr.init_connection();
-                if (pthread_mutex_trylock(&mutexImage) == 0)
-                { 
-                    if( !frame.empty() ){ frame.copyTo(localFrame); }
-                    for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
-                    pthread_mutex_unlock(&mutexImage);
+        cv::Mat localFrame;
+        TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
+        tcpSndr.init_connection();
+        if (pthread_mutex_trylock(&mutexImage) == 0)
+        { 
+            if( !frame.empty() ){ frame.copyTo(localFrame); }
+            for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
+            pthread_mutex_unlock(&mutexImage);
+        }
+        if( !localFrame.empty() ){
+            int numXpixels = localFrame.cols;
+            int numYpixels = localFrame.rows;       
+            TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
+            printf("sending %dx%d image\n", numXpixels, numYpixels);
+            int pixels_per_packet = 100;
+            int num_packets = numXpixels * numYpixels / pixels_per_packet;
+            tp << (uint16_t)numXpixels;
+            tp << (uint16_t)numYpixels;
+            tcpSndr.send_packet( &tp );
+            long k = 0;
+            long int count = 0;
+
+            printf("sending %d packets\n", num_packets);
+
+            int x, y;
+            for( int i = 0; i < num_packets; i++ ){
+                //if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
+                //printf("%d\n", i);
+                TelemetryPacket tp(0x70, 0x30);
+
+                for( int j = 0; j < pixels_per_packet; j++){
+                    x = k % numXpixels;
+                    y = k / numXpixels;
+                    tp << (uint8_t)localFrame.at<uint8_t>(y, x);
+                    k++;
                 }
-                if( !localFrame.empty() ){
-                    int numXpixels = localFrame.cols;
-                    int numYpixels = localFrame.rows;	
-                    TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
-                    printf("sending %dx%d image\n", numXpixels, numYpixels);
-                    int pixels_per_packet = 100;
-                    int num_packets = numXpixels * numYpixels / pixels_per_packet;
-                    tp << (uint16_t)numXpixels;
-                    tp << (uint16_t)numYpixels;
-                    tcpSndr.send_packet( &tp );
-                    long k = 0;
-                    long int count = 0;
-
-                    printf("sending %d packets\n", num_packets);
-
-                    int x, y;
-                    for( int i = 0; i < num_packets; i++ ){
-                        //if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
-                        //printf("%d\n", i);
-                        TelemetryPacket tp(0x70, 0x30);
-
-                        for( int j = 0; j < pixels_per_packet; j++){
-                            x = k % numXpixels;
-                            y = k / numXpixels;
-                            tp << (uint8_t)localFrame.at<uint8_t>(y, x);
-                            k++;
-                        }
-                        tcpSndr.send_packet( &tp );
-                        //printf("sending %d bytes\n", tp.getLength());
-                        count++;
-                    }
-                }
-                tcpSndr.close_connection();
+                tcpSndr.send_packet( &tp );
+                //printf("sending %d bytes\n", tp.getLength());
+                count++;
             }
-            break;
-        default:
-            printf("Unknown command!\n");
+        }
+        tcpSndr.close_connection();
+    }
+    break;
+    default:
+        printf("Unknown command!\n");
     }
 
     /* NEVER REACHED */
@@ -878,12 +903,12 @@ void start_all_threads( void ){
     t = 7L;
     rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
     if ((skip[7] = (rc != 0))) {
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }    
     t = 8L;
     rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
     if ((skip[8] = (rc != 0))) {
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     //Thread #9 is for the commandHandler
 }
@@ -916,34 +941,34 @@ int main(void)
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
             
             switch( latest_sas_command_key ){
-                case 0xFFFF:     // dummy command, has sequence number
-                    break;
-                case 0x1000:     // test, do nothing
-                    break;
-                case 0x1010:    // kill all worker threads
-                    kill_all_threads();
-                    break;
-                case 0x1020:    // (re)start all worker threads
-                    // kill them all just in case
-                    kill_all_threads();
-                    sleep(1);
-                    start_all_threads();
-                    break;
-                case 0x1151:    // set exposure time
-                    //Currently put here due to lack of avenue to pass command variables down to commandHandler
-                    command >> exposure; //overwrites global
-                    std::cout << "Requested exposure time is: " << exposure << std::endl;
-                    break;
-                default:
-                    long t = 9L;
-                    int rc;
-                    thread_data_array[t].thread_id = t;
-                    thread_data_array[t].var = latest_sas_command_key;
-                    //thread_data_array[t].message = messages[t];
-                    rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
-                    if ((skip[9] = (rc != 0))) {
-                        printf("ERROR; return code from pthread_create() is %d\n", rc);
-                    };
+            case 0xFFFF:     // dummy command, has sequence number
+                break;
+            case 0x1000:     // test, do nothing
+                break;
+            case 0x1010:    // kill all worker threads
+                kill_all_threads();
+                break;
+            case 0x1020:    // (re)start all worker threads
+                // kill them all just in case
+                kill_all_threads();
+                sleep(1);
+                start_all_threads();
+                break;
+            case 0x1151:    // set exposure time
+                //Currently put here due to lack of avenue to pass command variables down to commandHandler
+                command >> exposure; //overwrites global
+                std::cout << "Requested exposure time is: " << exposure << std::endl;
+                break;
+            default:
+                long t = 9L;
+                int rc;
+                thread_data_array[t].thread_id = t;
+                thread_data_array[t].var = latest_sas_command_key;
+                //thread_data_array[t].message = messages[t];
+                rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
+                if ((skip[9] = (rc != 0))) {
+                    printf("ERROR; return code from pthread_create() is %d\n", rc);
+                };
             }
         }   
     }
