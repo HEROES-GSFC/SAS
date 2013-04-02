@@ -163,7 +163,7 @@ void *CameraStreamThread( void * threadid)
     while(1)
     {
         if (stop_message[tid] == 1)
-	{
+        {
             printf("CameraStream thread #%ld exiting\n", tid);
             camera.Stop();
             camera.Disconnect();
@@ -312,7 +312,7 @@ void *ImageProcessThread(void *threadid)
 
                     if(!aspect.Run())
                     {
-			aspect.GetPixelMinMax(frameMin, frameMax);
+                        aspect.GetPixelMinMax(frameMin, frameMax);
                         aspect.GetPixelCrossings(localLimbs);
                         aspect.GetPixelCenter(localPixelCenter);
                         aspect.GetPixelError(localError);
@@ -433,13 +433,13 @@ void *SaveTemperaturesThread(void *threadid)
     time_t ltime;
     struct tm *times;
 
-    time(&ltime);	
+    time(&ltime);
     times = localtime(&ltime);
     strftime(stringtemp,30,"temp_data_%y%m%d_%H%M%S.dat",times);
     strncpy(obsfilespec,stringtemp,128 - 1);
     obsfilespec[128 - 1] = '\0';
     printf("Creating file %s \n",obsfilespec);
-	
+
     if((file = fopen(obsfilespec, "w")) == NULL){
         printf("Cannot open file\n");
         pthread_exit( NULL );
@@ -813,7 +813,7 @@ void *commandHandlerThread(void *threadargs)
                 }
                 if( !localFrame.empty() ){
                     int numXpixels = localFrame.cols;
-                    int numYpixels = localFrame.rows;	
+                    int numYpixels = localFrame.rows;
                     TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
                     printf("sending %dx%d image\n", numXpixels, numYpixels);
                     int pixels_per_packet = 100;
@@ -906,17 +906,17 @@ void start_all_threads( void ){
     t = 7L;
     rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }    
     t = 8L;
     rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 9L;
     rc = pthread_create(&threads[9],NULL, SBCInfoThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     //Thread #10 is for the commandHandler
 }
