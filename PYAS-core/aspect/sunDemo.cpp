@@ -67,7 +67,6 @@ struct thread_data thread_data_array[NUM_THREADS];
 sig_atomic_t volatile g_running = 1;
 
 int sas_id;
-uint16_t sas_sync_word;
 
 cv::Mat frame;
 
