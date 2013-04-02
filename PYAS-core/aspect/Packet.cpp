@@ -96,6 +96,11 @@ void ByteString::readAtTo_bytes(uint16_t loc, void *ptr, uint16_t num)
   memcpy(ptr, buffer+loc, num);
 }
 
+uint16_t ByteString::getReadIndex()
+{
+  return read_index;
+}
+
 void ByteString::setReadIndex(uint16_t loc)
 {
   read_index = loc;
@@ -164,11 +169,13 @@ uint16_t ByteString::checksum()
 Packet::Packet()
 {
   *this << PACKET_HEROES_SYNC_WORD;
+  setReadIndex(sizeof(PACKET_HEROES_SYNC_WORD));
 }
 
 Packet::Packet(const uint8_t *ptr, uint16_t num)
 {
   this->append_bytes(ptr, num);
+  setReadIndex(sizeof(PACKET_HEROES_SYNC_WORD));
 }
 
 bool Packet::valid()
