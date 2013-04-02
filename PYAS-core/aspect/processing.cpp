@@ -254,7 +254,7 @@ Data product Get functions
 
 ErrorCode Aspect::GetPixelMinMax(unsigned char& min, unsigned char& max)
 {
-    if (state > MIN_MAX_BAD || state == NO_ERROR)
+    if (state < MIN_MAX_BAD)
     {
 	max = frameMax;
 	min = frameMin;
@@ -265,7 +265,7 @@ ErrorCode Aspect::GetPixelMinMax(unsigned char& min, unsigned char& max)
 
 ErrorCode Aspect::GetPixelCrossings(CoordList& crossings)
 {
-    if (state > FEW_LIMB_CROSSINGS || state == NO_ERROR)
+    if (state < FEW_LIMB_CROSSINGS)
     {
 	crossings.clear();
 	for (unsigned int k = 0; k <  limbCrossings.size(); k++)
@@ -277,7 +277,7 @@ ErrorCode Aspect::GetPixelCrossings(CoordList& crossings)
 
 ErrorCode Aspect::GetPixelCenter(cv::Point2f &center)
 {
-    if (state > CENTER_ERROR_LARGE || state == NO_ERROR)
+    if (state < CENTER_ERROR_LARGE)
     {
 	center = pixelCenter;
 	return NO_ERROR;
@@ -287,7 +287,7 @@ ErrorCode Aspect::GetPixelCenter(cv::Point2f &center)
 
 ErrorCode Aspect::GetPixelError(cv::Point2f &error)
 {
-    if (state > CENTER_ERROR_LARGE || state == NO_ERROR)
+    if (state < CENTER_ERROR_LARGE)
     {
 	error = pixelError;
 	return NO_ERROR;
@@ -297,7 +297,7 @@ ErrorCode Aspect::GetPixelError(cv::Point2f &error)
 
 ErrorCode Aspect::GetPixelFiducials(CoordList& fiducials)
 {
-    if (state > FEW_FIDUCIALS || state == NO_ERROR)
+    if (state < FEW_FIDUCIALS)
     {
 	fiducials.clear();
 	for (unsigned int k = 0; k < pixelFiducials.size(); k++)
@@ -310,7 +310,7 @@ ErrorCode Aspect::GetPixelFiducials(CoordList& fiducials)
 
 ErrorCode Aspect::GetFiducialIDs(IndexList& IDs)
 {
-    if (state > FEW_IDS || state == NO_ERROR)
+    if (state < FEW_IDS)
     {
 	IDs.clear();
 	for (unsigned int k = 0; k <  fiducialIDs.size(); k++)
@@ -322,7 +322,7 @@ ErrorCode Aspect::GetFiducialIDs(IndexList& IDs)
 
 ErrorCode Aspect::GetMapping(std::vector<float>& map)
 {
-    if(state > MAPPING_ILL_CONDITIONED)
+    if(state < MAPPING_ILL_CONDITIONED)
     {
 	map.clear();
 	for (unsigned int k = 0; k < mapping.size(); k++)
@@ -335,7 +335,7 @@ ErrorCode Aspect::GetMapping(std::vector<float>& map)
 ErrorCode Aspect::GetScreenCenter(cv::Point2f &center)
 {
     
-    if(state > MAPPING_ILL_CONDITIONED || state == NO_ERROR)
+    if(state < MAPPING_ILL_CONDITIONED)
     {
 	center = PixelToScreen(pixelCenter);
 	return NO_ERROR;
@@ -346,7 +346,7 @@ ErrorCode Aspect::GetScreenCenter(cv::Point2f &center)
 ErrorCode Aspect::GetScreenFiducials(CoordList& fiducials)
 {
     fiducials.clear();
-    if (state > MAPPING_ILL_CONDITIONED || state == NO_ERROR)
+    if (state < MAPPING_ILL_CONDITIONED)
     {
 	fiducials.clear();
 	fiducials.resize(pixelFiducials.size());
