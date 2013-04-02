@@ -34,26 +34,44 @@ enum FloatParameter
     FIDUCIAL_SPACING_TOL,
 };
     
-enum ErrorCode
+enum AspectCode
 {
     NO_ERROR = 0,
+
+    MAPPING_ERROR,
     MAPPING_ILL_CONDITIONED,
+
+    ID_ERROR,
     FEW_IDS,
     NO_IDS,
+    FIDUCIAL_ERROR,
     FEW_FIDUCIALS,
     NO_FIDUCIALS,
+
+    SOLAR_IMAGE_ERROR,
     SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS,
     SOLAR_IMAGE_SMALL,
     SOLAR_IMAGE_EMPTY,
+
+    CENTER_ERROR,
     CENTER_ERROR_LARGE,
     CENTER_OUT_OF_BOUNDS,
+
+    LIMB_ERROR,
     FEW_LIMB_CROSSINGS,
     NO_LIMB_CROSSINGS,
+
+    RANGE_ERROR,
     DYNAMIC_RANGE_LOW,
     MIN_MAX_BAD,
+
     FRAME_EMPTY,
+
     STALE_DATA
 };
+
+AspectCode validProducts(AspectCode code);
+std::ostream& operator<<(std::ostream&, const AspectCode& code);
 
 class Aspect
 {
@@ -61,17 +79,17 @@ public:
     Aspect();
     ~Aspect();
 
-    ErrorCode LoadFrame(cv::Mat inputFrame);
-    ErrorCode Run();
-    ErrorCode GetPixelMinMax(unsigned char& min, unsigned char& max);
-    ErrorCode GetPixelCrossings(CoordList& crossings);
-    ErrorCode GetPixelCenter(cv::Point2f& center);
-    ErrorCode GetPixelError(cv::Point2f& error);
-    ErrorCode GetPixelFiducials(CoordList& fiducials);
-    ErrorCode GetFiducialIDs(IndexList& fiducialIDs);
-    ErrorCode GetMapping(std::vector<float>& map);
-    ErrorCode GetScreenCenter(cv::Point2f& center);
-    ErrorCode GetScreenFiducials(CoordList& fiducials);
+    AspectCode LoadFrame(cv::Mat inputFrame);
+    AspectCode Run();
+    AspectCode GetPixelMinMax(unsigned char& min, unsigned char& max);
+    AspectCode GetPixelCrossings(CoordList& crossings);
+    AspectCode GetPixelCenter(cv::Point2f& center);
+    AspectCode GetPixelError(cv::Point2f& error);
+    AspectCode GetPixelFiducials(CoordList& fiducials);
+    AspectCode GetFiducialIDs(IndexList& fiducialIDs);
+    AspectCode GetMapping(std::vector<float>& map);
+    AspectCode GetScreenCenter(cv::Point2f& center);
+    AspectCode GetScreenFiducials(CoordList& fiducials);
     
     float GetFloat(FloatParameter variable);
     int GetInteger(IntParameter variable);
@@ -80,7 +98,7 @@ public:
 
 
 private:
-    ErrorCode state;
+    AspectCode state;
 
     int initialNumChords;
     int chordsPerAxis;

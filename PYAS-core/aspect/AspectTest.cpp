@@ -50,9 +50,11 @@ int main(int argc, char* argv[])
     std::vector<float> mapping;
         
     Aspect aspect;
-    ErrorCode runResult;
+    AspectCode runResult;
     cv::VideoWriter summary;
     std::ifstream frames(argv[1]);
+    std::ostringstream message;
+    
     if (!frames.good())
     {
 	std::cout << "Failed to whatever file list" << std::endl;
@@ -94,96 +96,81 @@ int main(int argc, char* argv[])
 	    aspect.LoadFrame(frame);
 
 	    //std::cout << "AspectTest: Run Aspect" << std::endl;
-	    if((runResult = aspect.Run()) == NO_ERROR)
+	    runResult = aspect.Run();
+	    switch(validProducts(runResult))
 	    {
-		switch(runResult)
-		{
-		case NO_ERROR:
-		    aspect.GetScreenCenter(IDCenter);
-		    aspect.GetScreenFiducials(fiducials);
+	    case NO_ERROR:
+		aspect.GetScreenCenter(IDCenter);
+		aspect.GetScreenFiducials(fiducials);
 	
-		case MAPPING_ILL_CONDITIONED:
-		    //std::cout << "AspectTest: Get IDs" << std::endl;
-		    aspect.GetFiducialIDs(IDs);
+	    case MAPPING_ERROR:
+		//std::cout << "AspectTest: Get IDs" << std::endl;
+		aspect.GetFiducialIDs(IDs);
 		
-		case FEW_IDS:
-		case NO_IDS:
-		    //std::cout << "AspectTest: Get Fiducials" << std::endl;
-		    aspect.GetPixelFiducials(fiducials);
-
-		case FEW_FIDUCIALS:
-		case NO_FIDUCIALS:
-		case SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS:
-		case SOLAR_IMAGE_SMALL:
-		case SOLAR_IMAGE_EMPTY:
-		    //std::cout << "AspectTest: Get Center" << std::endl;
-		    aspect.GetPixelCenter(center);
-		    aspect.GetPixelError(error);
+	    case ID_ERROR:
+		//std::cout << "AspectTest: Get Fiducials" << std::endl;
+		aspect.GetPixelFiducials(fiducials);
 		
-		case CENTER_ERROR_LARGE:
-		case CENTER_OUT_OF_BOUNDS:
-		    //std::cout << "AspectTest: Get Crossings" << std::endl;
-		    aspect.GetPixelCrossings(crossings);
-
-		case FEW_LIMB_CROSSINGS:
-		case NO_LIMB_CROSSINGS:
-		    break;
-		default:
-		    break;
-		}
-
-		switch(runResult)
-		{
-		case NO_ERROR:
-		case MAPPING_ILL_CONDITIONED:
-		    //std::cout << "AspectTest: Get IDs" << std::endl;
-		    for (int k = 0; k < IDs.size(); k++)
-		    {
-			label = "";
-			sprintf(number, "%d", (int) IDs[k].x);
-			label += number;
-			label += ",";
-			sprintf(number, "%d", (int) IDs[k].y);
-			label += number;
-			DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-			cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
-		    }
+	    case FIDUCIAL_ERROR:
+		//std::cout << "AspectTest: Get Center" << std::endl;
+		aspect.GetPixelCenter(center);
+		aspect.GetPixelError(error);
 		
-		case FEW_IDS:
-		case NO_IDS:
-		    //std::cout << "AspectTest: Get Fiducials" << std::endl;
-		    for (int k = 0; k < fiducials.size(); k++)
-			DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-		
-		case FEW_FIDUCIALS:
-		case NO_FIDUCIALS:
-		case SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS:
-		case SOLAR_IMAGE_SMALL:
-		case SOLAR_IMAGE_EMPTY:
-		    //std::cout << "AspectTest: Get Center" << std::endl;
-		    DrawCross(image, center, centerColor, 20, 1);
-	    
-		    //std::cout << "AspectTest: Get Error" << std::endl;
-		    //std::cout << "AspectTest: Error:  " << error.x << " " << error.y << std::endl;
-		
-		case CENTER_ERROR_LARGE:
-		case CENTER_OUT_OF_BOUNDS:
-		    //std::cout << "AspectTest: Get Crossings" << std::endl;;
-		    for (int k = 0; k < crossings.size(); k++)
-			DrawCross(image, crossings[k], crossingColor, 10, 1);
-
-		case FEW_LIMB_CROSSINGS:
-		case NO_LIMB_CROSSINGS:
-		    break;
-		default:
-		    std::cout << "why?\n";
-		}
-		
-
+	    case CENTER_ERROR:
+		//std::cout << "AspectTest: Get Crossings" << std::endl;
+		aspect.GetPixelCrossings(crossings);
+		    
+	    case LIMB_ERROR:
+		break;
+	    default:
+		break;
 	    }
-	    else
+
+	    switch(validProducts(runResult))
+	    {
+	    case NO_ERROR:
+	    case MAPPING_ERROR:
+		//std::cout << "AspectTest: Get IDs" << std::endl;
+		for (int k = 0; k < IDs.size(); k++)
+		{
+		    label = "";
+		    sprintf(number, "%d", (int) IDs[k].x);
+		    label += number;
+		    label += ",";
+		    sprintf(number, "%d", (int) IDs[k].y);
+		    label += number;
+		    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+		    cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
+		}
+		
+	    case ID_ERROR:
+		//std::cout << "AspectTest: Get Fiducials" << std::endl;
+		for (int k = 0; k < fiducials.size(); k++)
+		    DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+		
+	    case FIDUCIAL_ERROR:
+		//std::cout << "AspectTest: Get Center" << std::endl;
+		DrawCross(image, center, centerColor, 20, 1);
 	    
-	    cv::putText(image, filename, cv::Point(0,(frame.size()).height-5), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
+		//std::cout << "AspectTest: Get Error" << std::endl;
+		//std::cout << "AspectTest: Error:  " << error.x << " " << error.y << std::endl;
+		
+	    case CENTER_ERROR:
+		//std::cout << "AspectTest: Get Crossings" << std::endl;;
+		for (int k = 0; k < crossings.size(); k++)
+		    DrawCross(image, crossings[k], crossingColor, 10, 1);
+
+	    case LIMB_ERROR:
+		break;
+	    default:
+		std::cout << "why?\n";
+	    }
+	   
+	    
+	    cv::putText(image, filename, cv::Point(0,(frame.size()).height-20), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
+	    message << runResult;
+	    cv::putText(image, message.str(), cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
+	    message.str("");
 	    if (!videoReady)
 	    {
 		summary.open(argv[2], CV_FOURCC('F','F','V','1'), 10, frame.size(), true);

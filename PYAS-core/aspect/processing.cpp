@@ -22,6 +22,141 @@ cv::Point2f fiducialIDtoScreen(cv::Point2i id) {
     return result;
 }
 
+AspectCode validProducts(AspectCode code)
+{
+    switch(code)
+    {
+    case NO_ERROR:
+	return NO_ERROR;
+
+    case MAPPING_ERROR:
+    case MAPPING_ILL_CONDITIONED:
+	return MAPPING_ERROR;
+
+    case ID_ERROR:
+    case FEW_IDS:
+    case NO_IDS:
+	return ID_ERROR;
+
+    case FIDUCIAL_ERROR:
+    case FEW_FIDUCIALS:
+    case NO_FIDUCIALS:
+    case SOLAR_IMAGE_ERROR:
+    case SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS:
+    case SOLAR_IMAGE_SMALL:
+    case SOLAR_IMAGE_EMPTY:
+	return FIDUCIAL_ERROR;
+
+    case CENTER_ERROR:
+    case CENTER_ERROR_LARGE:
+    case CENTER_OUT_OF_BOUNDS:
+	return CENTER_ERROR;
+
+    case LIMB_ERROR:
+    case FEW_LIMB_CROSSINGS:
+    case NO_LIMB_CROSSINGS:
+	return LIMB_ERROR;
+
+    case RANGE_ERROR:
+    case DYNAMIC_RANGE_LOW:
+    case MIN_MAX_BAD:
+	return RANGE_ERROR;
+
+    case FRAME_EMPTY:
+	return FRAME_EMPTY;
+    case STALE_DATA:
+	return STALE_DATA;
+    default:
+	return STALE_DATA;
+    }
+    return STALE_DATA;
+}
+
+std::ostream& operator<<(std::ostream& out, const AspectCode& code)
+{
+    switch(code)
+    {
+    case NO_ERROR:
+	out << "No error";
+	break;
+    case MAPPING_ERROR:
+	out << "Generic Mapping error";
+	break;
+    case MAPPING_ILL_CONDITIONED:
+	out << "Mapping was ill-conditioned";
+	break;
+    case ID_ERROR:
+	out << "Generic IDing error";
+	    break;
+    case FEW_IDS:
+	out << "Too few valid IDs";
+	break;
+    case NO_IDS:
+	out << "No valid IDs found";
+	break;
+    case FIDUCIAL_ERROR:
+	out << "Generic fiducial error";
+	break;
+    case FEW_FIDUCIALS:
+	out << "Too Few Fiducials";
+	break;
+    case NO_FIDUCIALS:
+	out << "No fiducials found";
+	break;
+    case SOLAR_IMAGE_ERROR:
+	out << "Generic solar image error";
+	break;
+    case SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS:
+	out << "Solar image offset is out of bounds";
+	break;
+    case SOLAR_IMAGE_SMALL:
+	out << "Solar image is too small";
+	break;
+    case SOLAR_IMAGE_EMPTY:
+	out << "Solar image is empty";
+	break;
+
+    case CENTER_ERROR:
+	out << "Generic error with pixel center";
+	break;
+    case CENTER_ERROR_LARGE:
+	out << "Pixel centers have too large a variance";
+	break;
+    case CENTER_OUT_OF_BOUNDS:
+	out << "Pixel center is out of bounds";
+	break;
+	
+    case LIMB_ERROR:
+	out << "Generic limb error";
+	break;
+    case FEW_LIMB_CROSSINGS:
+	out << "Too few limb crossings";
+	break;
+    case NO_LIMB_CROSSINGS:
+	out << "No limb crossings";
+	break;
+    case RANGE_ERROR:
+	out << "Generic dynamic range error";
+	break;
+    case DYNAMIC_RANGE_LOW:
+	out << "dynamic range is too low";
+	break;
+    case MIN_MAX_BAD:
+	out << "Dynamic values aren't real";
+	break;
+	
+    case FRAME_EMPTY:
+	out << "Frame is empty.";
+	break;
+    case STALE_DATA:
+	out << "Data is stale.";
+	break;
+    default:
+	out << "How did I get here?";
+    }
+    return out;
+}
+
 Aspect::Aspect()
 {
     frameMin = 255;
@@ -70,7 +205,7 @@ Aspect::~Aspect()
 
 }
 
-ErrorCode Aspect::LoadFrame(cv::Mat inputFrame)
+AspectCode Aspect::LoadFrame(cv::Mat inputFrame)
 {
     frameProcessed = false;
     //std::cout << "Aspect: Loading Frame" << std::endl;
@@ -101,7 +236,7 @@ ErrorCode Aspect::LoadFrame(cv::Mat inputFrame)
     }
 }
 
-ErrorCode Aspect::Run()
+AspectCode Aspect::Run()
 {
     cv::Range rowRange, colRange;
     cv::Mat solarImage;
@@ -252,9 +387,9 @@ Data product Get functions
 
 ***************************************************/
 
-ErrorCode Aspect::GetPixelMinMax(unsigned char& min, unsigned char& max)
+AspectCode Aspect::GetPixelMinMax(unsigned char& min, unsigned char& max)
 {
-    if (state < MIN_MAX_BAD)
+    if (state < RANGE_ERROR)
     {
 	max = frameMax;
 	min = frameMin;
@@ -263,9 +398,9 @@ ErrorCode Aspect::GetPixelMinMax(unsigned char& min, unsigned char& max)
     else return state;
 }
 
-ErrorCode Aspect::GetPixelCrossings(CoordList& crossings)
+AspectCode Aspect::GetPixelCrossings(CoordList& crossings)
 {
-    if (state < FEW_LIMB_CROSSINGS)
+    if (state < LIMB_ERROR)
     {
 	crossings.clear();
 	for (unsigned int k = 0; k <  limbCrossings.size(); k++)
@@ -275,9 +410,9 @@ ErrorCode Aspect::GetPixelCrossings(CoordList& crossings)
     else return state;
 }
 
-ErrorCode Aspect::GetPixelCenter(cv::Point2f &center)
+AspectCode Aspect::GetPixelCenter(cv::Point2f &center)
 {
-    if (state < CENTER_ERROR_LARGE)
+    if (state < CENTER_ERROR)
     {
 	center = pixelCenter;
 	return NO_ERROR;
@@ -285,9 +420,9 @@ ErrorCode Aspect::GetPixelCenter(cv::Point2f &center)
     else return state;
 }
 
-ErrorCode Aspect::GetPixelError(cv::Point2f &error)
+AspectCode Aspect::GetPixelError(cv::Point2f &error)
 {
-    if (state < CENTER_ERROR_LARGE)
+    if (state < CENTER_ERROR)
     {
 	error = pixelError;
 	return NO_ERROR;
@@ -295,9 +430,9 @@ ErrorCode Aspect::GetPixelError(cv::Point2f &error)
     else return state;
 }
 
-ErrorCode Aspect::GetPixelFiducials(CoordList& fiducials)
+AspectCode Aspect::GetPixelFiducials(CoordList& fiducials)
 {
-    if (state < FEW_FIDUCIALS)
+    if (state < FIDUCIAL_ERROR)
     {
 	fiducials.clear();
 	for (unsigned int k = 0; k < pixelFiducials.size(); k++)
@@ -308,9 +443,9 @@ ErrorCode Aspect::GetPixelFiducials(CoordList& fiducials)
 	
 }
 
-ErrorCode Aspect::GetFiducialIDs(IndexList& IDs)
+AspectCode Aspect::GetFiducialIDs(IndexList& IDs)
 {
-    if (state < FEW_IDS)
+    if (state < ID_ERROR)
     {
 	IDs.clear();
 	for (unsigned int k = 0; k <  fiducialIDs.size(); k++)
@@ -320,9 +455,9 @@ ErrorCode Aspect::GetFiducialIDs(IndexList& IDs)
     else return state;
 }
 
-ErrorCode Aspect::GetMapping(std::vector<float>& map)
+AspectCode Aspect::GetMapping(std::vector<float>& map)
 {
-    if(state < MAPPING_ILL_CONDITIONED)
+    if(state < MAPPING_ERROR)
     {
 	map.clear();
 	for (unsigned int k = 0; k < mapping.size(); k++)
@@ -332,10 +467,10 @@ ErrorCode Aspect::GetMapping(std::vector<float>& map)
     else return state;
 }
 
-ErrorCode Aspect::GetScreenCenter(cv::Point2f &center)
+AspectCode Aspect::GetScreenCenter(cv::Point2f &center)
 {
     
-    if(state < MAPPING_ILL_CONDITIONED)
+    if(state < MAPPING_ERROR)
     {
 	center = PixelToScreen(pixelCenter);
 	return NO_ERROR;
@@ -343,10 +478,10 @@ ErrorCode Aspect::GetScreenCenter(cv::Point2f &center)
     else return state;
 }
 
-ErrorCode Aspect::GetScreenFiducials(CoordList& fiducials)
+AspectCode Aspect::GetScreenFiducials(CoordList& fiducials)
 {
     fiducials.clear();
-    if (state < MAPPING_ILL_CONDITIONED)
+    if (state < MAPPING_ERROR)
     {
 	fiducials.clear();
 	fiducials.resize(pixelFiducials.size());
