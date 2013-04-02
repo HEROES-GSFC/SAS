@@ -401,8 +401,6 @@ void *SBCInfoThread(void *threadid)
     uint16_t packet_length;
     uint8_t *array;
 
-    uint16_t dump;
-        
     while(1)
     {
         if (stop_message[tid] == 1)
@@ -417,7 +415,7 @@ void *SBCInfoThread(void *threadid)
         receiver.get_packet(array);
 
         Packet packet( array, packet_length );
-        packet >> dump >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
+        packet >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
     }
 }
 

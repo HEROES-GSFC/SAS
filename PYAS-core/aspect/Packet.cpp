@@ -164,6 +164,7 @@ uint16_t ByteString::checksum()
 Packet::Packet()
 {
   *this << PACKET_HEROES_SYNC_WORD;
+  setReadIndex(sizeof(PACKET_HEROES_SYNC_WORD));
 }
 
 Packet::Packet(const uint8_t *ptr, uint16_t num)
