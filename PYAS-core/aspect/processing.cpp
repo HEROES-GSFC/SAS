@@ -76,7 +76,7 @@ ErrorCode Aspect::LoadFrame(cv::Mat inputFrame)
     //std::cout << "Aspect: Loading Frame" << std::endl;
     if(inputFrame.empty())
     {
-	std::cout << "Aspect: Tried to load empty frame" << std::endl;
+	//std::cout << "Aspect: Tried to load empty frame" << std::endl;
 	state = FRAME_EMPTY;
 	return state;
     }
@@ -85,7 +85,7 @@ ErrorCode Aspect::LoadFrame(cv::Mat inputFrame)
 	cv::Size inputSize = inputFrame.size();
 	if (inputSize.width == 0 || inputSize.height == 0)
 	{
-	    std::cout << "Aspect: Tried to load a frame with dimension 0" << std::endl;
+	    //std::cout << "Aspect: Tried to load a frame with dimension 0" << std::endl;
 	    state = FRAME_EMPTY;
 	    return state;
 	}
@@ -119,17 +119,17 @@ ErrorCode Aspect::Run()
 
     if (state == FRAME_EMPTY)
     {
-	std::cout << "Aspect: Frame is empty." << std::endl;
+	//std::cout << "Aspect: Frame is empty." << std::endl;
 	state = FRAME_EMPTY;
 	return state;
     }
     else
     {
-	std::cout << "Aspect: Finding max and min pixel values" << std::endl;
+	//std::cout << "Aspect: Finding max and min pixel values" << std::endl;
 	cv::minMaxLoc(frame, &min, &max, NULL, NULL);
 	if (min >= max || std::isnan(min) || std::isnan(max))
 	{
-	    std::cout << "Aspect: Max/Min value bad" << std::endl;
+	    //std::cout << "Aspect: Max/Min value bad" << std::endl;
 	    state = MIN_MAX_BAD;
 	    return state;
 	}
@@ -139,17 +139,17 @@ ErrorCode Aspect::Run()
 	    frameMax = (unsigned char) max;
 	}
 
-	std::cout << "Aspect: Finding Center" << std::endl;
+	//std::cout << "Aspect: Finding Center" << std::endl;
 	FindPixelCenter();
 	if (limbCrossings.size() == 0)
 	{
-	    std::cout << "Aspect: No Limb Crossings." << std::endl;
+	    //std::cout << "Aspect: No Limb Crossings." << std::endl;
 	    state = NO_LIMB_CROSSINGS;
 	    return state;
 	}
 	else if (limbCrossings.size() < 4)
 	{
-	    std::cout << "Aspect: Too Few Limb Crossings." << std::endl;
+	    //std::cout << "Aspect: Too Few Limb Crossings." << std::endl;
 	    state = FEW_LIMB_CROSSINGS;
 	    return state;
 	}
@@ -158,7 +158,7 @@ ErrorCode Aspect::Run()
 	    pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
 	    std::isnan(pixelCenter.x) || std::isnan(pixelCenter.y))
 	{
-	    std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
+	    //std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
 	    pixelCenter = cv::Point2f(-1,-1);
 	    state = CENTER_OUT_OF_BOUNDS;
 	    return state;
@@ -166,20 +166,20 @@ ErrorCode Aspect::Run()
 	else if (pixelError.x > 50 || pixelError.y > 50 ||
 		 std::isnan(pixelError.x) || std::isnan(pixelError.y))
 	{
-	    std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
+	    //std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
 	    pixelCenter = cv::Point2f(-1,-1);
 	    state = CENTER_ERROR_LARGE;
 	    return state;
 	}
 	
 	//Find solar subImage
-	std::cout << "Aspect: Finding solar subimage" << std::endl;
+	//std::cout << "Aspect: Finding solar subimage" << std::endl;
 	rowRange = SafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
 	colRange = SafeRange(pixelCenter.x-solarRadius, pixelCenter.x+solarRadius, frameSize.width);
 	solarImage = frame(rowRange, colRange);
 	if (solarImage.empty())
 	{
-	    std::cout << "Aspect: Solar Image too empty." << std::endl;
+	    //std::cout << "Aspect: Solar Image too empty." << std::endl;
 	    state = SOLAR_IMAGE_EMPTY;
 	    return state;  
 	}
@@ -191,7 +191,7 @@ ErrorCode Aspect::Run()
 	if (solarSize.width < (int) fiducialSpacing + 2*fiducialLength || 
 	    solarSize.height < (int) fiducialSpacing + 2*fiducialLength)
         {
-	    std::cout << "Aspect: Solar Image too small." << std::endl;
+	    //std::cout << "Aspect: Solar Image too small." << std::endl;
 	    state = SOLAR_IMAGE_SMALL;
 	    return state;
 	}
@@ -201,42 +201,42 @@ ErrorCode Aspect::Run()
         if (offset.x < 0 || offset.x >= (frameSize.width - solarSize.width + 1) ||
 	    offset.y < 0 || offset.y >= (frameSize.height - solarSize.height + 1))
 	{
-	    std::cout << "Aspect: Solar Image Offset out of bounds." << std::endl;
+	    //std::cout << "Aspect: Solar Image Offset out of bounds." << std::endl;
 	    state = SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS;
 	    return state;
 	}
 	    
 	//Find fiducials
-	std::cout << "Aspect: Finding Fiducials" << std::endl;
+	//std::cout << "Aspect: Finding Fiducials" << std::endl;
 	FindPixelFiducials(solarImage, offset);
 	if (pixelFiducials.size() == 0)
 	{
-	    std::cout << "Aspect: No Fiducials found" << std::endl;
+	    //std::cout << "Aspect: No Fiducials found" << std::endl;
 	    state = NO_FIDUCIALS;
 	    return state;
 	}
 	else if (pixelFiducials.size() < 3)
 	{
-	    std::cout << "Aspect: Too Few Fiducials" << std::endl;
+	    //std::cout << "Aspect: Too Few Fiducials" << std::endl;
 	    state = FEW_FIDUCIALS;
 	    return state;
 	}
 
 	//Find fiducial IDs
-	std::cout << "Aspect: Finding fiducial IDs" << std::endl;
+	//std::cout << "Aspect: Finding fiducial IDs" << std::endl;
 	FindFiducialIDs();
 	if (fiducialIDs.size() == 0)
 	{
-	    std::cout << "Aspect: No Valid IDs" << std::endl;
+	    //std::cout << "Aspect: No Valid IDs" << std::endl;
 	    state = NO_IDS;
 	    return state;
 	}
 	
-	std::cout << "Aspect: Finding Mapping" << std::endl;
+	//std::cout << "Aspect: Finding Mapping" << std::endl;
 	FindMapping();
 	if (/*ILL CONDITIONED*/ false)
 	{
-	    std::cout << "Aspect: Mapping is ill-conditioned." << std::endl;
+	    //std::cout << "Aspect: Mapping is ill-conditioned." << std::endl;
 	    state = MAPPING_ILL_CONDITIONED;
 	    return state;
 	}
@@ -586,7 +586,7 @@ void Aspect::FindPixelCenter()
        pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
        std::isnan(pixelCenter.x) || std::isnan(pixelCenter.y))
     {
-	//std::cout << "Aspect: Finding new center" << std::endl;
+	////std::cout << "Aspect: Finding new center" << std::endl;
 	limit = initialNumChords;
 
 	rowStep = frameSize.height/limit;

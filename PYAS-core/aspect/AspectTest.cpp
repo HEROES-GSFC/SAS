@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
 
     if (argc != 3)
     {
-	std::cout << "Correct whatever is: kill <yourself>\n";
+	std::cout << "Correct usage is: AspectTest frameList.txt outfile.avi\n";
 	return -1;
     }
 
@@ -35,7 +35,6 @@ int main(int argc, char* argv[])
     char line[256];
     std::string filename, label;
     char number[4] = "000";
-    cv::namedWindow("Do it.", CV_WINDOW_AUTOSIZE);
     cv::Mat frame;
     cv::Mat image;
     cv::Point2f center,error, IDCenter;
@@ -130,7 +129,7 @@ int main(int argc, char* argv[])
 		case NO_LIMB_CROSSINGS:
 		    break;
 		default:
-		    std::cout << "why?\n";
+		    break;
 		}
 
 		switch(runResult)
@@ -162,7 +161,6 @@ int main(int argc, char* argv[])
 		case SOLAR_IMAGE_SMALL:
 		case SOLAR_IMAGE_EMPTY:
 		    //std::cout << "AspectTest: Get Center" << std::endl;
-		    std::cout << "AspectTest: Pixel Center: " << center.x << " " << center.y << std::endl;
 		    DrawCross(image, center, centerColor, 20, 1);
 	    
 		    //std::cout << "AspectTest: Get Error" << std::endl;
@@ -184,13 +182,8 @@ int main(int argc, char* argv[])
 
 	    }
 	    else
-	    {
-		std::cout << "AspectTest: Failure in Aspect::Run" << std::endl;
-	    }
-
+	    
 	    cv::putText(image, filename, cv::Point(0,(frame.size()).height-5), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
-	    cv::imshow("Do it.", image);
-	    cv::waitKey(10);
 	    if (!videoReady)
 	    {
 		summary.open(argv[2], CV_FOURCC('F','F','V','1'), 10, frame.size(), true);
