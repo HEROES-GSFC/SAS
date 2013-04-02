@@ -115,8 +115,8 @@ int TelemetryPacket::getSAS()
 {
     uint16_t value;
     if(getLength() < INDEX_PAYLOAD+sizeof(value)) throw tpSASException;
-    this->readAtTo(INDEX_PAYLOAD, value);
-    if(getReadIndex() == INDEX_PAYLOAD) setReadIndex(INDEX_PAYLOAD+sizeof(value));
+    readAtTo(INDEX_PAYLOAD, value);
+    setReadIndex(INDEX_PAYLOAD+sizeof(value));
     switch(value) {
         case SAS1_SYNC_WORD:
             return 1;

@@ -61,7 +61,7 @@ class TelemetryPacket : public Packet {
 
     //Helper functions for SAS usage
     int getSAS(); //returns 1 or 2, throws exception otherwise
-                  //if read pointer is at the sync word, it will be advanced
+                  //also moves read pointer to after sync word
     void setSAS(int id); //only pass this 1 or 2, throws exception otherwise
 };
 
