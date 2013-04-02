@@ -376,7 +376,7 @@ void *TelemetrySenderThread(void *threadid)
         usleep(50000);
         
         if( !tm_packet_queue.empty() ){
-            TelemetryPacket tp(0x70, 0x30);
+            TelemetryPacket tp(NULL);
             tm_packet_queue >> tp;
             telSender.send( &tp );
             //std::cout << "TelemetrySender:" << tp << std::endl;
@@ -830,7 +830,7 @@ void *commandHandlerThread(void *threadargs)
                     for( int i = 0; i < num_packets; i++ ){
                         //if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
                         //printf("%d\n", i);
-                        TelemetryPacket tp(0x70, 0x30);
+                        TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
 
                         for( int j = 0; j < pixels_per_packet; j++){
                             x = k % numXpixels;
