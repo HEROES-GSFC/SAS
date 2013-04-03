@@ -204,7 +204,7 @@ Aspect::~Aspect()
 
 AspectCode Aspect::LoadFrame(cv::Mat inputFrame)
 {
-    frameProcessed = false;
+
     //std::cout << "Aspect: Loading Frame" << std::endl;
     if(inputFrame.empty())
     {
@@ -226,7 +226,6 @@ AspectCode Aspect::LoadFrame(cv::Mat inputFrame)
             inputFrame.copyTo(frame);
             frameSize = frame.size();
 
-            frameValid = true;
             state = NO_ERROR;
             return state;
         }
@@ -1022,7 +1021,6 @@ void Aspect::FindFiducialIDs()
             }
         }
     }
-    fiducialIDsValid = true;
 }       
 
 void Aspect::FindMapping()
@@ -1056,7 +1054,6 @@ void Aspect::FindMapping()
         mapping[2*dim + 0] = fit[0];
         mapping[2*dim + 1] = fit[1];
     }
-    mappingValid = true;
 }
 
 cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)

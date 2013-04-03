@@ -129,30 +129,23 @@ private:
     
 //    void LoadKernel();
 
-    bool frameValid;
     cv::Mat frame;
     cv::Size frameSize;
 
-    bool minMaxValid;
     unsigned char frameMax, frameMin;
 
     cv::Mat kernel;
     cv::Size kernelSize;
 
-    bool crossingsValid;
     CoordList limbCrossings;
 
-    bool centerValid;
     cv::Point2f pixelCenter;
     cv::Point2f pixelError;
     
-    bool fiducialsValid;
     CoordList pixelFiducials;
 
-    bool fiducialIDsValid;
     IndexList fiducialIDs;
 
-    bool mappingValid;
     std::vector<float> conditionNumbers;
     std::vector<float> mapping;
 

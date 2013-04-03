@@ -37,7 +37,8 @@ int main(int argc, char* argv[])
     cv::namedWindow("Solution", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
     std::ifstream frames(argv[1]);
     std::string message;
-    
+    timespec startTime, stopTime, diffTime;
+
     if (!frames.good())
     {
         std::cout << "Failed to whatever file list" << std::endl;
@@ -73,13 +74,13 @@ int main(int argc, char* argv[])
         
             cv::Mat list[] = {frame, frame, frame};
             cv::merge(list,3,image);
-
+	    
+	    clock_gettime(CLOCK_REALTIME, &startTime);
             //std::cout << "AspectTest: Load Frame" << std::endl;
             aspect.LoadFrame(frame);
-
             //std::cout << "AspectTest: Run Aspect" << std::endl;
             runResult = aspect.Run();
-
+	    
             //Get aspect data products depending on error severity
             switch(GeneralizeError(runResult))
             {
@@ -109,7 +110,9 @@ int main(int argc, char* argv[])
             default:
                 break;
             }
-
+	    clock_gettime(CLOCK_REALTIME, &stopTime);
+	    diffTime = TimespecDiff(startTime, stopTime);
+	    std::cout << "Runtime : " << diffTime.tv_sec << nanoString(diffTime.tv_nsec) << std::endl;
 
             //Generate summary image with accurate data products marked.
             switch(GeneralizeError(runResult))
