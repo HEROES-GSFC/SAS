@@ -38,6 +38,9 @@ public:
     int SetROIOffsetY(int y);
     int SetROIHeight(int height);
     int SetROIWidth(int width);
+    int SetAnalogGain(int gain);
+    int SetBlackLevel(int black);
+    int SetPreAmpGain(int gain);
     
     int GetExposure();
     cv::Size GetROISize();
@@ -46,6 +49,9 @@ public:
     int GetROIWidth();
     int GetROIOffsetX();
     int GetROIOffsetY();
+    int GetAnalogGain();
+    int GetBlackLevel();
+    int GetPreAmpGain();
 
     int8_t getTemperature( void );
 
