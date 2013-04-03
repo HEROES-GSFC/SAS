@@ -85,8 +85,9 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
        
     //add keys to the primary header
     timeKey = asctime(gmtime(&(keys.captureTime).tv_sec));
-    timeKey += nanoString((keys.captureTime).tv_nsec);
-    pFits->pHDU().addKey("TIME", timeKey, "Frame Capture Time (UTC)");
+    pFits->pHDU().addKey("DAY AND TIME", timeKey , "Frame Capture Time (UTC)");
+    timeKey = nanoString((keys.captureTime).tv_nsec);
+    pFits->pHDU().addKey("TIME FRACTION", timeKey, "Frame capture fractional seconds");
     pFits->pHDU().addKey("EXPOSURE", (long)keys.exposureTime,"Total Exposure Time"); 
 
     try

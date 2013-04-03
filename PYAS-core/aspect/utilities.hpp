@@ -3,6 +3,7 @@
 #include <chrono>
 #include <string>
 #include <ctime>
+#include <iostream>
 
 class Semaphore 
 {

@@ -79,16 +79,16 @@ const std::string nanoString(long tv_nsec)
 {
     char number[4] = "000";
     std::string output;
-    long msec, usec, nsec;
-    msec = tv_nsec % 1000000;
-    usec = (tv_nsec % 1000) - 1000*msec;
-    nsec = tv_nsec - (msec*1000 + usec)*1000;
+    int msec, usec, nsec;
+    msec = (int) tv_nsec/1000000;
+    usec = (int) (tv_nsec/1000)%1000;
+    nsec = (int) (tv_nsec-1000*(1000*msec+usec));
     output = "";
-    sprintf(number, ".%03d", (int) msec);
+    sprintf(number, ".%03d", msec);
     output += number;
-    sprintf(number, ".%03d", (int) usec);
+    sprintf(number, ".%03d", usec);
     output += number; 
-    sprintf(number, ".%03d", (int) nsec);
+    sprintf(number, ".%03d", nsec);
     output += number;
     return output;
 }
