@@ -32,11 +32,12 @@ int writePNGImage(cv::InputArray _image, const std::string fileName)
     return 0;
 }
 
-int writeFITSImage(cv::InputArray _image, const uint16_t exposure, const std::string fileName)
+int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fileName)
 {
    
     cv::Mat image = _image.getMat();
     cv::Size size = image.size();
+    std::string timeKey;
     if (size.width == 0 || size.height == 0)
     {
 	std::cout << "Image dimension is 0. Not saving." << std::endl;
@@ -82,8 +83,12 @@ int writeFITSImage(cv::InputArray _image, const uint16_t exposure, const std::st
 
     long  fpixel(1);
        
-    //add two keys to the primary header, one long, one complex.
-    pFits->pHDU().addKey("EXPOSURE", (long)exposure,"Total Exposure Time"); 
+    //add keys to the primary header
+    timeKey = asctime(gmtime(&(keys.captureTime).tv_sec));
+    pFits->pHDU().addKey("DAY AND TIME", timeKey , "Frame Capture Time (UTC)");
+    timeKey = nanoString((keys.captureTime).tv_nsec);
+    pFits->pHDU().addKey("TIME FRACTION", timeKey, "Frame capture fractional seconds");
+    pFits->pHDU().addKey("EXPOSURE", (long)keys.exposureTime,"Total Exposure Time"); 
 
     try
     {
@@ -97,3 +102,23 @@ int writeFITSImage(cv::InputArray _image, const uint16_t exposure, const std::st
 
     return 0;
 }
+
+int readFITSImage(const std::string fileName, cv::OutputArray _image)
+{
+    cv::Size frameSize;
+    std::auto_ptr<FITS> pInfile(new FITS(fileName,Read,true));
+        
+//    PHDU& fileHeader = pInfile->pHDU();
+    ExtHDU& image = pInfile->extension("Raw Frame");
+
+    frameSize.height = image.axis(1);
+    frameSize.width = image.axis(0);
+
+    std::valarray<unsigned char> contents;
+    image.read(contents);
+	    
+    cv::Mat frame(frameSize, CV_8UC1, &contents[0]);
+
+    frame.copyTo(_image);
+    return 0;   
+ }
