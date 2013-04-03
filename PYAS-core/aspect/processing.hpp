@@ -1,6 +1,7 @@
 #include <opencv.hpp>
 #include <vector>
 #include <opencv.hpp>
+#include <cstring>
 
 class CoordList : public std::vector<cv::Point2f>
 {
@@ -71,7 +72,7 @@ enum AspectCode
 };
 
 AspectCode GeneralizeError(AspectCode code);
-std::ostream& operator<<(std::ostream&, const AspectCode& code);
+const char * GetMessage(const AspectCode& code);
 
 class Aspect
 {

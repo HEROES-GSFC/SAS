@@ -1,4 +1,3 @@
-#include <time.h>
 #include "utilities.hpp"
 
 Semaphore::Semaphore()
@@ -65,13 +64,31 @@ bool Flag::check()
 
 timespec TimespecDiff(timespec start, timespec end)
 {
-	timespec temp;
+	timespec diff;
 	if ((end.tv_nsec-start.tv_nsec)<0) {
-		temp.tv_sec = end.tv_sec-start.tv_sec-1;
-		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+		diff.tv_sec = end.tv_sec-start.tv_sec-1;
+		diff.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
 	} else {
-		temp.tv_sec = end.tv_sec-start.tv_sec;
-		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+		diff.tv_sec = end.tv_sec-start.tv_sec;
+		diff.tv_nsec = end.tv_nsec-start.tv_nsec;
 	}
-	return temp;
+	return diff;
+}
+
+const std::string nanoString(long tv_nsec)
+{
+    char number[4] = "000";
+    std::string output;
+    long msec, usec, nsec;
+    msec = tv_nsec % 1000000;
+    usec = (tv_nsec % 1000) - 1000*msec;
+    nsec = tv_nsec - (msec*1000 + usec)*1000;
+    output = "";
+    sprintf(number, ".%03d", (int) msec);
+    output += number;
+    sprintf(number, ".%03d", (int) usec);
+    output += number; 
+    sprintf(number, ".%03d", (int) nsec);
+    output += number;
+    return output;
 }

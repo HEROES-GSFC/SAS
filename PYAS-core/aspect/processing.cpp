@@ -72,89 +72,85 @@ AspectCode GeneralizeError(AspectCode code)
     return STALE_DATA;
 }
 
-std::ostream& operator<<(std::ostream& out, const AspectCode& code)
+const char * GetMessage(const AspectCode& code)
 {
     switch(code)
     {
     case NO_ERROR:
-	out << "No error";
+	return "No error";
 	break;
     case MAPPING_ERROR:
-	out << "Generic Mapping error";
-	break;
+	return "Generic Mapping error";
+	
     case MAPPING_ILL_CONDITIONED:
-	out << "Mapping was ill-conditioned";
-	break;
+	return "Mapping was ill-conditioned";
+	
     case ID_ERROR:
-	out << "Generic IDing error";
-	    break;
+	return "Generic IDing error";
+	    
     case FEW_IDS:
-	out << "Too few valid IDs";
-	break;
+	return "Too few valid IDs";
+	
     case NO_IDS:
-	out << "No valid IDs found";
-	break;
+	return "No valid IDs found";
+	
     case FIDUCIAL_ERROR:
-	out << "Generic fiducial error";
-	break;
+	return "Generic fiducial error";
+	
     case FEW_FIDUCIALS:
-	out << "Too Few Fiducials";
-	break;
+	return "Too Few Fiducials";
+	
     case NO_FIDUCIALS:
-	out << "No fiducials found";
-	break;
+	return "No fiducials found";
+	
     case SOLAR_IMAGE_ERROR:
-	out << "Generic solar image error";
-	break;
+	return "Generic solar image error";
+	
     case SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS:
-	out << "Solar image offset is out of bounds";
-	break;
+	return "Solar image offset is out of bounds";
+	
     case SOLAR_IMAGE_SMALL:
-	out << "Solar image is too small";
-	break;
+	return "Solar image is too small";
+	
     case SOLAR_IMAGE_EMPTY:
-	out << "Solar image is empty";
-	break;
-
+	return "Solar image is empty";
+	
     case CENTER_ERROR:
-	out << "Generic error with pixel center";
-	break;
+	return "Generic error with pixel center";
+	
     case CENTER_ERROR_LARGE:
-	out << "Pixel centers have too large a variance";
-	break;
+	return "Pixel centers have too large a variance";
+	
     case CENTER_OUT_OF_BOUNDS:
-	out << "Pixel center is out of bounds";
-	break;
+	return "Pixel center is out of bounds";
 	
     case LIMB_ERROR:
-	out << "Generic limb error";
-	break;
+	return "Generic limb error";
+	
     case FEW_LIMB_CROSSINGS:
-	out << "Too few limb crossings";
-	break;
+	return "Too few limb crossings";
+	
     case NO_LIMB_CROSSINGS:
-	out << "No limb crossings";
-	break;
+	return "No limb crossings";
+	
     case RANGE_ERROR:
-	out << "Generic dynamic range error";
-	break;
+	return "Generic dynamic range error";
+	
     case DYNAMIC_RANGE_LOW:
-	out << "dynamic range is too low";
-	break;
+	return "dynamic range is too low";
+	
     case MIN_MAX_BAD:
-	out << "Dynamic values aren't real";
-	break;
+	return "Dynamic values aren't real";
 	
     case FRAME_EMPTY:
-	out << "Frame is empty.";
-	break;
+	return "Frame is empty.";
+	
     case STALE_DATA:
-	out << "Data is stale.";
-	break;
+	return "Data is stale.";
+	
     default:
-	out << "How did I get here?";
+	return "How did I get here?";
     }
-    return out;
 }
 
 Aspect::Aspect()

@@ -32,11 +32,12 @@ int writePNGImage(cv::InputArray _image, const std::string fileName)
     return 0;
 }
 
-int writeFITSImage(cv::InputArray _image, const uint16_t exposure, const std::string fileName)
+int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fileName)
 {
    
     cv::Mat image = _image.getMat();
     cv::Size size = image.size();
+    std::string timeKey;
     if (size.width == 0 || size.height == 0)
     {
 	std::cout << "Image dimension is 0. Not saving." << std::endl;
@@ -83,7 +84,10 @@ int writeFITSImage(cv::InputArray _image, const uint16_t exposure, const std::st
     long  fpixel(1);
        
     //add keys to the primary header
-    pFits->pHDU().addKey("EXPOSURE", (long)exposure,"Total Exposure Time"); 
+    timeKey = asctime(gmtime(&(keys.captureTime).tv_sec));
+    timeKey += nanoString((keys.captureTime).tv_nsec);
+    pFits->pHDU().addKey("TIME", timeKey, "Frame Capture Time (UTC)");
+    pFits->pHDU().addKey("EXPOSURE", (long)keys.exposureTime,"Total Exposure Time"); 
 
     try
     {

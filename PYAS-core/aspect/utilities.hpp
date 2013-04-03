@@ -1,5 +1,8 @@
+#pragma once 
 #include <pthread.h>
 #include <chrono>
+#include <string>
+#include <ctime>
 
 class Semaphore 
 {
@@ -27,3 +30,4 @@ private:
 };
 
 timespec TimespecDiff(timespec start, timespec end);
+const std::string nanoString(long tv_nsec);

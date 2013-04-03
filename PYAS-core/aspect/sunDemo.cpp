@@ -465,6 +465,7 @@ void *ImageProcessThread(void *threadid)
 	long int localFrameCount;
 	std::string fitsfile;
 	timespec waittime = {1,0};
+	HeaderData keys;
 	//timespec thetimenow;
 	while(1)
 	{
@@ -496,7 +497,11 @@ void *ImageProcessThread(void *threadid)
 		    {
 			localFrameCount = frameCount;
 			frame.copyTo(localFrame);
+			keys.captureTime = frameTime;
+			keys.frameCount = frameCount;
 			pthread_mutex_unlock(&mutexImage);
+
+			keys.exposureTime = exposure;
 
 			char stringtemp[80];
 			char obsfilespec[128];
@@ -511,7 +516,7 @@ void *ImageProcessThread(void *threadid)
 			sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
 
 			printf("Saving image %s with exposure %d microseconds\n", obsfilespec, exposure);
-			writeFITSImage(localFrame, exposure, obsfilespec);
+			writeFITSImage(localFrame, keys, obsfilespec);
 
 			sleep(SECONDS_AFTER_SAVE);
 		    }
