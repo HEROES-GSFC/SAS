@@ -67,6 +67,9 @@ test_sender: test_sender.cpp UDPSender.o Packet.o lib_crc.o Telemetry.o
 AspectTest: AspectTest.cpp processing.o utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
+AspectVideo: AspectVideo.cpp processing.o utilities.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
+
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp
 	$(CC) -c $(CFLAGS) $< -o $@
