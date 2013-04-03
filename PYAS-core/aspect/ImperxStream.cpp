@@ -338,7 +338,9 @@ void ImperxStream::ConfigureSnap()
 {
     lDeviceParams->SetEnumValue("AcquisitionMode","SingleFrame");
     lDeviceParams->SetEnumValue("ExposureMode","Timed");
-    lDeviceParams->SetEnumValue("PixelFormat","Mono8");    
+    lDeviceParams->SetEnumValue("PixelFormat","Mono8");
+    lDeviceParams->SetBooleanValue("AecEnable", false);
+    lDeviceParams->SetBooleanValue("AgcEnable", false);
 }
 
 int ImperxStream::SetExposure(int exposureTime)
@@ -448,6 +450,63 @@ int ImperxStream::SetROIOffsetY(int y)
     return -1;
 }
 
+int ImperxStream::SetAnalogGain(int gain)
+{
+    PvResult outcome;
+    if (gain >= 0 && gain <= 1023)
+    {
+	outcome = lDeviceParams->SetIntegerValue("GainRaw",gain);
+	if (outcome.IsSuccess())
+	{
+	    return 0;
+	}
+    }
+    return -1;
+}
+
+int ImperxStream::SetPreAmpGain(int gain)
+{
+    PvResult outcome;
+    PvString value;
+    switch(gain)
+    {
+    case -3: 
+        value = "minus3dB";
+	break;
+    case 0: 
+	value = "zero_dB";
+	break;
+    case 3: 
+	value = "plus3dB";
+	break;
+    case 6:
+        value = "plus6dB";
+	break;
+    default:
+	return -1;
+    }
+    outcome = lDeviceParams->SetEnumValue("PreAmpRaw",value);
+    if (outcome.IsSuccess())
+    {
+	return 0;
+    }
+    return -1;
+}
+
+int ImperxStream::SetBlackLevel(int black)
+{
+    PvResult outcome;
+    if (black >= 0 && black <= 1023)
+    {
+	outcome = lDeviceParams->SetIntegerValue("BlackLevelRaw",black);
+	if (outcome.IsSuccess())
+	{
+	    return 0;
+	}
+    }
+    return -1;
+}
+
 int ImperxStream::GetExposure()
 {
     PvInt64 exposure;
@@ -497,4 +556,43 @@ int ImperxStream::GetROIOffsetY()
     PvInt64 y;
     lDeviceParams->GetIntegerValue("OffsetY", y);
     return (int) y;
+}
+
+int ImperxStream::GetAnalogGain()
+{
+    PvInt64 gain;
+    lDeviceParams->GetIntegerValue("GainRaw", gain);
+    return (int) gain;
+}
+
+int ImperxStream::GetBlackLevel()
+{
+    PvInt64 black;
+    lDeviceParams->GetIntegerValue("BlackLevelRaw", black);
+    return (int) black;
+}
+
+int ImperxStream::GetPreAmpGain()
+{
+    int gain;
+    PvInt64 name;
+    lDeviceParams->GetEnumValue("PreAmpRaw", name);
+    switch((int) name)
+    {
+    case 0:
+	gain = -3;
+	break;
+    case 1:
+	gain = 0;
+	break;
+    case 2:
+	gain = 3;
+	break;
+    case 3:
+	gain = 6;
+	break;
+    default:
+        gain = name;
+    }
+   return gain;
 }
