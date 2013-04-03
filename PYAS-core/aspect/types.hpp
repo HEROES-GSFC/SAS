@@ -1,7 +1,10 @@
 /*
 
-Pair, Pair3B
+Pair, Pair3B, Float2B
 
+-----
+Pair, Pair3B
+-----
 These classes are for pairs of doubles.  Pair is not particularly more useful
 than other alternatives, but Pair3B is critical for writing reduced-precision
 pixel location floats to ByteStrings.  Two floats or doubles are stored in only
@@ -25,6 +28,10 @@ To write a Pair as a Pair3B:
 To read a Pair3B:
   Pair3B b;
   bs >> b;
+
+-----
+Float2B
+-----
 
 */
 
@@ -78,6 +85,22 @@ class Pair3B {
     friend std::ostream& operator<<(std::ostream& os, const Pair3B& p3);
 
     friend ByteString& operator>>(ByteString& bs, Pair3B& p3);
+};
+
+class Float2B {
+  private:
+    uint16_t i_value;
+
+  public:
+    Float2B(const float value);
+    Float2B(const uint16_t value);
+
+    float value() const;
+
+    friend ByteString& operator<<(ByteString& bs, const Float2B& f2);
+    friend std::ostream& operator<<(std::ostream& os, const Float2B& f2);
+
+    friend ByteString& operator>>(ByteString& bs, Float2B& f2);
 };
 
 #endif
