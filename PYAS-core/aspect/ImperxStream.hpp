@@ -56,6 +56,7 @@ public:
     int8_t getTemperature( void );
 
 private:
+    PvSystem lSystem;
     PvDevice lDevice;
     PvDeviceInfo *lDeviceInfo;
     PvGenParameterArray *lDeviceParams;

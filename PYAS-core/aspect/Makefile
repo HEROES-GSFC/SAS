@@ -30,7 +30,9 @@ OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
 CCFITS = -lCCfits
 
-EXEC = sunDemo fullDemo packetDemo commandingDemo networkDemo test_command test_sender AspectTest
+EXEC = sunDemo fullDemo packetDemo commandingDemo networkDemo test_command test_sender AspectTest sbc_info
+
+default: sunDemo sbc_info
 
 all: $(EXEC)
 
@@ -70,6 +72,10 @@ AspectTest: AspectTest.cpp processing.o utilities.o compression.o
 AspectVideo: AspectVideo.cpp processing.o utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
+#This executable need to be copied to /usr/local/bin/ after it is built
+sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp
 	$(CC) -c $(CFLAGS) $< -o $@
@@ -79,6 +85,11 @@ lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
 
 spa.o: spa/spa.c spa/spa.h
 	$(CC) -c $(CFLAGS) $< -o $@
+
+install: sbc_info
+	sudo systemctl stop sbc_info
+	sudo cp $^ /usr/local/bin
+	sudo systemctl start sbc_info
 
 clean:
 	rm -rf *.o *.out $(EXEC)
