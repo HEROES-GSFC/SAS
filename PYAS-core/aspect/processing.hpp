@@ -149,7 +149,6 @@ private:
     std::vector<float> conditionNumbers;
     std::vector<float> mapping;
 
-    bool frameProcessed;
 };
 
 
