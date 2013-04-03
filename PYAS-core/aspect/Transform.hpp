@@ -1,9 +1,9 @@
 /*
 
-Transform
+  Transform
 
-Azimuth is defined as eastward from North
-Elevation is defined as poleward from horizontal
+  Azimuth is defined as eastward from North
+  Elevation is defined as poleward from horizontal
 
 
 */
@@ -17,7 +17,7 @@ Elevation is defined as poleward from horizontal
 #include "spa/spa.h"
 
 class Transform {
-  private:
+private:
     //Conversion from pixel to screen coordinates
     Pair conversion_intercept;
     Pair conversion_slope;
@@ -39,7 +39,7 @@ class Transform {
 
     void prep();
 
-  public:
+public:
     Transform();
 
     Pair getSunAzEl(); //azimuth/elevation of the Sun

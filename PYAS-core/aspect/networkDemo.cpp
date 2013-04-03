@@ -39,8 +39,8 @@ sig_atomic_t volatile g_running = 1;
 
 void sig_handler(int signum)
 {
-  if (signum == SIGINT){
-    g_running = 0;
+    if (signum == SIGINT){
+        g_running = 0;
     }
 }
 
@@ -152,9 +152,9 @@ void *listenForCommandsThread(void *threadid)
         
         if (command_packet.valid()){
             printf("listenForCommandsThread: good command packet\n");
-            	        
+                        
             command_sequence_number = command_packet.getSequenceNumber();
-            	        
+                        
             // add tm ack packet
             TelemetryPacket ack_tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
             ack_tp << command_sequence_number;
@@ -225,7 +225,7 @@ void *sendCTLCommandsThread( void *threadid )
         CommandPacket cp(0x01, 100);
         cp << (uint16_t)0x1100;
         cm_packet_queue << cp;
-        	    
+                    
         if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
             pthread_exit( NULL );
@@ -289,27 +289,27 @@ void start_all_threads( void ){
     t = 0L;
     rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 1L;
     rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 2L;
     rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 3L;
     rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 4L;
     rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }   
 }
 
@@ -324,7 +324,7 @@ void start_cmd_thread( void ){
     t = 1L;
     rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
     if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
 }
 
@@ -356,30 +356,30 @@ int main(void)
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
             
             switch( latest_sas_command_key ){
-                case 0x0100:     // test, do nothing
-                    break;
-                case 0x0101:    // kill all worker threads
-                    kill_all_threads();
-                    break;
-                case 0x0102:    // (re)start all worker threads
-                    // kill them all just in case
-                    kill_all_threads();
-                    sleep(1);
-                    start_all_threads();
-                    break;
-                case 0x0103:    // send TCP packet
-                    {
-                    printf("received 0x0103\n");
-                    int t = 5L;
-                    int rc; 
-                    rc = pthread_create(&threads[5],NULL, sendImageHandler,(void *)t);
-                    if (rc){
-                         printf("ERROR; return code from pthread_create() is %d\n", rc);
-                    }
-                    break;
-                    }
-                default:        // unknown command!
-                    printf("Unknown command!\n");
+            case 0x0100:     // test, do nothing
+                break;
+            case 0x0101:    // kill all worker threads
+                kill_all_threads();
+                break;
+            case 0x0102:    // (re)start all worker threads
+                // kill them all just in case
+                kill_all_threads();
+                sleep(1);
+                start_all_threads();
+                break;
+            case 0x0103:    // send TCP packet
+            {
+                printf("received 0x0103\n");
+                int t = 5L;
+                int rc; 
+                rc = pthread_create(&threads[5],NULL, sendImageHandler,(void *)t);
+                if (rc){
+                    printf("ERROR; return code from pthread_create() is %d\n", rc);
+                }
+                break;
+            }
+            default:        // unknown command!
+                printf("Unknown command!\n");
             }
         }
         
