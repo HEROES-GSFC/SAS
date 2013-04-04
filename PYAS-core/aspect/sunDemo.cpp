@@ -45,6 +45,7 @@
 // global declarations
 uint16_t command_sequence_number = 0;
 uint16_t latest_sas_command_key = 0x0000;
+uint16_t latest_sas_command_vars[15];
 uint32_t tm_frame_sequence_number = 0;
 
 CommandQueue recvd_command_queue;
@@ -59,11 +60,12 @@ pthread_attr_t attr;
 pthread_mutex_t mutexImage;
 pthread_mutex_t mutexProcess;
 
-struct thread_data{
+struct Thread_data{
     int  thread_id;
-    uint16_t  var;
+    uint16_t command_key;
+    uint16_t command_var[10];
 };
-struct thread_data thread_data_array[NUM_THREADS];
+struct Thread_data thread_data;
 
 sig_atomic_t volatile g_running = 1;
 
@@ -859,7 +861,8 @@ void *commandHandlerThread(void *threadargs)
     uint16_t error_code = 0;
     my_data = (struct thread_data *) threadargs;
     tid = (long)my_data->thread_id;
-    uint16_t command_key = my_data->var;
+    uint16_t command_key = my_data->command_key;
+    uint16_t command_var[10] = my_data->command_var;
 
     printf("commandHandler thread #%ld!\n", tid);
     printf("Received data 0x%04x\n", command_key);
@@ -981,7 +984,12 @@ int main(void)
 
             latest_sas_command_key = command.get_sas_command();
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
-        
+            number_of_command_variables = command.lookup_sas_payload_length(latest_sas_command_key);
+            for(int i = 0; i < number_of_command_variables; i++){
+	            	command >> latest_sas_command_vars[i];
+					printf("command var %i is %u", i, latest_sas_command_vars[i]);
+            	}
+            
             switch( latest_sas_command_key ){
                 case 0xFFFF:     // dummy command, has sequence number
                 	queue_cmd_proc_ack_tmpacket( 1 );
@@ -1003,9 +1011,9 @@ int main(void)
                 default:
                     long t = 10L;
                     int rc;
-                    thread_data_array[t].thread_id = t;
-                    thread_data_array[t].var = latest_sas_command_key;
-                    //thread_data_array[t].message = messages[t];
+                    thread_data.thread_id = t;
+                    thread_data.command_key = latest_sas_command_key;
+                    thread_data.command_vars = latest_sas_command_vars;
                     rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
                     if ((skip[t] = (rc != 0))) {
                         printf("ERROR; return code from pthread_create() is %d\n", rc);
