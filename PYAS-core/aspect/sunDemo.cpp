@@ -862,7 +862,7 @@ void *commandHandlerThread(void *threadargs)
     my_data = (struct Thread_data *) threadargs;
     tid = (long)my_data->thread_id;
     uint16_t command_key = my_data->command_key;
-    uint16_t command_var[10] = my_data->command_var;
+    uint16_t command_var[15] = my_data->command_vars;
 
     printf("commandHandler thread #%ld!\n", tid);
     printf("Received data 0x%04x\n", command_key);
@@ -877,7 +877,7 @@ void *commandHandlerThread(void *threadargs)
             break;
         case 0x1151:    // set exposure time
 			{
-				command >> exposure; //overwrites global
+				command_var[0] >> exposure; //overwrites global
                 std::cout << "Requested exposure time is: " << exposure << std::endl;
             }
             break;
