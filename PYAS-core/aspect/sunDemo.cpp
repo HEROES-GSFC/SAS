@@ -63,7 +63,7 @@ pthread_mutex_t mutexProcess;
 struct Thread_data{
     int  thread_id;
     uint16_t command_key;
-    uint16_t command_var[10];
+    uint16_t command_vars[10];
 };
 struct Thread_data thread_data;
 
@@ -984,7 +984,7 @@ int main(void)
 
             latest_sas_command_key = command.get_sas_command();
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
-            number_of_command_variables = command.lookup_sas_payload_length(latest_sas_command_key);
+            int number_of_command_variables = command.lookup_sas_payload_length(latest_sas_command_key);
             for(int i = 0; i < number_of_command_variables; i++){
 	            	command >> latest_sas_command_vars[i];
 					printf("command var %i is %u", i, latest_sas_command_vars[i]);
@@ -1014,7 +1014,7 @@ int main(void)
                     thread_data.thread_id = t;
                     thread_data.command_key = latest_sas_command_key;
                     thread_data.command_vars = latest_sas_command_vars;
-                    rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
+                    rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data);
                     if ((skip[t] = (rc != 0))) {
                         printf("ERROR; return code from pthread_create() is %d\n", rc);
                     };
