@@ -57,7 +57,7 @@ networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.
 thermvacDemo: thermvacDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o TCPSender.o processing.o utilities.o ImperxStream.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
-sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o spa.o Transform.o TCPSender.o
+sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
 tcpDemo: tcpDemo.cpp TCPReceiver.o Packet.o lib_crc.o TCPSender.o
@@ -92,7 +92,7 @@ sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o
 lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
-spa.o: spa/spa.c spa/spa.h
+Transform.o: Transform.cpp Transform.hpp spa/spa.c spa/spa.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
 install: sbc_info
