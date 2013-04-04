@@ -583,19 +583,19 @@ void *TelemetryPackagerThread(void *threadid)
             localFiducials = pixelFiducials;
             localMapping = mapping;
 
-            std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
+            //std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
             if(localMapping.size() == 4) {
                 std::cout << ", mapping is";
                 for(uint8_t l = 0; l < 4; l++) std::cout << " " << localMapping[l];
                 solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
             }
-            std::cout << std::endl;
+            //std::cout << std::endl;
 
-            std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
+            //std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
 
             pthread_mutex_unlock(&mutexProcess);
             } else {
-            std::cout << "Using stale information for telemetry packet" << std::endl;
+            //std::cout << "Using stale information for telemetry packet" << std::endl;
         }
 
         /*
@@ -806,7 +806,7 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 	tm_packet_queue << ack_tp;
 }
 
-void cmd_send_image_to_ground( int camera_id)
+uint16_t cmd_send_image_to_ground( int camera_id )
 {
 	// camera_id refers to 0 PYAS, 1 is RAS (if valid)
 	uint16_t error_code = 0;
@@ -848,13 +848,15 @@ void cmd_send_image_to_ground( int camera_id)
         }
     }
     tcpSndr.close_connection();
-    queue_cmd_proc_ack_tmpacket( error_code );
+    error_code = 1;
+    return error_code;
 }
         
 void *commandHandlerThread(void *threadargs)
 {
     long tid;
     struct thread_data *my_data;
+    uint16_t error_code = 0;
     my_data = (struct thread_data *) threadargs;
     tid = (long)my_data->thread_id;
     uint16_t command_key = my_data->var;
@@ -866,7 +868,14 @@ void *commandHandlerThread(void *threadargs)
     {
         case 0x1210:
             {
-	            cmd_send_image_to_ground( 0 );  
+	            error_code = cmd_send_image_to_ground( 0 );
+	            queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case 0x1151:    // set exposure time
+			{
+				command >> exposure; //overwrites global
+                std::cout << "Requested exposure time is: " << exposure << std::endl;
             }
             break;
         default:
@@ -975,22 +984,21 @@ int main(void)
         
             switch( latest_sas_command_key ){
                 case 0xFFFF:     // dummy command, has sequence number
+                	queue_cmd_proc_ack_tmpacket( 0 )
                     break;
                 case 0x1000:     // test, do nothing
+                	queue_cmd_proc_ack_tmpacket( 0 )
                     break;
                 case 0x1010:    // kill all worker threads
                     kill_all_threads();
+                    queue_cmd_proc_ack_tmpacket( 0 )
                     break;
                 case 0x1020:    // (re)start all worker threads
                     // kill them all just in case
                     kill_all_threads();
                     sleep(1);
                     start_all_threads();
-                    break;
-                case 0x1151:    // set exposure time
-                    //Currently put here due to lack of avenue to pass command variables down to commandHandler
-                    command >> exposure; //overwrites global
-                    std::cout << "Requested exposure time is: " << exposure << std::endl;
+                    queue_cmd_proc_ack_tmpacket( 0 )
                     break;
                 default:
                     long t = 10L;
