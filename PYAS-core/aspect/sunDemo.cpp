@@ -63,7 +63,7 @@ pthread_mutex_t mutexProcess;
 struct Thread_data{
     int  thread_id;
     uint16_t command_key;
-    uint16_t command_vars[10];
+    uint16_t command_vars[15];
 };
 struct Thread_data thread_data;
 
