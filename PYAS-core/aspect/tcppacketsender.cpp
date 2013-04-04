@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     ssize_t numBytes = send(sock, echoString, echoStringLen, 0);
     if (numBytes < 0){ printf("send() failed"); }
     else if (numBytes != echoStringLen)
-        { printf("send()", "sent unexpected number of bytes"); }
+    { printf("send()", "sent unexpected number of bytes"); }
     
     close(sock);
     exit(0);

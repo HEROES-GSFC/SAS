@@ -57,17 +57,17 @@ void UDPSender::send( Packet *packet )
         packet->outputTo(payload);
     
         bytesSent = sendto(sock, payload, packet->getLength(), 0, (struct sockaddr *)
-                   &sendAddr, sizeof(sendAddr));
+                           &sendAddr, sizeof(sendAddr));
         if (bytesSent != packet->getLength()){
-                printf("UDPSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
-            }
+            printf("UDPSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
+        }
         if (bytesSent == -1){ printf("UDPSender: sendto() failed!\n"); }
     }
     close_connection();
 }
 
 TelemetrySender::TelemetrySender( const char *ip, unsigned short port )
-  : UDPSender(ip, port) { }
+    : UDPSender(ip, port) { }
 
 void TelemetrySender::send( TelemetryPacket *packet )
 {
@@ -81,17 +81,17 @@ void TelemetrySender::send( TelemetryPacket *packet )
         packet->outputTo(payload);
     
         bytesSent = sendto(sock, payload, packet->getLength(), 0, (struct sockaddr *)
-                   &sendAddr, sizeof(sendAddr));
+                           &sendAddr, sizeof(sendAddr));
         if (bytesSent != packet->getLength()){
-                printf("TelemetrySender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
-            }
+            printf("TelemetrySender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
+        }
         if (bytesSent == -1){ printf("TelemetrySender: sendto() failed!\n"); }
     }
     close_connection();
 }
 
 CommandSender::CommandSender( const char *ip, unsigned short port )
-  : UDPSender(ip, port) { }
+    : UDPSender(ip, port) { }
 
 void CommandSender::send( CommandPacket *packet )
 {
@@ -107,10 +107,10 @@ void CommandSender::send( CommandPacket *packet )
         /* Send the string to the server */
         
         bytesSent = sendto(sock, payload, packet->getLength(), 0, (struct sockaddr *)
-                   &sendAddr, sizeof(sendAddr));
+                           &sendAddr, sizeof(sendAddr));
         if (bytesSent != packet->getLength()){
-                printf("CommandSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
-            }
+            printf("CommandSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
+        }
         if (bytesSent == -1){ printf("CommandSender: sendto() failed!\n"); }
         close_connection();
     }      

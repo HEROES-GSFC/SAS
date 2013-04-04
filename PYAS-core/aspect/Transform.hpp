@@ -1,9 +1,9 @@
 /*
 
-Transform
+  Transform
 
-Azimuth is defined as eastward from North
-Elevation is defined as poleward from horizontal
+  Azimuth is defined as eastward from North
+  Elevation is defined as poleward from horizontal
 
 
 */
@@ -17,7 +17,7 @@ Elevation is defined as poleward from horizontal
 #include "spa/spa.h"
 
 class Transform {
-  private:
+private:
     //Conversion from pixel to screen coordinates
     Pair conversion_intercept;
     Pair conversion_slope;
@@ -35,11 +35,14 @@ class Transform {
     //Solar target in helioprojective coordinates (arcseconds)
     Pair solar_target;
 
-    spa_data spa;
+    spa_data spa; //Calculations for Sun center
+    spa_data spa2; //Calculations for ~north pole of the Sun
+    double elevation, elevation2;
+    double orientation; //Calculated apparent orientation of the Sun's north pole, measured eastward from zenith
 
     void prep();
 
-  public:
+public:
     Transform();
 
     Pair getSunAzEl(); //azimuth/elevation of the Sun
@@ -48,8 +51,10 @@ class Transform {
 
     Pair getAngularShift(const Pair& sunPixel);
 
+    double getOrientation();
+
     //returns new azimuth/elevation
-    Pair addAngularShiftToAzEl(const Pair& angularShift, const Pair& azel);
+    Pair translateAzEl(const Pair& amount, const Pair& azel);
 
     void report();
     Pair calculateOffset(const Pair& sunPixel);
@@ -60,5 +65,9 @@ class Transform {
 
     void set_solar_target(const Pair& arg);
 };
+
+//Follows the scheme in spa.c but extends the calculation
+int spa_calculate2(spa_data *spa, spa_data *spa2);
+
 
 #endif

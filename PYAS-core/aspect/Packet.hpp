@@ -1,46 +1,46 @@
 /*
 
-ByteString, Packet, and ByteStringQueue
+  ByteString, Packet, and ByteStringQueue
 
-These are base classes used by Command* and Telemetry* classes.  See the
-documentation for those classes for examples of usage.  Private variables
-should not added when inheriting from ByteString to keep casting safe.  For
-example, *Queue classes only contain ByteString entries, but can be cast to the
-"proper" type upon extraction.
+  These are base classes used by Command* and Telemetry* classes.  See the
+  documentation for those classes for examples of usage.  Private variables
+  should not added when inheriting from ByteString to keep casting safe.  For
+  example, *Queue classes only contain ByteString entries, but can be cast to the
+  "proper" type upon extraction.
 
-The recommended approach to append data to a ByteString is to use the insertion
-operator <<, which can accept the following data types:
+  The recommended approach to append data to a ByteString is to use the insertion
+  operator <<, which can accept the following data types:
   uint8_t, uint16_t, uint32_t, int8_t, int16_t, int32_t, float, double,
   ByteString*
-For classes (*), the actual data inserted is customized.  To insert an array,
-you will need to use the append_bytes() method.
+  For classes (*), the actual data inserted is customized.  To insert an array,
+  you will need to use the append_bytes() method.
 
-Once the ByteString is built to satisfaction, you can extract the data using
-the extraction operator >>.  If you extract to a uint8_t array pointer, the
-entire buffer is extracted.  Otherwise, only enough bytes are read out to
-fill the data type, and a read pointer is advanced.  Alternatively, you can use
-outputTo() and readNextTo().
+  Once the ByteString is built to satisfaction, you can extract the data using
+  the extraction operator >>.  If you extract to a uint8_t array pointer, the
+  entire buffer is extracted.  Otherwise, only enough bytes are read out to
+  fill the data type, and a read pointer is advanced.  Alternatively, you can use
+  outputTo() and readNextTo().
 
-It is your responsibility to allocate the space before calling the extraction.
-The necessary size can be retrieved by getLength(), or just use a large enough
-destination array.
+  It is your responsibility to allocate the space before calling the extraction.
+  The necessary size can be retrieved by getLength(), or just use a large enough
+  destination array.
 
-For convenience when testing, the ByteString can be inserted into an ostream for
-hexadecimal output.
+  For convenience when testing, the ByteString can be inserted into an ostream for
+  hexadecimal output.
 
-The ByteStringQueue class protects the insertion and extraction operators with
-mutex locking and unlocking.  If the queue is locked when attempting an
-operation, the operation will be blocked for up to 250 ms.  If the timeout is
-reach, an exception will be thrown.
+  The ByteStringQueue class protects the insertion and extraction operators with
+  mutex locking and unlocking.  If the queue is locked when attempting an
+  operation, the operation will be blocked for up to 250 ms.  If the timeout is
+  reach, an exception will be thrown.
 
-A variety of exceptions, derived from std::exception, can be thrown.
+  A variety of exceptions, derived from std::exception, can be thrown.
 
-How to catch an exception:
+  How to catch an exception:
   try {
-    ...
+  ...
   }
   catch (std::exception& e) {
-    std::cerr << e.what() << std::endl;
+  std::cerr << e.what() << std::endl;
   }
 
 */
@@ -58,7 +58,7 @@ How to catch an exception:
 
 //Useful base class, may wish to break out
 class ByteString {
-  private:
+private:
     uint8_t buffer[PACKET_MAX_SIZE];
     uint16_t length;
     uint16_t read_index;
@@ -67,7 +67,7 @@ class ByteString {
     //when outputTo() or >> is used
     virtual void finish() {};
 
-  public:
+public:
     ByteString();
     ByteString(const char *str); //from a null-terminated hexadecimal string
 
@@ -116,10 +116,10 @@ class ByteString {
 };
 
 class Packet : public ByteString {
-  private:
+private:
     virtual void finish() {};
 
-  public:
+public:
     Packet();
     Packet(const uint8_t *ptr, uint16_t num);
 
@@ -128,10 +128,10 @@ class Packet : public ByteString {
 };
 
 class ByteStringQueue : public std::list<ByteString> {
-  private:
+private:
     pthread_mutex_t flag;
 
-  public:
+public:
     ByteStringQueue();
     ~ByteStringQueue();
 
@@ -139,25 +139,25 @@ class ByteStringQueue : public std::list<ByteString> {
     int lock();
     int unlock();
 
-  //insertion operator <<
-  //If a queue is inserted, the source queue will be emptied
-  friend ByteStringQueue &operator<<(ByteStringQueue &bq, const ByteString &bs);
-  friend ByteStringQueue &operator<<(ByteStringQueue &bq, ByteStringQueue &other);
+    //insertion operator <<
+    //If a queue is inserted, the source queue will be emptied
+    friend ByteStringQueue &operator<<(ByteStringQueue &bq, const ByteString &bs);
+    friend ByteStringQueue &operator<<(ByteStringQueue &bq, ByteStringQueue &other);
 
-  //insertion operator << for ostream
-  friend std::ostream &operator<<(std::ostream &os, ByteStringQueue &bq);
+    //insertion operator << for ostream
+    friend std::ostream &operator<<(std::ostream &os, ByteStringQueue &bq);
 
-  //extraction operator >>
-  //Removes the entry from the queue
-  friend ByteStringQueue &operator>>(ByteStringQueue &bq, ByteString &bs);
+    //extraction operator >>
+    //Removes the entry from the queue
+    friend ByteStringQueue &operator>>(ByteStringQueue &bq, ByteString &bs);
 };
 
 namespace pkt
 {
-  //Handy macros for ostream formatting
-  std::ostream& byte(std::ostream& os);
-  std::ostream& word(std::ostream& os);
-  std::ostream& reset(std::ostream& os);
+    //Handy macros for ostream formatting
+    std::ostream& byte(std::ostream& os);
+    std::ostream& word(std::ostream& os);
+    std::ostream& reset(std::ostream& os);
 }
 
 #endif

@@ -62,12 +62,12 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
     no_bytes_count = 0;
 
     //while (numBytesRcvd < packet_size) { // 0 indicates end of stream
-        // See if there is more data to receive
+    // See if there is more data to receive
     //    bytes = recv(client_socket, payload, BUFSIZE, 0);
-        // printf("received %i\n, %i\n", bytes, no_bytes_count);
+    // printf("received %i\n, %i\n", bytes, no_bytes_count);
     //if (bytes == 0){ no_bytes_count++; if (no_bytes_count > 5){ close_connection(); break; } }
     //    if (bytes < 0){ printf("recv() failed\n"); } else { numBytesRcvd += bytes; }
-   // }
+    // }
     //close(client_socket); // Close client socket
     return numBytesRcvd;
 }
