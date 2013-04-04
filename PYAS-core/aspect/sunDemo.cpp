@@ -806,7 +806,7 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 	tm_packet_queue << ack_tp;
 }
 
-void cmd_send_image_to_ground( int camera_id);
+void cmd_send_image_to_ground( int camera_id)
 {
 	// camera_id refers to 0 PYAS, 1 is RAS (if valid)
 	uint16_t error_code = 0;
