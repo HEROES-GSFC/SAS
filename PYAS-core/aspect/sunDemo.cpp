@@ -981,13 +981,13 @@ int main(void)
             recvd_command_queue >> command;
 
             latest_sas_command_key = command.get_sas_command();
-            int number_of_command_variables = command.lookup_sas_payload_length(latest_sas_command_key)/2;
+            int number_of_command_variables = (uint16_t) command.lookup_sas_payload_length(latest_sas_command_key)/2.0;
                         printf("sas command key: 0x%X (%i vars)\n", (uint16_t) latest_sas_command_key, number_of_command_variables);
-            for(int i = 0; i < number_of_command_variables; i++){
-	            	command >> latest_sas_command_vars[i];
-	            	thread_data.command_vars[i] = latest_sas_command_vars[i];
-					printf("command var %i is %u", i, latest_sas_command_vars[i]);
-            	}
+            //for(int i = 0; i < number_of_command_variables; i++){
+	        //    	command >> latest_sas_command_vars[i];
+	        //    	thread_data.command_vars[i] = latest_sas_command_vars[i];
+			//		printf("command var %i is %u", i, latest_sas_command_vars[i]);
+            //	}
             
             switch( latest_sas_command_key ){
                 case 0xFFFF:     // dummy command, has sequence number
