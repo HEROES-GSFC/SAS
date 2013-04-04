@@ -3,6 +3,7 @@
 #define SAS_TM_TYPE 0x70
 #define SAS_IMAGE_TYPE 0x82
 #define SAS_CM_ACK_TYPE 0x01
+#define SAS_CM_PROC_ACK_TYPE 0xe1
 #define CTL_IP_ADDRESS "192.168.1.2"
 #define FDR_IP_ADDRESS "192.168.2.4"
 #define CTL_CMD_PORT 2000
@@ -716,7 +717,7 @@ void *listenForCommandsThread(void *threadid)
 
         command_sequence_number = command_packet.getSequenceNumber();
 
-        // add tm ack packet
+        // add command ack packet
         TelemetryPacket ack_tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
         ack_tp << command_sequence_number;
         tm_packet_queue << ack_tp;
@@ -796,8 +797,19 @@ void *sendCTLCommandsThread( void *threadid )
     return NULL;
 }
 
-void cmd_send_image_to_ground
+void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 {
+	TelemetryPacket ack_tp(SAS_CM_PROC_ACK_TYPE, SAS_TARGET_ID);
+	ack_tp << command_sequence_number;
+	ack_tp << latest_sas_command_key;
+	ack_tp << error_code;
+	tm_packet_queue << ack_tp;
+}
+
+void cmd_send_image_to_ground( int camera_id);
+{
+	// camera_id refers to 0 PYAS, 1 is RAS (if valid)
+	uint16_t error_code = 0;
 	cv::Mat localFrame;
 	TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
 	tcpSndr.init_connection();
@@ -836,6 +848,7 @@ void cmd_send_image_to_ground
         }
     }
     tcpSndr.close_connection();
+    queue_cmd_proc_ack_tmpacket( error_code );
 }
         
 void *commandHandlerThread(void *threadargs)
@@ -853,7 +866,7 @@ void *commandHandlerThread(void *threadargs)
     {
         case 0x1210:
             {
-	            cmd_send_image_to_ground( localFrame );  
+	            cmd_send_image_to_ground( 0 );  
             }
             break;
         default:
