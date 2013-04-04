@@ -84,11 +84,18 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     long  fpixel(1);
        
     //add keys to the primary header
-    timeKey = asctime(gmtime(&(keys.captureTime).tv_sec));
-    pFits->pHDU().addKey("DAY AND TIME", timeKey , "Frame Capture Time (UTC)");
-    timeKey = nanoString((keys.captureTime).tv_nsec);
-    pFits->pHDU().addKey("TIME FRACTION", timeKey, "Frame capture fractional seconds");
-    pFits->pHDU().addKey("EXPOSURE", (long)keys.exposureTime,"Total Exposure Time"); 
+    timeKey = asctime(gmtime(&(keys.captureTimeFixed).tv_sec));
+    pFits->pHDU().addKey("TIME_FIXED", timeKey , "Absolute Frame Capture Time (UTC)");
+    pFits->pHDU().addKey("TIME_FIXED_NS", (long)(keys.captureTimeFixed).tv_nsec, 
+                         "Absolute Frame Capture Time (ns)");
+
+    timeKey = asctime(gmtime(&(keys.captureTimeNTP).tv_sec));
+    pFits->pHDU().addKey("TIME_NTP", timeKey , "NTP Frame Capture Time (UTC)");
+    pFits->pHDU().addKey("TIME_NTP_NS", (long)(keys.captureTimeNTP).tv_nsec, 
+                         "NTP Frame Capture Time (ns)");
+
+    pFits->pHDU().addKey("FRAME_COUNT", (long)keys.frameCount, "Frame count");
+    pFits->pHDU().addKey("EXPOSURE", (long)keys.exposureTime,"Total Exposure Time");
 
     try
     {

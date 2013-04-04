@@ -87,7 +87,8 @@ uint16_t exposure = 4500;
 timespec frameRate = {0,100000000L};
 int cameraReady = 0;
 
-timespec frameTime;
+
+timespec captureTimeNTP, captureTimeFixed;
 long int frameCount = 0;
 
 int8_t camera_temperature;
@@ -144,7 +145,7 @@ void *CameraStreamThread( void * threadid)
     ImperxStream camera;
 
     cv::Mat localFrame;
-    timespec preExposure, postExposure, timeElapsed, duration;
+    timespec localCaptureTime, preExposure, postExposure, timeElapsed, timeToWait;
     int width, height;
     int failcount = 0;
 
@@ -173,8 +174,6 @@ void *CameraStreamThread( void * threadid)
             else
             {
                 camera.ConfigureSnap();
-                //camera.SetROISize(960,960);
-                //camera.SetROIOffset(165,0);
                 camera.SetExposure(exposure);
 
                 width = camera.GetROIWidth();
@@ -193,14 +192,13 @@ void *CameraStreamThread( void * threadid)
         }
         else
         {
-            if (localExposure != exposure) {
-                localExposure = exposure;
-                camera.SetExposure(localExposure);
-            }
+            //Record start time of this exposure. Nothing should happen before recording preExposure.
+            //For either of these times to be accurate, as little as possible should happen between them and ImpxerStream::Snap
+            clock_gettime(CLOCK_MONOTONIC, &preExposure);
+            clock_gettime(CLOCK_REALTIME, &localCaptureTime);
 
-            clock_gettime(CLOCK_REALTIME, &preExposure);
-
-            if(!camera.Snap(localFrame))
+            //Request an image from camera
+            if(!camera.Snap(localFrame,frameRate))
             {
                 failcount = 0;
                 procReady.raise();
@@ -210,7 +208,8 @@ void *CameraStreamThread( void * threadid)
                 pthread_mutex_lock(&mutexImage);
                 //printf("CameraStreamThread: got lock, copying over\n");
                 localFrame.copyTo(frame);
-                frameTime = preExposure;
+                captureTimeNTP = localCaptureTime;
+                captureTimeFixed = preExposure;
                 //printf("%d\n", frame.at<uint8_t>(0,0));
                 frameCount++;
                 pthread_mutex_unlock(&mutexImage);
@@ -233,12 +232,26 @@ void *CameraStreamThread( void * threadid)
                     continue;
                 }
             }
-            clock_gettime(CLOCK_REALTIME, &postExposure);
+
+            //Adjust exposure time if necessary
+            if (localExposure != exposure) {
+                localExposure = exposure;
+                camera.SetExposure(localExposure);
+            }
+
+            //Record time that camera exposure finished. As little as possible should happen between this call and the call to nanosleep()
+            clock_gettime(CLOCK_MONOTONIC, &postExposure);
+
+            //Determine time spent on camera exposure
             timeElapsed = TimespecDiff(preExposure, postExposure);
-            duration.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
-            duration.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
+
+            //Calculate the time to wait for next exposure
+            timeToWait.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
+            timeToWait.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
 //            std::cout << timeElapsed.tv_sec << " " << timeElapsed.tv_nsec << "\n";
-            nanosleep(&duration, NULL);
+
+            //Wait till next exposure time
+            nanosleep(&timeToWait, NULL);
         }
     }
 }
@@ -518,7 +531,8 @@ void *SaveImageThread(void *threadid)
                 {
                     localFrameCount = frameCount;
                     frame.copyTo(localFrame);
-                    keys.captureTime = frameTime;
+                    keys.captureTimeFixed = captureTimeFixed;
+                    keys.captureTimeNTP = captureTimeNTP;
                     keys.frameCount = frameCount;
                     pthread_mutex_unlock(&mutexImage);
 

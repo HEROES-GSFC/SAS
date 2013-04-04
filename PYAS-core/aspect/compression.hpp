@@ -4,7 +4,7 @@
 
 struct HeaderData
 {
-    timespec captureTime;
+    timespec captureTimeFixed, captureTimeNTP;
     long frameCount;
     int exposureTime;
 };
