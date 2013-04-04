@@ -9,24 +9,24 @@
 #define MAX_PACKET_SIZE 300
 
 class TCPReceiver {
-    protected:
-        int sender_sock;                /* Socket of someone connecting to me */
-        int my_sock;                /* My Socket */
-        struct sockaddr_in myAddr;      /* Local address */
-        struct sockaddr_in senderAddr;  /* Sender address */
-        socklen_t senderAddrLen;
+protected:
+    int sender_sock;                /* Socket of someone connecting to me */
+    int my_sock;                /* My Socket */
+    struct sockaddr_in myAddr;      /* Local address */
+    struct sockaddr_in senderAddr;  /* Sender address */
+    socklen_t senderAddrLen;
 
-        char payload[MAX_PACKET_SIZE];  /* Buffer for echo string */
-        unsigned short listeningPort;   /* The port to listen to */
-        int numBytesRcvd;                /* Size of received message */
-        unsigned int packet_size;
-    public:
-        TCPReceiver( void );
-        TCPReceiver( unsigned short port );
-        void set_packet_size( int num_bytes );
-        void get_packet( uint8_t *packet  );
-        unsigned int handle_tcpclient( int client_socket );
-        int accept_packet();
-        void init_connection( void );
-        void close_connection( void );
+    char payload[MAX_PACKET_SIZE];  /* Buffer for echo string */
+    unsigned short listeningPort;   /* The port to listen to */
+    int numBytesRcvd;                /* Size of received message */
+    unsigned int packet_size;
+public:
+    TCPReceiver( void );
+    TCPReceiver( unsigned short port );
+    void set_packet_size( int num_bytes );
+    void get_packet( uint8_t *packet  );
+    unsigned int handle_tcpclient( int client_socket );
+    int accept_packet();
+    void init_connection( void );
+    void close_connection( void );
 };

@@ -13,21 +13,21 @@ int writePNGImage(cv::InputArray _image, const std::string fileName)
     cv::Size size = image.size();
     if (size.width == 0 || size.height == 0)
     {
-	std::cout << "Image dimension is 0. Not saving." << std::endl;
-	return -1;
+        std::cout << "Image dimension is 0. Not saving." << std::endl;
+        return -1;
     } 
     pngParams.push_back(CV_IMWRITE_PNG_COMPRESSION);
     pngParams.push_back(0);
     try
     {
-	cv::imwrite(fileName, image, pngParams);
+        cv::imwrite(fileName, image, pngParams);
     }
     catch(cv::Exception e)
     {
-	std::cout << "OpenCV Error: " << e.err << std::endl;
-	std::cout << "    In file: " << e.file << std::endl;
-	std::cout << "    on line: " << e.line << std::endl;
-	return -1;
+        std::cout << "OpenCV Error: " << e.err << std::endl;
+        std::cout << "    In file: " << e.file << std::endl;
+        std::cout << "    on line: " << e.line << std::endl;
+        return -1;
     }
     return 0;
 }
@@ -40,8 +40,8 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     std::string timeKey;
     if (size.width == 0 || size.height == 0)
     {
-	std::cout << "Image dimension is 0. Not saving." << std::endl;
-	return -1;
+        std::cout << "Image dimension is 0. Not saving." << std::endl;
+        return -1;
     }    
     // declare auto-pointer to FITS at function scope. Ensures no resources
     // leaked if something fails in dynamic allocation.
@@ -53,8 +53,8 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     }
     catch (FITS::CantCreate)
     {
-	// ... or not, as the case may be.
-	return -1;       
+        // ... or not, as the case may be.
+        return -1;       
     }
 
     long nelements(1); 
@@ -69,12 +69,12 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     ExtHDU* imageExt;
     try
     {
-	imageExt = pFits->addImage(newName, BYTE_IMG, extAx, 1);
+        imageExt = pFits->addImage(newName, BYTE_IMG, extAx, 1);
     }
     catch(FitsError e)
     {
-	std::cout << e.message() << "\n";
-	return -1;
+        std::cout << e.message() << "\n";
+        return -1;
     }
 
     nelements = size.width*size.height*sizeof(unsigned char);
@@ -92,12 +92,12 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
 
     try
     {
-	imageExt->write(fpixel,nelements,array);
+        imageExt->write(fpixel,nelements,array);
     }
     catch(FitsException e)
     {
-	std::cout << e.message();
-	return -1;
+        std::cout << e.message();
+        return -1;
     }
 
     return 0;
@@ -116,9 +116,9 @@ int readFITSImage(const std::string fileName, cv::OutputArray _image)
 
     std::valarray<unsigned char> contents;
     image.read(contents);
-	    
+            
     cv::Mat frame(frameSize, CV_8UC1, &contents[0]);
 
     frame.copyTo(_image);
     return 0;   
- }
+}
