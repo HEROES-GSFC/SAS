@@ -984,21 +984,21 @@ int main(void)
         
             switch( latest_sas_command_key ){
                 case 0xFFFF:     // dummy command, has sequence number
-                	queue_cmd_proc_ack_tmpacket( 0 )
+                	queue_cmd_proc_ack_tmpacket( 1 );
                     break;
                 case 0x1000:     // test, do nothing
-                	queue_cmd_proc_ack_tmpacket( 0 )
+                	queue_cmd_proc_ack_tmpacket( 1 );
                     break;
                 case 0x1010:    // kill all worker threads
                     kill_all_threads();
-                    queue_cmd_proc_ack_tmpacket( 0 )
+                    queue_cmd_proc_ack_tmpacket( 1 );
                     break;
                 case 0x1020:    // (re)start all worker threads
                     // kill them all just in case
                     kill_all_threads();
                     sleep(1);
                     start_all_threads();
-                    queue_cmd_proc_ack_tmpacket( 0 )
+                    queue_cmd_proc_ack_tmpacket( 1 );
                     break;
                 default:
                     long t = 10L;
