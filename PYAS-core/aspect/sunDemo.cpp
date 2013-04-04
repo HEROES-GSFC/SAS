@@ -987,6 +987,7 @@ int main(void)
             int number_of_command_variables = command.lookup_sas_payload_length(latest_sas_command_key);
             for(int i = 0; i < number_of_command_variables; i++){
 	            	command >> latest_sas_command_vars[i];
+	            	thread_data.command_vars[i] = latest_sas_command_vars[i];
 					printf("command var %i is %u", i, latest_sas_command_vars[i]);
             	}
             
@@ -1013,7 +1014,6 @@ int main(void)
                     int rc;
                     thread_data.thread_id = t;
                     thread_data.command_key = latest_sas_command_key;
-                    thread_data.command_vars = latest_sas_command_vars;
                     rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data);
                     if ((skip[t] = (rc != 0))) {
                         printf("ERROR; return code from pthread_create() is %d\n", rc);
