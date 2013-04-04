@@ -315,7 +315,7 @@ void *ImageProcessThread(void *threadid)
                         aspect.GetPixelCrossings(localLimbs);
 
                     case LIMB_ERROR:
-		    case RANGE_ERROR:
+                    case RANGE_ERROR:
                         aspect.GetPixelMinMax(localMin, localMax);
                         break;
                     default:
@@ -343,7 +343,7 @@ void *ImageProcessThread(void *threadid)
                         limbs = localLimbs;
 
                     case LIMB_ERROR:
-		    case RANGE_ERROR:
+                    case RANGE_ERROR:
                         frameMin = localMin;
                         frameMax = localMax;
                         break;
