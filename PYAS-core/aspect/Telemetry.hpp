@@ -1,6 +1,6 @@
 /*
 
-TelemetryPacket and TelemetryPacketQueue
+  TelemetryPacket and TelemetryPacketQueue
   derived from Packet and ByteStringQueue
 
 //Telemetry packet from SAS containing an array
@@ -32,13 +32,13 @@ if(!tpq.empty()) tpq >> tp;
 #define SAS2_SYNC_WORD 0xF626
 
 class TelemetryPacket : public Packet {
-  private:
+private:
     virtual void finish();
     void writePayloadLength();
     void writeChecksum();
     void writeTime();
 
-  public:
+public:
     //Use this constructor when assembling a telemetry packet for sending
     TelemetryPacket(uint8_t typeID, uint8_t sourceID);
 
@@ -66,13 +66,13 @@ class TelemetryPacket : public Packet {
 };
 
 class TelemetryPacketQueue : public ByteStringQueue {
-  private:
+private:
     uint8_t i_typeID;
     uint8_t i_sourceID;
     bool filter_typeID;
     bool filter_sourceID;
 
-  public:
+public:
     TelemetryPacketQueue();
 
     //Adds the telemetry packets from a static file

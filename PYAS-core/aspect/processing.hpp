@@ -1,6 +1,7 @@
 #include <opencv.hpp>
 #include <vector>
 #include <opencv.hpp>
+#include <cstring>
 
 class CoordList : public std::vector<cv::Point2f>
 {
@@ -16,25 +17,62 @@ public:
 
 enum IntParameter
 {
-    InitialNumChords = 0,
-    ChordsPerAxis = 1,
-    LimbWidth = 2,
-    FiducialTolerance = 3,
-    SolarRadius = 4,
-    FiducialLength = 5,
-    FiducialWidth = 6,
-    FiducialThreshold = 7,
-    FiducialNeighborhood = 8,
-    NumFiducials = 9
+    NUM_CHORDS_SEARCHING = 0,
+    NUM_CHORDS_OPERATING,
+    LIMB_WIDTH,
+    SOLAR_RADIUS,
+    FIDUCIAL_LENGTH,
+    FIDUCIAL_WIDTH,
+    FIDUCIAL_NEIGHBORHOOD,
+    NUM_FIDUCIALS
 };
 
 enum FloatParameter
 {
-    ChordThreshold = 0,
-    FiducialSpacing = 1,
-    FiducialSpacingTol = 2
+    CHORD_THRESHOLD = 0,
+    FIDUCIAL_THRESHOLD,
+    FIDUCIAL_SPACING,
+    FIDUCIAL_SPACING_TOL,
 };
     
+enum AspectCode
+{
+    NO_ERROR = 0,
+
+    MAPPING_ERROR,
+    MAPPING_ILL_CONDITIONED,
+
+    ID_ERROR,
+    FEW_IDS,
+    NO_IDS,
+    FIDUCIAL_ERROR,
+    FEW_FIDUCIALS,
+    NO_FIDUCIALS,
+
+    SOLAR_IMAGE_ERROR,
+    SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS,
+    SOLAR_IMAGE_SMALL,
+    SOLAR_IMAGE_EMPTY,
+
+    CENTER_ERROR,
+    CENTER_ERROR_LARGE,
+    CENTER_OUT_OF_BOUNDS,
+
+    LIMB_ERROR,
+    FEW_LIMB_CROSSINGS,
+    NO_LIMB_CROSSINGS,
+
+    RANGE_ERROR,
+    DYNAMIC_RANGE_LOW,
+    MIN_MAX_BAD,
+
+    FRAME_EMPTY,
+
+    STALE_DATA
+};
+
+AspectCode GeneralizeError(AspectCode code);
+const char * GetMessage(const AspectCode& code);
 
 class Aspect
 {
@@ -42,17 +80,17 @@ public:
     Aspect();
     ~Aspect();
 
-    int LoadFrame(cv::Mat inputFrame);
-    int Run();
-    int GetPixelMinMax(unsigned char& min, unsigned char& max);
-    int GetPixelCrossings(CoordList& crossings);
-    int GetPixelCenter(cv::Point2f& center);
-    int GetPixelError(cv::Point2f& error);
-    int GetPixelFiducials(CoordList& fiducials);
-    int GetFiducialIDs(IndexList& fiducialIDs);
-    int GetMapping(std::vector<float>& map);
-    int GetScreenCenter(cv::Point2f& center);
-    int GetScreenFiducials(CoordList& fiducials);
+    AspectCode LoadFrame(cv::Mat inputFrame);
+    AspectCode Run();
+    AspectCode GetPixelMinMax(unsigned char& min, unsigned char& max);
+    AspectCode GetPixelCrossings(CoordList& crossings);
+    AspectCode GetPixelCenter(cv::Point2f& center);
+    AspectCode GetPixelError(cv::Point2f& error);
+    AspectCode GetPixelFiducials(CoordList& fiducials);
+    AspectCode GetFiducialIDs(IndexList& fiducialIDs);
+    AspectCode GetMapping(std::vector<float>& map);
+    AspectCode GetScreenCenter(cv::Point2f& center);
+    AspectCode GetScreenFiducials(CoordList& fiducials);
     
     float GetFloat(FloatParameter variable);
     int GetInteger(IntParameter variable);
@@ -61,11 +99,12 @@ public:
 
 
 private:
+    AspectCode state;
+
     int initialNumChords;
     int chordsPerAxis;
     float chordThreshold;
     int limbWidth;
-    int fiducialTolerance;
 
     int solarRadius;
 

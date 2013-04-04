@@ -83,7 +83,7 @@ void sig_handler(int signum)
 {
     if (signum == SIGINT)
     {
-	g_running = 0;
+        g_running = 0;
     }
 }
 
@@ -103,27 +103,27 @@ unsigned long get_cpu_voltage( int index )
     switch( index )
     {
     case 0:         // +1.05V
-	outb(0x21, EC_INDEX );
-	return inb( EC_DATA ) * 2000 / 255;
-	break;
+        outb(0x21, EC_INDEX );
+        return inb( EC_DATA ) * 2000 / 255;
+        break;
     case 1:         // +2.5 V
-	outb(0x20, EC_INDEX );
-	return inb( EC_DATA ) * 3320 / 255;
-	break;
+        outb(0x20, EC_INDEX );
+        return inb( EC_DATA ) * 3320 / 255;
+        break;
     case 2:         // +3.3 V
-	outb(0x22, EC_INDEX );
-	return inb( EC_DATA ) * 4380 / 255;
-	break;
+        outb(0x22, EC_INDEX );
+        return inb( EC_DATA ) * 4380 / 255;
+        break;
     case 3:         // +5.0 V
-	outb(0x23, EC_INDEX );
-	return inb( EC_DATA ) * 6640 / 255;
-	break;
+        outb(0x23, EC_INDEX );
+        return inb( EC_DATA ) * 6640 / 255;
+        break;
     case 4:         // +12.0 V
-	outb(0x24, EC_INDEX );
-	return inb( EC_DATA ) * 1600 / 255;
-	break;
+        outb(0x24, EC_INDEX );
+        return inb( EC_DATA ) * 1600 / 255;
+        break;
     default:
-	return -1; 
+        return -1; 
     }      
 }
 
@@ -145,63 +145,63 @@ void *CameraStreamThread( void * threadid)
     int width, height;
     while(1)
     {
-	if (camera.Connect() != 0)
-	{
-	    std::cout << "Error connecting to camera!\n";	
-	    sleep(1);
-	    continue;
-	}
-	else
-	{
-	    camera.ConfigureSnap();
-	    //camera.SetROISize(960,960);
-	    //camera.SetROIOffset(165,0);
-	    camera.SetExposure(exposure);
-	
-	    width = camera.GetROIWidth();
-	    height = camera.GetROIHeight();
-	    localFrame.create(height, width, CV_8UC1);
-	    if(camera.Initialize() != 0)
-	    {
-		std::cout << "Error initializing camera!\n";
-		sleep(1);
-		continue;
-	    }
-	    cameraReady = 1;
-	    frameCount = 0;
-	    break;
-	}
-    }	
+        if (camera.Connect() != 0)
+        {
+            std::cout << "Error connecting to camera!\n";       
+            sleep(1);
+            continue;
+        }
+        else
+        {
+            camera.ConfigureSnap();
+            //camera.SetROISize(960,960);
+            //camera.SetROIOffset(165,0);
+            camera.SetExposure(exposure);
+        
+            width = camera.GetROIWidth();
+            height = camera.GetROIHeight();
+            localFrame.create(height, width, CV_8UC1);
+            if(camera.Initialize() != 0)
+            {
+                std::cout << "Error initializing camera!\n";
+                sleep(1);
+                continue;
+            }
+            cameraReady = 1;
+            frameCount = 0;
+            break;
+        }
+    }   
     while(1)
     {
 
         if (stop_message[tid] == 1)
-	{
+        {
             printf("thread #%ld exiting\n", tid);
             camera.Stop();
             camera.Disconnect();
             pthread_exit( NULL );
         }
-	camera.Snap(localFrame);
-	procReady.raise();
-	saveReady.raise();
+        camera.Snap(localFrame);
+        procReady.raise();
+        saveReady.raise();
 
         //printf("CameraStreamThread: trying to lock\n");
         pthread_mutex_lock(&mutexImage);
-	clock_gettime(CLOCK_REALTIME, &frameTime);
+        clock_gettime(CLOCK_REALTIME, &frameTime);
         //printf("CameraStreamThread: got lock, copying over\n");
-	localFrame.copyTo(frame);
+        localFrame.copyTo(frame);
         //printf("%d\n", frame.at<uint8_t>(0,0));
-	frameCount++;
+        frameCount++;
         pthread_mutex_unlock(&mutexImage);
 
-	//printf("camera temp is %lld\n", camera.getTemperature());
-	camera_temperature = camera.getTemperature();
-	
-	
-	procReady.raise();
-	saveReady.raise();
-	fine_wait(0,frameRate - exposure,0,0);
+        //printf("camera temp is %lld\n", camera.getTemperature());
+        camera_temperature = camera.getTemperature();
+        
+        
+        procReady.raise();
+        saveReady.raise();
+        fine_wait(0,frameRate - exposure,0,0);
     }
 }
 
@@ -215,65 +215,65 @@ void *ImageProcessThread(void *threadid)
     
     while(1)
     {
-	if (stop_message[tid] == 1)
-	{
+        if (stop_message[tid] == 1)
+        {
             printf("thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
         
         if (cameraReady)
-	{
+        {
             while(1)
-	    {
+            {
                 if(procReady.check())
-		{
-		    procReady.lower();
+                {
+                    procReady.lower();
                     break;
                 }
-		else
-		{
-		    usleep(1000*frameRate/10);
-		}
-	    }
+                else
+                {
+                    usleep(1000*frameRate/10);
+                }
+            }
     
             //printf("ImageProcessThread: trying to lock\n");
             if (pthread_mutex_trylock(&mutexImage) == 0)
-	    {
+            {
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
-		{
+                {
                     aspect.LoadFrame(frame);
-		    pthread_mutex_unlock(&mutexImage); 
-		    
+                    pthread_mutex_unlock(&mutexImage); 
+                    
                     pthread_mutex_lock(&mutexProcess);
 
                     aspect.GetPixelCrossings(limbs);
-		    aspect.GetPixelCenter(center);
-		    aspect.GetPixelError(error);
-		    aspect.GetPixelFiducials(fiducials);
-		    //aspect.GetFiducialIDs(ids);
+                    aspect.GetPixelCenter(center);
+                    aspect.GetPixelError(error);
+                    aspect.GetPixelFiducials(fiducials);
+                    //aspect.GetFiducialIDs(ids);
 
-        std::cout << ids.size() << " fiducials found:";
-        for(int i = 0; i < 20; i++){
-            if (i < ids.size()) {
-                std::cout << " (" << fiducials[i].x << "," << fiducials[i].y << ")";
-            }
-        }
-        std::cout << std::endl;
+                    std::cout << ids.size() << " fiducials found:";
+                    for(int i = 0; i < 20; i++){
+                        if (i < ids.size()) {
+                            std::cout << " (" << fiducials[i].x << "," << fiducials[i].y << ")";
+                        }
+                    }
+                    std::cout << std::endl;
 
-        for(int i = 0; i < 20; i++){
-            if (i < ids.size()) {
-                std::cout << " (" << ids[i].x << "," << ids[i].y << ")";
-            }
-        }
-        std::cout << std::endl;
+                    for(int i = 0; i < 20; i++){
+                        if (i < ids.size()) {
+                            std::cout << " (" << ids[i].x << "," << ids[i].y << ")";
+                        }
+                    }
+                    std::cout << std::endl;
 
                     pthread_mutex_unlock(&mutexProcess);
                 }
-		else
-		{
-		    pthread_mutex_unlock(&mutexImage);  
-		}
+                else
+                {
+                    pthread_mutex_unlock(&mutexImage);  
+                }
             }
         }
     }
@@ -317,13 +317,13 @@ void *SaveTemperaturesThread(void *threadid)
     time_t ltime;
     struct tm *times;
 
-	time(&ltime);	
-	times = localtime(&ltime);
-	strftime(stringtemp,30,"temp_data_%y%m%d_%H%M%S.dat",times);
-	strncpy(obsfilespec,stringtemp,128 - 1);
-	obsfilespec[128 - 1] = '\0';
-	printf("Creating file %s \n",obsfilespec);
-	
+    time(&ltime);       
+    times = localtime(&ltime);
+    strftime(stringtemp,30,"temp_data_%y%m%d_%H%M%S.dat",times);
+    strncpy(obsfilespec,stringtemp,128 - 1);
+    obsfilespec[128 - 1] = '\0';
+    printf("Creating file %s \n",obsfilespec);
+        
     if((file = fopen(obsfilespec, "w")) == NULL){
         printf("Cannot open file\n");
         pthread_exit( NULL );
@@ -367,58 +367,58 @@ void *SaveImageThread(void *threadid)
             printf("thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
-	sleep(60);        
+        sleep(60);        
         if (cameraReady)
-    	{
+        {
             while(1)
-	        {
+            {
                 if(saveReady.check())
-		        {
-		            saveReady.lower();
+                {
+                    saveReady.lower();
                     break;
                 }
-		    else
-		    {
-		        usleep(1000*frameRate/10);
-		    }
-	    }
-    
-        printf("SaveImageThread: trying to lock\n");
-        if (pthread_mutex_trylock(&mutexImage) == 0)
-	    {
-            //printf("ImageProcessThread: got lock\n");
-            if(!frame.empty())
-		    {
-                char stringtemp[80];
-                char obsfilespec[128];    
-                FILE *file;
-                time_t ltime;
-                struct tm *times;
-
-                time(&ltime);	
-                times = localtime(&ltime);
-                strftime(stringtemp,25,"image_%y%m%d_%H%M%S.fits",times);
-                strncpy(obsfilespec,stringtemp,128 - 1);
-                obsfilespec[128 - 1] = '\0';
-
-                frame.copyTo(localFrame);
-                localFrameCount = frameCount;
-                pthread_mutex_unlock(&mutexImage); 
-                fitsfile = "./test/frame";
-                sprintf(number, "%05d", (int) localFrameCount);
-                fitsfile += number;
-                fitsfile += ".fit";
-                std::cout << fitsfile << "\n";
-                writeFITSImage(frame, obsfilespec);
-                printf("Saving image %s\n", obsfilespec);
+                else
+                {
+                    usleep(1000*frameRate/10);
+                }
             }
-		    else
-		    {
-		        pthread_mutex_unlock(&mutexImage);  
-		    }
+    
+            printf("SaveImageThread: trying to lock\n");
+            if (pthread_mutex_trylock(&mutexImage) == 0)
+            {
+                //printf("ImageProcessThread: got lock\n");
+                if(!frame.empty())
+                {
+                    char stringtemp[80];
+                    char obsfilespec[128];    
+                    FILE *file;
+                    time_t ltime;
+                    struct tm *times;
+
+                    time(&ltime);       
+                    times = localtime(&ltime);
+                    strftime(stringtemp,25,"image_%y%m%d_%H%M%S.fits",times);
+                    strncpy(obsfilespec,stringtemp,128 - 1);
+                    obsfilespec[128 - 1] = '\0';
+
+                    frame.copyTo(localFrame);
+                    localFrameCount = frameCount;
+                    pthread_mutex_unlock(&mutexImage); 
+                    fitsfile = "./test/frame";
+                    sprintf(number, "%05d", (int) localFrameCount);
+                    fitsfile += number;
+                    fitsfile += ".fit";
+                    std::cout << fitsfile << "\n";
+                    writeFITSImage(frame, obsfilespec);
+                    printf("Saving image %s\n", obsfilespec);
+                }
+                else
+                {
+                    pthread_mutex_unlock(&mutexImage);  
+                }
+            }
         }
     }
-}
 }
 
 void *TelemetryPackagerThread(void *threadid)
@@ -445,13 +445,13 @@ void *TelemetryPackagerThread(void *threadid)
 
         
         if(pthread_mutex_trylock(&mutexProcess) == 0) 
-	    {
+        {
             localLimbs = limbs;
             localCenter = center;
             localError = error;
             localFiducials = fiducials;
 
-	    pthread_mutex_unlock(&mutexProcess);
+            pthread_mutex_unlock(&mutexProcess);
         }
 
         tp << (double)localCenter.x;
@@ -512,9 +512,9 @@ void *listenForCommandsThread(void *threadid)
         
         if (command_packet.valid()){
             printf("listenForCommandsThread: good command packet\n");
-            	        
+                        
             command_sequence_number = command_packet.getSequenceNumber();
-            	        
+                        
             // add tm ack packet
             TelemetryPacket ack_tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
             ack_tp << command_sequence_number;
@@ -584,7 +584,7 @@ void *sendCTLCommandsThread( void *threadid )
         CommandPacket cp(0x01, 100);
         cp << (uint16_t)0x1100;
         cm_packet_queue << cp;
-        	    
+                    
         if (stop_message[tid] == 1){
             printf("thread #%ld exiting\n", tid);
             pthread_exit( NULL );
@@ -607,53 +607,53 @@ void *commandHandlerThread(void *threadargs)
     printf("Received data 0x%04x\n", command_key);
     
     switch( command_key ){
-        case 0x1210:
-        {
-        	cv::Mat localFrame;
-        	TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
-  			tcpSndr.init_connection();
-			if (pthread_mutex_trylock(&mutexImage) == 0)
-			{ 
-				if( !frame.empty() ){ frame.copyTo(localFrame); }
-				for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
-				pthread_mutex_unlock(&mutexImage);
-			}
-			if( !localFrame.empty() ){
-				int numXpixels = localFrame.rows;
-				int numYpixels = localFrame.cols;	
-				TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
-				printf("sending %dx%d image\n", numXpixels, numYpixels);
-				int pixels_per_packet = 100;
-				int num_packets = numXpixels * numYpixels / pixels_per_packet;
-				tp << (uint16_t)numXpixels;
-				tp << (uint16_t)numYpixels;
-				tcpSndr.send_packet( &tp );
-				long k = 0;
-				long int count = 0;
+    case 0x1210:
+    {
+        cv::Mat localFrame;
+        TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
+        tcpSndr.init_connection();
+        if (pthread_mutex_trylock(&mutexImage) == 0)
+        { 
+            if( !frame.empty() ){ frame.copyTo(localFrame); }
+            for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
+            pthread_mutex_unlock(&mutexImage);
+        }
+        if( !localFrame.empty() ){
+            int numXpixels = localFrame.rows;
+            int numYpixels = localFrame.cols;   
+            TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
+            printf("sending %dx%d image\n", numXpixels, numYpixels);
+            int pixels_per_packet = 100;
+            int num_packets = numXpixels * numYpixels / pixels_per_packet;
+            tp << (uint16_t)numXpixels;
+            tp << (uint16_t)numYpixels;
+            tcpSndr.send_packet( &tp );
+            long k = 0;
+            long int count = 0;
 
-				printf("sending %d packets\n", num_packets);
-				int x, y = 0;
-				for( int i = 0; i < num_packets; i++ ){
-					//if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
-					//printf("%d\n", i);
-					TelemetryPacket tp(0x70, 0x30);
-					
-					for( int j = 0; j < pixels_per_packet; j++){
-						x = k % numXpixels;
-						y = k / numYpixels;
-						tp << (uint8_t)localFrame.at<uint8_t>(x, y);
-						k++;
-					}
-					tcpSndr.send_packet( &tp );
-					//printf("sending %d bytes\n", tp.getLength());
-					count++;
-				}
-			}
-			tcpSndr.close_connection();
-		}
-		break;
-        default:
-            printf("Unknown command!\n");
+            printf("sending %d packets\n", num_packets);
+            int x, y = 0;
+            for( int i = 0; i < num_packets; i++ ){
+                //if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
+                //printf("%d\n", i);
+                TelemetryPacket tp(0x70, 0x30);
+                                        
+                for( int j = 0; j < pixels_per_packet; j++){
+                    x = k % numXpixels;
+                    y = k / numYpixels;
+                    tp << (uint8_t)localFrame.at<uint8_t>(x, y);
+                    k++;
+                }
+                tcpSndr.send_packet( &tp );
+                //printf("sending %d bytes\n", tp.getLength());
+                count++;
+            }
+        }
+        tcpSndr.close_connection();
+    }
+    break;
+    default:
+        printf("Unknown command!\n");
     }
     
 }
@@ -674,42 +674,42 @@ void start_all_threads( void ){
     t = 0L;
     //rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
     //if (rc){
-	//printf("ERROR; return code from pthread_create() is %d\n", rc);
+    //printf("ERROR; return code from pthread_create() is %d\n", rc);
     //}
     t = 1L;
     rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 2L;
     rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 3L;
     rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 4L;
     rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 5L;
     rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
     rc = pthread_create(&threads[6],NULL, SaveImageThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 7L;
     rc = pthread_create(&threads[7],NULL, SaveTemperaturesThread,(void *)t);
     if (rc){
-	printf("ERROR; return code from pthread_create() is %d\n", rc);
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     
 }
@@ -742,30 +742,30 @@ int main(void)
             printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
             
             switch( latest_sas_command_key ){
-                case 0x1000:     // test, do nothing
-                    break;
-                case 0x1010:    // kill all worker threads
-                    kill_all_threads();
-                    break;
-                case 0x1020:    // (re)start all worker threads
-                    {// kill them all just in case
-						kill_all_threads();
-						sleep(1);
-						start_all_threads();
-					}
-                    break;
-                default:
-                	{
-						long t = 8L;
-						int rc;
-						thread_data_array[t].thread_id = t;
-						thread_data_array[t].var = latest_sas_command_key;
-						//thread_data_array[t].message = messages[t];
-						rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
-						if (rc){
-							printf("ERROR; return code from pthread_create() is %d\n", rc);
-						};
-                    }
+            case 0x1000:     // test, do nothing
+                break;
+            case 0x1010:    // kill all worker threads
+                kill_all_threads();
+                break;
+            case 0x1020:    // (re)start all worker threads
+            {// kill them all just in case
+                kill_all_threads();
+                sleep(1);
+                start_all_threads();
+            }
+            break;
+            default:
+            {
+                long t = 8L;
+                int rc;
+                thread_data_array[t].thread_id = t;
+                thread_data_array[t].var = latest_sas_command_key;
+                //thread_data_array[t].message = messages[t];
+                rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
+                if (rc){
+                    printf("ERROR; return code from pthread_create() is %d\n", rc);
+                };
+            }
             }
         }   
     }

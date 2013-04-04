@@ -1,4 +1,3 @@
-#include <time.h>
 #include "utilities.hpp"
 
 Semaphore::Semaphore()
@@ -23,8 +22,8 @@ void Semaphore::decrement()
     pthread_mutex_lock(&mutex);;
     if (count == 0)
     {
-	pthread_mutex_unlock(&mutex);
-	throw "Counter empty";
+        pthread_mutex_unlock(&mutex);
+        throw "Counter empty";
     }
     count--;
     pthread_mutex_unlock(&mutex);
@@ -65,13 +64,51 @@ bool Flag::check()
 
 timespec TimespecDiff(timespec start, timespec end)
 {
-	timespec temp;
-	if ((end.tv_nsec-start.tv_nsec)<0) {
-		temp.tv_sec = end.tv_sec-start.tv_sec-1;
-		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
-	} else {
-		temp.tv_sec = end.tv_sec-start.tv_sec;
-		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
-	}
-	return temp;
+    timespec diff;
+    if ((end.tv_nsec-start.tv_nsec)<0) {
+        diff.tv_sec = end.tv_sec-start.tv_sec-1;
+        diff.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+    } else {
+        diff.tv_sec = end.tv_sec-start.tv_sec;
+        diff.tv_nsec = end.tv_nsec-start.tv_nsec;
+    }
+    return diff;
+}
+
+const std::string nanoString(long tv_nsec)
+{
+    char number[4] = "000";
+    std::string output;
+    int msec, usec, nsec;
+    msec = (int) tv_nsec/1000000;
+    usec = (int) (tv_nsec/1000)%1000;
+    nsec = (int) (tv_nsec-1000*(1000*msec+usec));
+    output = "";
+    sprintf(number, ".%03d", msec);
+    output += number;
+    sprintf(number, ".%03d", usec);
+    output += number; 
+    sprintf(number, ".%03d", nsec);
+    output += number;
+    return output;
+}
+
+void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness, int resolution)
+{
+    cv::Point2f pt1, pt2;
+    int upscale, downscale;
+    downscale = resolution;
+    upscale = pow(2, downscale);
+
+    length = (length+1)/2;
+    pt1.x = point.x-length;
+    pt1.y = point.y-length;
+    pt2.x = point.x+length;
+    pt2.y = point.y+length;
+    cv::line(image, pt1*upscale, pt2*upscale, color, thickness, CV_AA, downscale);
+    pt1.x = point.x+length;
+    pt1.y = point.y-length;
+    pt2.x = point.x-length;
+    pt2.y = point.y+length;
+    cv::line(image, pt1*upscale, pt2*upscale, color, thickness, CV_AA, downscale);
 }

@@ -8,9 +8,9 @@
 int main(int argc, char* argv[])
 {
 
-    if (argc != 2)
+    if (argc != 3)
     {
-        std::cout << "Correct usage is: AspectTest frameList.txt\n";
+        std::cout << "Correct usage is: AspectTest frameList.txt outfile.avi\n";
         return -1;
     }
 
@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
         
     Aspect aspect;
     AspectCode runResult;
-    cv::namedWindow("Solution", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
+    cv::VideoWriter summary;
     std::ifstream frames(argv[1]);
     std::string message;
     
@@ -44,6 +44,7 @@ int main(int argc, char* argv[])
     }
     else        
     {
+        bool videoReady = false;
         while (frames.getline(line,256))
         {
             filename = line;
@@ -79,8 +80,6 @@ int main(int argc, char* argv[])
 
             //std::cout << "AspectTest: Run Aspect" << std::endl;
             runResult = aspect.Run();
-
-            //Get aspect data products depending on error severity
             switch(GeneralizeError(runResult))
             {
             case NO_ERROR:
@@ -110,8 +109,6 @@ int main(int argc, char* argv[])
                 break;
             }
 
-
-            //Generate summary image with accurate data products marked.
             switch(GeneralizeError(runResult))
             {
             case NO_ERROR:
@@ -151,24 +148,17 @@ int main(int argc, char* argv[])
             default:
                 break;
             }
-
-
-            //Print data to screen.
-            if(GeneralizeError(runResult) < CENTER_ERROR)
-                std::cout << "Center (pixels): " << center << std::endl;
-            else
-                std::cout << "Center (pixels): " << "Not valid" << std::endl;
-
-            if(GeneralizeError(runResult) < MAPPING_ERROR)
-                std::cout << "Center (screen): " << IDCenter << std::endl;
-            else
-                std::cout << "Center (screen): " << "Not valid" << std::endl;
+           
             
             cv::putText(image, filename, cv::Point(0,(frame.size()).height-20), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             message = GetMessage(runResult);
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
-            cv::imshow("Solution", image);
-            cv::waitKey(0);
+            if (!videoReady)
+            {
+                summary.open(argv[2], CV_FOURCC('F','F','V','1'), 10, frame.size(), true);
+                videoReady = true;
+            }
+            summary << image;
 
         }
     }
