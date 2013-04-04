@@ -857,9 +857,9 @@ uint16_t cmd_send_image_to_ground( int camera_id )
 void *commandHandlerThread(void *threadargs)
 {
     long tid;
-    struct thread_data *my_data;
+    struct Thread_data *my_data;
     uint16_t error_code = 0;
-    my_data = (struct thread_data *) threadargs;
+    my_data = (struct Thread_data *) threadargs;
     tid = (long)my_data->thread_id;
     uint16_t command_key = my_data->command_key;
     uint16_t command_var[10] = my_data->command_var;
