@@ -599,33 +599,8 @@ void *TelemetryPackagerThread(void *threadid)
             std::cout << "Using stale information for telemetry packet" << std::endl;
         }
 
-        /*
-          tp << (double)localCenter.x;
-          tp << (double)localCenter.y;
-
-          for(uint8_t i = 0; i < 20; i++){
-          if (i < localFiducials.size()) {
-          tp << (float) localFiducials[i].x;
-          tp << (float) localFiducials[i].y;
-          } else {
-          tp << (float)0 << (float)0;
-          }
-          }
-
-          for(uint8_t j = 0; j < 20; j++) {
-          if (j < localLimbs.size()) {
-          tp << localLimbs[j].x;
-          tp << localLimbs[j].y;
-          } else {
-          tp << (float)0 << (float)0;
-          }
-          }
-    
-          tp << (int) camera_temperature;
-        */
-
         //Housekeeping fields, two of them
-        tp << (uint16_t)camera_temperature;
+        tp << Float2B(camera_temperature);
         tp << (uint16_t)sbc_temperature;
 
         //Sun center and error
