@@ -817,43 +817,45 @@ uint16_t cmd_send_image_to_ground( int camera_id )
 	uint16_t error_code = 0;
 	cv::Mat localFrame;
 	TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
-	tcpSndr.init_connection();
-	if (pthread_mutex_trylock(&mutexImage) == 0){
-		if( !frame.empty() ){ frame.copyTo(localFrame); }
-        for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
-        pthread_mutex_unlock(&mutexImage);
-    }
-    if( !localFrame.empty() ){
-        int numXpixels = localFrame.cols;
-        int numYpixels = localFrame.rows;
-        TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
-        printf("sending %dx%d image\n", numXpixels, numYpixels);
-        int pixels_per_packet = 100;
-        int num_packets = numXpixels * numYpixels / pixels_per_packet;
-        tp << (uint16_t)numXpixels;
-        tp << (uint16_t)numYpixels;
-        tcpSndr.send_packet( &tp );
-        long k = 0;
-        long int count = 0;
-        
-        printf("sending %d packets\n", num_packets);
-        
-        int x, y;
-        for( int i = 0; i < num_packets; i++ ){
-            TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
-            
-            for( int j = 0; j < pixels_per_packet; j++){
-                x = k % numXpixels;
-                y = k / numXpixels;
-                tp << (uint8_t)localFrame.at<uint8_t>(y, x);
-                k++;
-            }
-            tcpSndr.send_packet( &tp );
-            count++;
-        }
-    }
-    tcpSndr.close_connection();
-    error_code = 1;
+	int ret = tcpSndr.init_connection();
+	if (ret > 0){
+		if (pthread_mutex_trylock(&mutexImage) == 0){
+			if( !frame.empty() ){ frame.copyTo(localFrame); }
+			for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
+			pthread_mutex_unlock(&mutexImage);
+		}
+		if( !localFrame.empty() ){
+			int numXpixels = localFrame.cols;
+			int numYpixels = localFrame.rows;
+			TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
+			printf("sending %dx%d image\n", numXpixels, numYpixels);
+			int pixels_per_packet = 100;
+			int num_packets = numXpixels * numYpixels / pixels_per_packet;
+			tp << (uint16_t)numXpixels;
+			tp << (uint16_t)numYpixels;
+			tcpSndr.send_packet( &tp );
+			long k = 0;
+			long int count = 0;
+		
+			printf("sending %d packets\n", num_packets);
+		
+			int x, y;
+			for( int i = 0; i < num_packets; i++ ){
+				TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
+			
+				for( int j = 0; j < pixels_per_packet; j++){
+					x = k % numXpixels;
+					y = k / numXpixels;
+					tp << (uint8_t)localFrame.at<uint8_t>(y, x);
+					k++;
+				}
+				tcpSndr.send_packet( &tp );
+				count++;
+			}
+		}
+		tcpSndr.close_connection();
+		error_code = 1;
+	} else { error_code = 2; }{
     return error_code;
 }
         
