@@ -90,7 +90,7 @@ int cameraReady = 0;
 timespec frameTime;
 long int frameCount = 0;
 
-int8_t camera_temperature;
+float camera_temperature;
 int8_t sbc_temperature;
 float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 
@@ -470,8 +470,8 @@ void *SaveTemperaturesThread(void *threadid)
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %d, %d\n", current_time, camera_temperature, sbc_temperature);
-            printf("%s, %d, %d\n", current_time, camera_temperature, sbc_temperature);
+            fprintf(file, "%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
+            printf("%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
         }
     }
 }
