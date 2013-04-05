@@ -598,15 +598,15 @@ void *TelemetryPackagerThread(void *threadid)
             localFiducials = pixelFiducials;
             localMapping = mapping;
 
-            std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
+            //std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
             if(localMapping.size() == 4) {
                 std::cout << ", mapping is";
                 for(uint8_t l = 0; l < 4; l++) std::cout << " " << localMapping[l];
                 solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
             }
-            std::cout << std::endl;
+            //std::cout << std::endl;
 
-            std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
+            //std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
 
             pthread_mutex_unlock(&mutexProcess);
         } else {
