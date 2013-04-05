@@ -53,7 +53,7 @@ public:
     int GetBlackLevel();
     int GetPreAmpGain();
 
-    int8_t getTemperature( void );
+    float getTemperature( void );
 
 private:
     PvSystem lSystem;
