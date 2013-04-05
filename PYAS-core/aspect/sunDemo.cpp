@@ -90,7 +90,7 @@ int cameraReady = 0;
 timespec frameTime;
 long int frameCount = 0;
 
-int8_t camera_temperature;
+float camera_temperature;
 int8_t sbc_temperature;
 float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 
@@ -470,8 +470,8 @@ void *SaveTemperaturesThread(void *threadid)
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %d, %d\n", current_time, camera_temperature, sbc_temperature);
-            printf("%s, %d, %d\n", current_time, camera_temperature, sbc_temperature);
+            fprintf(file, "%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
+            printf("%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
         }
     }
 }
@@ -599,33 +599,8 @@ void *TelemetryPackagerThread(void *threadid)
             std::cout << "Using stale information for telemetry packet" << std::endl;
         }
 
-        /*
-          tp << (double)localCenter.x;
-          tp << (double)localCenter.y;
-
-          for(uint8_t i = 0; i < 20; i++){
-          if (i < localFiducials.size()) {
-          tp << (float) localFiducials[i].x;
-          tp << (float) localFiducials[i].y;
-          } else {
-          tp << (float)0 << (float)0;
-          }
-          }
-
-          for(uint8_t j = 0; j < 20; j++) {
-          if (j < localLimbs.size()) {
-          tp << localLimbs[j].x;
-          tp << localLimbs[j].y;
-          } else {
-          tp << (float)0 << (float)0;
-          }
-          }
-    
-          tp << (int) camera_temperature;
-        */
-
         //Housekeeping fields, two of them
-        tp << (uint16_t)camera_temperature;
+        tp << Float2B(camera_temperature);
         tp << (uint16_t)sbc_temperature;
 
         //Sun center and error

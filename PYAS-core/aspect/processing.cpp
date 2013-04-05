@@ -259,6 +259,8 @@ AspectCode Aspect::Run()
     {
         //std::cout << "Aspect: Finding max and min pixel values" << std::endl;
         cv::minMaxLoc(frame, &min, &max, NULL, NULL);
+        frameMin = (unsigned char) min;
+        frameMax = (unsigned char) max;
         if (min >= max || std::isnan(min) || std::isnan(max))
         {
             //std::cout << "Aspect: Max/Min value bad" << std::endl;
@@ -269,11 +271,6 @@ AspectCode Aspect::Run()
         {
             state = DYNAMIC_RANGE_LOW;
             return state;
-        }
-        else
-        {
-            frameMin = (unsigned char) min;
-            frameMax = (unsigned char) max;
         }
 
         //std::cout << "Aspect: Finding Center" << std::endl;
