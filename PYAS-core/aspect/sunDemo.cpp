@@ -63,6 +63,7 @@ pthread_mutex_t mutexProcess;
 struct Thread_data{
     int  thread_id;
     uint16_t command_key;
+    uint8_t command_num_vars;
     uint16_t command_vars[15];
 };
 struct Thread_data thread_data;
@@ -106,7 +107,7 @@ void sig_handler(int signum)
 }
 
 void kill_all_threads( void ){
-    for(int i = 0; i < NUM_THREADS; i++ ){
+    for(int i = 1; i < NUM_THREADS; i++ ){
         stop_message[i] = 1;
     }
 }
@@ -715,31 +716,27 @@ void *listenForCommandsThread(void *threadid)
         CommandPacket command_packet( packet, packet_length );
 
         if (command_packet.valid()){
-        printf("listenForCommandsThread: good command packet\n");
+        	printf("listenForCommandsThread: good command packet\n");
+        	command_sequence_number = command_packet.getSequenceNumber();
 
-        command_sequence_number = command_packet.getSequenceNumber();
-
-        // add command ack packet
-        TelemetryPacket ack_tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
-        ack_tp << command_sequence_number;
-        tm_packet_queue << ack_tp;
- 
-        // update the command count
-        printf("command sequence number to %i", command_sequence_number);
-        
-        try { recvd_command_queue.add_packet(command_packet); } 
-        catch (std::exception& e) {
-            std::cerr << e.what() << std::endl;
-        }
-        
-        } else {
-        printf("listenForCommandsThread: bad command packet\n");
-        }
-    
+			// add command ack packet
+			TelemetryPacket ack_tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
+			ack_tp << command_sequence_number;
+			tm_packet_queue << ack_tp;
+		 
+			try { recvd_command_queue.add_packet(command_packet); } 
+			catch (std::exception& e) {
+				std::cerr << e.what() << std::endl;
+			}
+		
+			} else {
+			printf("listenForCommandsThread: bad command packet\n");
+			}
+	
         if (stop_message[tid] == 1){
-        printf("listenForCommands thread #%ld exiting\n", tid);
-        comReceiver.close_connection();
-        pthread_exit( NULL );
+        	printf("listenForCommands thread #%ld exiting\n", tid);
+        	comReceiver.close_connection();
+        	pthread_exit( NULL );
         }
     }
 
@@ -856,17 +853,12 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         
 void *commandHandlerThread(void *threadargs)
 {
-    long tid;
     struct Thread_data *my_data;
     uint16_t error_code = 0;
     my_data = (struct Thread_data *) threadargs;
-    tid = (long)my_data->thread_id;
-    uint16_t command_key = my_data->command_key;
+    //long tid = (long)my_data->thread_id;
 
-    printf("commandHandler thread #%ld!\n", tid);
-    printf("Received data 0x%04x\n", command_key);
-
-    switch( command_key )
+    switch( my_data->command_key )
     {
         case 0x1210:
             {
@@ -876,12 +868,16 @@ void *commandHandlerThread(void *threadargs)
             break;
         case 0x1151:    // set exposure time
 			{
-				my_data->command_vars[0] >> exposure; //overwrites global
+				if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
                 std::cout << "Requested exposure time is: " << exposure << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
         default:
-            printf("Unknown command!\n");
+        	{
+        		error_code = 0xffff;			// unknown command!
+            	queue_cmd_proc_ack_tmpacket( error_code );
+            }
     }
 
     return NULL;
@@ -901,16 +897,12 @@ void start_all_threads( void ){
     }
 
     // start all threads
-    t = 0L;
+    t = 1L;
     rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
-    t = 1L;
-    rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
+    
     t = 2L;
     rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
@@ -926,26 +918,26 @@ void start_all_threads( void ){
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
-    t = 5L;
-    rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 6L;
-    rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 7L;
-    rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }    
+    //t = 5L;
+    //rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
+    //if ((skip[t] = (rc != 0))) {
+    //    printf("ERROR; return code from pthread_create() is %d\n", rc);
+    //}
+    //t = 6L;
+    //rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
+    //if ((skip[t] = (rc != 0))) {
+    //    printf("ERROR; return code from pthread_create() is %d\n", rc);
+    //}
+    //t = 7L;
+    //rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
+    //if ((skip[t] = (rc != 0))) {
+    //    printf("ERROR; return code from pthread_create() is %d\n", rc);
+    //}    
     t = 8L;
-    rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
+    //rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
+    //if ((skip[t] = (rc != 0))) {
+    //    printf("ERROR; return code from pthread_create() is %d\n", rc);
+    //}
     t = 9L;
     rc = pthread_create(&threads[9],NULL, SBCInfoThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
@@ -970,6 +962,12 @@ int main(void)
     /* Create worker threads */
     printf("In main: creating threads\n");
 
+	// start the listen for commands thread right away
+	t = 0L;
+    rc = pthread_create(&threads[t],NULL, listenForCommandsThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
     start_all_threads();
 
     while(g_running){
@@ -981,13 +979,15 @@ int main(void)
             recvd_command_queue >> command;
 
             latest_sas_command_key = command.get_sas_command();
-            int number_of_command_variables = (uint16_t) command.lookup_sas_payload_length(latest_sas_command_key)/2.0;
-                        printf("sas command key: 0x%X (%i vars)\n", (uint16_t) latest_sas_command_key, number_of_command_variables);
-            //for(int i = 0; i < number_of_command_variables; i++){
-	        //    	command >> latest_sas_command_vars[i];
-	        //    	thread_data.command_vars[i] = latest_sas_command_vars[i];
-			//		printf("command var %i is %u", i, latest_sas_command_vars[i]);
-            //	}
+            printf("Received command key 0x%x\n", latest_sas_command_key);
+            thread_data.command_num_vars = command.lookup_sas_payload_length(latest_sas_command_key)/2.0;
+			
+            for(int i = 0; i < thread_data.command_num_vars; i++){
+				try { command >> thread_data.command_vars[i]; } 
+			        catch (std::exception& e) {
+            			std::cerr << e.what() << std::endl;
+        			}				
+				}
             
             switch( latest_sas_command_key ){
                 case 0xFFFF:     // dummy command, has sequence number
@@ -997,25 +997,33 @@ int main(void)
                 	queue_cmd_proc_ack_tmpacket( 1 );
                     break;
                 case 0x1010:    // kill all worker threads
-                    kill_all_threads();
-                    queue_cmd_proc_ack_tmpacket( 1 );
+                    {
+                    	kill_all_threads();
+                    	queue_cmd_proc_ack_tmpacket( 1 );
+                    }
                     break;
                 case 0x1020:    // (re)start all worker threads
-                    // kill them all just in case
-                    kill_all_threads();
-                    sleep(1);
-                    start_all_threads();
-                    queue_cmd_proc_ack_tmpacket( 1 );
+                    {
+						kill_all_threads();
+						stop_message[0] = 1;	// also kill command listening thread
+						sleep(1);
+						t = 0L;
+						rc = pthread_create(&threads[t], NULL, listenForCommandsThread,(void *)t);
+						start_all_threads();
+						queue_cmd_proc_ack_tmpacket( 1 );
+					}
                     break;
                 default:
-                    long t = 10L;
-                    int rc;
-                    thread_data.thread_id = t;
-                    thread_data.command_key = latest_sas_command_key;
-                    rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data);
-                    if ((skip[t] = (rc != 0))) {
-                        printf("ERROR; return code from pthread_create() is %d\n", rc);
-                    };
+                	{
+						long t = 10L;
+						int rc;
+						thread_data.thread_id = t;
+						thread_data.command_key = latest_sas_command_key;
+						rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data);
+						if ((skip[t] = (rc != 0))) {
+							printf("ERROR; return code from pthread_create() is %d\n", rc);
+						};
+					}
             }
         }   
     }
