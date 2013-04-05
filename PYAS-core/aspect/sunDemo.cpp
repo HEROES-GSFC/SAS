@@ -13,6 +13,9 @@
 #define SAVE_LOCATION "/mnt/disk2/"
 #define SECONDS_AFTER_SAVE 5
 
+#define START_CTL_CMD_KEY 0x3245
+#define STOP_CTL_CMD_KEY 0x2456
+
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
 
@@ -47,6 +50,8 @@ uint16_t command_sequence_number = 0;
 uint16_t latest_sas_command_key = 0x0000;
 uint16_t latest_sas_command_vars[15];
 uint32_t tm_frame_sequence_number = 0;
+
+bool provide_CTL_solutions = 0;
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -777,19 +782,20 @@ void *sendCTLCommandsThread( void *threadid )
     tid = (long)threadid;
     printf("sendCTLCommands thread #%ld!\n", tid);
 
-    sleep(0.2);      // delay a little compared to the SenderThread
-
     while(1)    // run forever
     {
-        sleep(1);
-        CommandPacket cp(0x01, 100);
-        cp << (uint16_t)0x1100;
-        cm_packet_queue << cp;
+    	usleep(2500);
+    	if (provide_CTL_solutions){
+			sleep(1);
+			CommandPacket cp(0x01, 100);
+			cp << (uint16_t)0x1100;
+			cm_packet_queue << cp;
 
-        if (stop_message[tid] == 1){
-        printf("sendCTLCommands thread #%ld exiting\n", tid);
-        pthread_exit( NULL );
-        }
+			if (stop_message[tid] == 1){
+				printf("sendCTLCommands thread #%ld exiting\n", tid);
+				pthread_exit( NULL );
+			}
+		}
     }
 
     /* NEVER REACHED */
@@ -873,6 +879,16 @@ void *commandHandlerThread(void *threadargs)
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
+        case START_CTL_CMD_KEY:
+        	{
+        		provide_CTL_solutions = 1;
+        	}
+        	break;
+        case STOP_CTL_CMD_KEY:
+        	{
+        		provide_CTL_solutions = 0;
+        	}
+        	break;
         default:
         	{
         		error_code = 0xffff;			// unknown command!
