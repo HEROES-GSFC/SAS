@@ -7,34 +7,34 @@
 #include "Telemetry.hpp"
 
 class UDPReceiver {
-    protected:
-        int sock;                       /* Socket */
-        struct sockaddr_in myAddr;      /* Local address */
-        struct sockaddr_in senderAddr;  /* Sender address */
+protected:
+    int sock;                       /* Socket */
+    struct sockaddr_in myAddr;      /* Local address */
+    struct sockaddr_in senderAddr;  /* Sender address */
     
-        unsigned int cliAddrLen;        /* Length of incoming message */
-        char payload[PACKET_MAX_SIZE];  /* Buffer for echo string */
-        unsigned short listeningPort;   /* The port to listen to */
-        int recvMsgSize;                /* Size of received message */
+    unsigned int cliAddrLen;        /* Length of incoming message */
+    char payload[PACKET_MAX_SIZE];  /* Buffer for echo string */
+    unsigned short listeningPort;   /* The port to listen to */
+    int recvMsgSize;                /* Size of received message */
 
-    public:
-        UDPReceiver( void );
-        UDPReceiver( unsigned short port );
+public:
+    UDPReceiver( void );
+    UDPReceiver( unsigned short port );
         
-        unsigned int listen( void );
-        void get_packet( uint8_t *packet  );
-        void init_connection( void );
-        void close_connection( void );
+    unsigned int listen( void );
+    void get_packet( uint8_t *packet  );
+    void init_connection( void );
+    void close_connection( void );
 };
 
 class CommandReceiver: public UDPReceiver {
 
-    public:
-        CommandReceiver( unsigned short port );
+public:
+    CommandReceiver( unsigned short port );
 };
 
 class TelemetryReceiver: public UDPReceiver {
 
-    public:
-        TelemetryReceiver( unsigned short port );
+public:
+    TelemetryReceiver( unsigned short port );
 };

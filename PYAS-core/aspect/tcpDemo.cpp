@@ -20,7 +20,7 @@ int main(void)
                     no_packet_count++;
                     printf("packet count %d\n", no_packet_count);
                     if (no_packet_count >= 1000){ break; }
-                    } else {
+                } else {
                     uint8_t *packet;
                     packet = new uint8_t[packet_length];
                     tcprecv.get_packet(packet);

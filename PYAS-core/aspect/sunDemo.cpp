@@ -99,7 +99,7 @@ int cameraReady = 0;
 timespec frameTime;
 long int frameCount = 0;
 
-int8_t camera_temperature;
+float camera_temperature;
 int8_t sbc_temperature;
 float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 
@@ -305,78 +305,80 @@ void *ImageProcessThread(void *threadid)
                     
                     switch(GeneralizeError(runResult))
                     {
-                        case NO_ERROR:
-                            aspect.GetScreenFiducials(localScreenFiducials);
-                            aspect.GetScreenCenter(localScreenCenter);
-                            aspect.GetMapping(localMapping);
+                    case NO_ERROR:
+                        aspect.GetScreenFiducials(localScreenFiducials);
+                        aspect.GetScreenCenter(localScreenCenter);
+                        aspect.GetMapping(localMapping);
 
-                        case MAPPING_ERROR:
-                            aspect.GetFiducialIDs(localIds);
+                    case MAPPING_ERROR:
+                        aspect.GetFiducialIDs(localIds);
 
-                        case ID_ERROR:
-                            aspect.GetPixelFiducials(localPixelFiducials);
+                    case ID_ERROR:
+                        aspect.GetPixelFiducials(localPixelFiducials);
 
-                        case FIDUCIAL_ERROR:
-                            aspect.GetPixelCenter(localPixelCenter);
-                            aspect.GetPixelError(localError);
+                    case FIDUCIAL_ERROR:
+                        aspect.GetPixelCenter(localPixelCenter);
+                        aspect.GetPixelError(localError);
 
-                        case CENTER_ERROR:
-                            aspect.GetPixelCrossings(localLimbs);
+                    case CENTER_ERROR:
+                        aspect.GetPixelCrossings(localLimbs);
 
-                        case LIMB_ERROR:
-                            aspect.GetPixelMinMax(localMin, localMax);
-                            break;
-                        default:
-                            std::cout << "Nothing worked\n";
+                    case LIMB_ERROR:
+                    case RANGE_ERROR:
+                        aspect.GetPixelMinMax(localMin, localMax);
+                        break;
+                    default:
+                        std::cout << "Nothing worked\n";
                     }
 
                     pthread_mutex_lock(&mutexProcess);
                     switch(GeneralizeError(runResult))
                     {
-                        case NO_ERROR:
-                            screenFiducials = localScreenFiducials;
-                            screenCenter = localScreenCenter;
-                            mapping = localMapping;
-                        case MAPPING_ERROR:
-                            ids = localIds;
+                    case NO_ERROR:
+                        screenFiducials = localScreenFiducials;
+                        screenCenter = localScreenCenter;
+                        mapping = localMapping;
+                    case MAPPING_ERROR:
+                        ids = localIds;
 
-                        case ID_ERROR:
-                            pixelFiducials = localPixelFiducials;
+                    case ID_ERROR:
+                        pixelFiducials = localPixelFiducials;
 
-                        case FIDUCIAL_ERROR:
-                            pixelCenter = localPixelCenter;  
-                            error = localError;
+                    case FIDUCIAL_ERROR:
+                        pixelCenter = localPixelCenter;  
+                        error = localError;
 
-                        case CENTER_ERROR:
-                            limbs = localLimbs;
+                    case CENTER_ERROR:
+                        limbs = localLimbs;
 
-                        case LIMB_ERROR:
-                            frameMin = localMin;
-                            frameMax = localMax;
-                            break;
-                        default:
-			    break;
+                    case LIMB_ERROR:
+                    case RANGE_ERROR:
+                        frameMin = localMin;
+                        frameMax = localMax;
+                        break;
+                    default:
+                        break;
                     }
                     pthread_mutex_unlock(&mutexProcess);
-		}
-		else
-		{
-		    //std::cout << "Frame empty!" << std::endl;
-		}
-		
-                    /*
-                      std::cout << ids.size() << " fiducials found:";
-                      for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << pixelFiducials[i];
-                      std::cout << std::endl;
+                }
+                else
+                {
+                    //std::cout << "Frame empty!" << std::endl;
+                }
+                
+                /*
+                  std::cout << ids.size() << " fiducials found:";
+                  for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << pixelFiducials[i];
+                  std::cout << std::endl;
 
-                      for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
-                      std::cout << std::endl;
+                  for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << ids[i];
+                  std::cout << std::endl;
 
-                      for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << screenFiducials[i];
-                      std::cout << std::endl;
+                  for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << screenFiducials[i];
+                  std::cout << std::endl;
 
-                      std::cout << "Sun center (pixels): " << pixelCenter << ", Sun center (screen): " << screenCenter << std::endl;
-                    */
+                  std::cout << "Sun center (pixels): " << pixelCenter << ", Sun center (screen): " << screenCenter << std::endl;
+                */
             }
         }
     }
@@ -477,8 +479,8 @@ void *SaveTemperaturesThread(void *threadid)
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %d, %d\n", current_time, camera_temperature, sbc_temperature);
-            printf("%s, %d, %d\n", current_time, camera_temperature, sbc_temperature);
+            fprintf(file, "%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
+            printf("%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
         }
     }
 }
@@ -499,60 +501,60 @@ void *SaveImageThread(void *threadid)
     {
         if (stop_message[tid] == 1)
         {
-        printf("SaveImage thread #%ld exiting\n", tid);
-        pthread_exit( NULL );
+            printf("SaveImage thread #%ld exiting\n", tid);
+            pthread_exit( NULL );
         }
         if (cameraReady)
         {
-        while(1)
-        {
-            if(saveReady.check())
+            while(1)
             {
-            saveReady.lower();
-            break;
+                if(saveReady.check())
+                {
+                    saveReady.lower();
+                    break;
+                }
+                else
+                {
+                    nanosleep(&waittime, NULL);
+                }
             }
-            else
+
+            //printf("SaveImageThread: trying to lock\n");
+            if (pthread_mutex_trylock(&mutexImage) == 0)
             {
-            nanosleep(&waittime, NULL);
+                //printf("ImageProcessThread: got lock\n");
+                if(!frame.empty())
+                {
+                    localFrameCount = frameCount;
+                    frame.copyTo(localFrame);
+                    keys.captureTime = frameTime;
+                    keys.frameCount = frameCount;
+                    pthread_mutex_unlock(&mutexImage);
+
+                    keys.exposureTime = exposure;
+
+                    char stringtemp[80];
+                    char obsfilespec[128];
+                    time_t ltime;
+                    struct tm *times;
+
+                    //Use clock_gettime instead?
+                    time(&ltime);
+                    times = localtime(&ltime);
+                    strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+
+                    sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
+
+                    printf("Saving image %s with exposure %d microseconds\n", obsfilespec, exposure);
+                    writeFITSImage(localFrame, keys, obsfilespec);
+
+                    sleep(SECONDS_AFTER_SAVE);
+                }
+                else
+                {
+                    pthread_mutex_unlock(&mutexImage);
+                }
             }
-        }
-
-        //printf("SaveImageThread: trying to lock\n");
-        if (pthread_mutex_trylock(&mutexImage) == 0)
-        {
-            //printf("ImageProcessThread: got lock\n");
-            if(!frame.empty())
-            {
-            localFrameCount = frameCount;
-            frame.copyTo(localFrame);
-            keys.captureTime = frameTime;
-            keys.frameCount = frameCount;
-            pthread_mutex_unlock(&mutexImage);
-
-            keys.exposureTime = exposure;
-
-            char stringtemp[80];
-            char obsfilespec[128];
-            time_t ltime;
-            struct tm *times;
-
-            //Use clock_gettime instead?
-            time(&ltime);
-            times = localtime(&ltime);
-            strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-
-            sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
-
-            printf("Saving image %s with exposure %d microseconds\n", obsfilespec, exposure);
-            writeFITSImage(localFrame, keys, obsfilespec);
-
-            sleep(SECONDS_AFTER_SAVE);
-            }
-            else
-            {
-            pthread_mutex_unlock(&mutexImage);
-            }
-        }
         }
     }
 }
@@ -591,48 +593,23 @@ void *TelemetryPackagerThread(void *threadid)
             localFiducials = pixelFiducials;
             localMapping = mapping;
 
-            //std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
+            std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
             if(localMapping.size() == 4) {
                 std::cout << ", mapping is";
                 for(uint8_t l = 0; l < 4; l++) std::cout << " " << localMapping[l];
                 solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
             }
-            //std::cout << std::endl;
+            std::cout << std::endl;
 
-            //std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
+            std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
 
             pthread_mutex_unlock(&mutexProcess);
-            } else {
-            //std::cout << "Using stale information for telemetry packet" << std::endl;
+        } else {
+            std::cout << "Using stale information for telemetry packet" << std::endl;
         }
 
-        /*
-          tp << (double)localCenter.x;
-          tp << (double)localCenter.y;
-
-          for(uint8_t i = 0; i < 20; i++){
-          if (i < localFiducials.size()) {
-          tp << (float) localFiducials[i].x;
-          tp << (float) localFiducials[i].y;
-          } else {
-          tp << (float)0 << (float)0;
-          }
-          }
-
-          for(uint8_t j = 0; j < 20; j++) {
-          if (j < localLimbs.size()) {
-          tp << localLimbs[j].x;
-          tp << localLimbs[j].y;
-          } else {
-          tp << (float)0 << (float)0;
-          }
-          }
-    
-          tp << (int) camera_temperature;
-        */
-
         //Housekeeping fields, two of them
-        tp << (uint16_t)camera_temperature;
+        tp << Float2B(camera_temperature);
         tp << (uint16_t)sbc_temperature;
 
         //Sun center and error
@@ -648,11 +625,11 @@ void *TelemetryPackagerThread(void *threadid)
 
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
-        if (j < localLimbs.size()) {
-            tp << Pair3B(localLimbs[j].x, localLimbs[j].y);
-        } else {
-            tp << Pair3B(0, 0);
-        }
+            if (j < localLimbs.size()) {
+                tp << Pair3B(localLimbs[j].x, localLimbs[j].y);
+            } else {
+                tp << Pair3B(0, 0);
+            }
         }
 
         //Number of fiducials
@@ -660,24 +637,24 @@ void *TelemetryPackagerThread(void *threadid)
 
         //Fiduicals (currently 6)
         for(uint8_t k = 0; k < 6; k++) {
-        if (k < localFiducials.size()) {
-            tp << Pair3B(localFiducials[k].x, localFiducials[k].y);
-        } else {
-            tp << Pair3B(0, 0);
-        }
+            if (k < localFiducials.size()) {
+                tp << Pair3B(localFiducials[k].x, localFiducials[k].y);
+            } else {
+                tp << Pair3B(0, 0);
+            }
         }
 
         //Pixel to screen conversion
         if(localMapping.size() == 4) {
-        tp << localMapping[0]; //X intercept
-        tp << localMapping[1]; //X slope
-        tp << localMapping[2]; //Y intercept
-        tp << localMapping[3]; //Y slope
+            tp << localMapping[0]; //X intercept
+            tp << localMapping[1]; //X slope
+            tp << localMapping[2]; //Y intercept
+            tp << localMapping[3]; //Y slope
         } else {
-        tp << (float)-3000; //X intercept
-        tp << (float)6; //X slope
-        tp << (float)3000; //Y intercept
-        tp << (float)-6; //Y slope
+            tp << (float)-3000; //X intercept
+            tp << (float)6; //X slope
+            tp << (float)3000; //Y intercept
+            tp << (float)-6; //Y slope
         }
 
         //Image max and min
@@ -691,8 +668,8 @@ void *TelemetryPackagerThread(void *threadid)
         tm_packet_queue << tp;
             
         if (stop_message[tid] == 1){
-        printf("TelemetryPackager thread #%ld exiting\n", tid);
-        pthread_exit( NULL );
+            printf("TelemetryPackager thread #%ld exiting\n", tid);
+            pthread_exit( NULL );
         }
     }
 
@@ -762,15 +739,15 @@ void *CommandSenderThread( void *threadid )
         sleep(1);
     
         if( !cm_packet_queue.empty() ){
-        CommandPacket cp(0x01, 100);
-        cm_packet_queue >> cp;
-        comSender.send( &cp );
+            CommandPacket cp(0x01, 100);
+            cm_packet_queue >> cp;
+            comSender.send( &cp );
         }
 
         if (stop_message[tid] == 1){
-        printf("CommandSender thread #%ld exiting\n", tid);
-        comSender.close_connection();
-        pthread_exit( NULL );
+            printf("CommandSender thread #%ld exiting\n", tid);
+            comSender.close_connection();
+            pthread_exit( NULL );
         }
     }
   
@@ -936,26 +913,26 @@ void start_all_threads( void ){
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
-    //t = 5L;
-    //rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
-    //if ((skip[t] = (rc != 0))) {
-    //    printf("ERROR; return code from pthread_create() is %d\n", rc);
-    //}
-    //t = 6L;
-    //rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
-    //if ((skip[t] = (rc != 0))) {
-    //    printf("ERROR; return code from pthread_create() is %d\n", rc);
-    //}
-    //t = 7L;
-    //rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
-    //if ((skip[t] = (rc != 0))) {
-    //    printf("ERROR; return code from pthread_create() is %d\n", rc);
-    //}    
+    t = 5L;
+    rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 6L;
+    rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 7L;
+    rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }    
     t = 8L;
-    //rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
-    //if ((skip[t] = (rc != 0))) {
-    //    printf("ERROR; return code from pthread_create() is %d\n", rc);
-    //}
+    rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
     t = 9L;
     rc = pthread_create(&threads[9],NULL, SBCInfoThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
@@ -1054,7 +1031,7 @@ int main(void)
     sleep(2);
     for(int i = 0; i < NUM_THREADS; i++ ){
         if (!skip[i]) {
-        printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
+            printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
         }
     }
     pthread_mutex_destroy(&mutexImage);

@@ -14,7 +14,7 @@ public:
     void increment();
     void decrement();
 private:
-    int count;	
+    int count;  
     pthread_mutex_t mutex;
 };
 
@@ -27,7 +27,7 @@ public:
     void lower();
     bool check();
 private:
-    bool value;	
+    bool value; 
     pthread_mutex_t mutex;
 };
 

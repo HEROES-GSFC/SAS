@@ -19,15 +19,15 @@ ImperxStream::~ImperxStream()
 int ImperxStream::Connect()
 {
     std::cout << "ImperxStream::Connect starting" << std::endl;
-    PvResult lResult;	
+    PvResult lResult;   
 
     // Find all GEV Devices on the network.
     lSystem.SetDetectionTimeout( 2000 );
     lResult = lSystem.Find();
     if( !lResult.IsOK() )
     {
-	printf( "PvSystem::Find Error: %s", lResult.GetCodeString().GetAscii() );
-	return -1;
+        printf( "PvSystem::Find Error: %s", lResult.GetCodeString().GetAscii() );
+        return -1;
     }
 
     // Get the number of GEV Interfaces that were found using GetInterfaceCount.
@@ -37,52 +37,52 @@ int ImperxStream::Connect()
     // For each interface, display information about all devices.
     for( PvUInt32 x = 0; x < lInterfaceCount; x++ )
     {
-	// get pointer to each of interface
-	PvInterface * lInterface = lSystem.GetInterface( x );
+        // get pointer to each of interface
+        PvInterface * lInterface = lSystem.GetInterface( x );
 
-	printf( "Interface %i\nMAC Address: %s\nIP Address: %s\nSubnet Mask: %s\n\n",
-		x,
-		lInterface->GetMACAddress().GetAscii(),
-		lInterface->GetIPAddress().GetAscii(),
-		lInterface->GetSubnetMask().GetAscii() );
+        printf( "Interface %i\nMAC Address: %s\nIP Address: %s\nSubnet Mask: %s\n\n",
+                x,
+                lInterface->GetMACAddress().GetAscii(),
+                lInterface->GetIPAddress().GetAscii(),
+                lInterface->GetSubnetMask().GetAscii() );
 
-	// Get the number of GEV devices that were found using GetDeviceCount.
-	PvUInt32 lDeviceCount = lInterface->GetDeviceCount();
+        // Get the number of GEV devices that were found using GetDeviceCount.
+        PvUInt32 lDeviceCount = lInterface->GetDeviceCount();
 
-	for( PvUInt32 y = 0; y < lDeviceCount ; y++ )
-	{
-	    lDeviceInfo = lInterface->GetDeviceInfo( y );
-	    printf( "Device %i\nMAC Address: %s\nIP Address: %s\nSerial number: %s\n\n",
-		    y,
-		    lDeviceInfo->GetMACAddress().GetAscii(),
-		    lDeviceInfo->GetIPAddress().GetAscii(),
-		    lDeviceInfo->GetSerialNumber().GetAscii() );
-	}
+        for( PvUInt32 y = 0; y < lDeviceCount ; y++ )
+        {
+            lDeviceInfo = lInterface->GetDeviceInfo( y );
+            printf( "Device %i\nMAC Address: %s\nIP Address: %s\nSerial number: %s\n\n",
+                    y,
+                    lDeviceInfo->GetMACAddress().GetAscii(),
+                    lDeviceInfo->GetIPAddress().GetAscii(),
+                    lDeviceInfo->GetSerialNumber().GetAscii() );
+        }
     }
 
     // Connect to the last GEV Device found.
     if( lDeviceInfo != NULL )
     {
-	printf( "ImpxerStream::Connect Connecting to %s\n",
-		lDeviceInfo->GetMACAddress().GetAscii() );
+        printf( "ImpxerStream::Connect Connecting to %s\n",
+                lDeviceInfo->GetMACAddress().GetAscii() );
 
-	lResult = lDevice.Connect( lDeviceInfo );
-	if ( !lResult.IsOK() )
-	{
-	    printf( "ImpxerStream::Connect Unable to connect to %s\n", 
-		    lDeviceInfo->GetMACAddress().GetAscii() );
-	    return -1;
-	}
-	else
-	{
-	    printf( "ImpexStream::Connect Successfully connected to %s\n", 
-		    lDeviceInfo->GetMACAddress().GetAscii() );
-	}
+        lResult = lDevice.Connect( lDeviceInfo );
+        if ( !lResult.IsOK() )
+        {
+            printf( "ImpxerStream::Connect Unable to connect to %s\n", 
+                    lDeviceInfo->GetMACAddress().GetAscii() );
+            return -1;
+        }
+        else
+        {
+            printf( "ImpexStream::Connect Successfully connected to %s\n", 
+                    lDeviceInfo->GetMACAddress().GetAscii() );
+        }
     }
     else
     {
-	printf( "ImperxStream::Connect No device found\n" );
-	return -1;
+        printf( "ImperxStream::Connect No device found\n" );
+        return -1;
     }
 
     // Get device parameters need to control streaming
@@ -101,9 +101,9 @@ int ImperxStream::Connect(const std::string &IP)
     lResult = lSystem.Find();
     if( !lResult.IsOK() )
     {
-	//Failed to find PvAnything
-	printf( "PvSystem::Find Error: %s", lResult.GetCodeString().GetAscii() );
-	return -1;
+        //Failed to find PvAnything
+        printf( "PvSystem::Find Error: %s", lResult.GetCodeString().GetAscii() );
+        return -1;
     }
 
     // Get the number of GEV Interfaces that were found using GetInterfaceCount.
@@ -113,56 +113,56 @@ int ImperxStream::Connect(const std::string &IP)
     // Check devices for correct target IP
     for( PvUInt32 x = 0; x < lInterfaceCount; x++ )
     {
-	// get pointer to each of interface
-	PvInterface * lInterface = lSystem.GetInterface( x );
+        // get pointer to each of interface
+        PvInterface * lInterface = lSystem.GetInterface( x );
 
-	// Get the number of GEV devices that were found using GetDeviceCount.
-	PvUInt32 lDeviceCount = lInterface->GetDeviceCount();
+        // Get the number of GEV devices that were found using GetDeviceCount.
+        PvUInt32 lDeviceCount = lInterface->GetDeviceCount();
 
-	for( PvUInt32 y = 0; y < lDeviceCount ; y++ )
-	{
-	    PvDeviceInfo *tDeviceInfo = lInterface->GetDeviceInfo( y );
-	    std::string laddress(tDeviceInfo->GetIPAddress().GetAscii());
-	    if (!laddress.compare(IP))
-	    {
-		lDeviceInfo = tDeviceInfo;
-		printf( "Interface %i\nMAC Address: %s\nIP Address: %s\nSubnet Mask: %s\n\n",
-			x,
-			lInterface->GetMACAddress().GetAscii(),
-			lInterface->GetIPAddress().GetAscii(),
-			lInterface->GetSubnetMask().GetAscii() );
-		printf( "Device %i\nMAC Address: %s\nIP Address: %s\nSerial number: %s\n\n",
-			y,
-			tDeviceInfo->GetMACAddress().GetAscii(),
-			tDeviceInfo->GetIPAddress().GetAscii(),
-			tDeviceInfo->GetSerialNumber().GetAscii() );
-	    }
-	}
+        for( PvUInt32 y = 0; y < lDeviceCount ; y++ )
+        {
+            PvDeviceInfo *tDeviceInfo = lInterface->GetDeviceInfo( y );
+            std::string laddress(tDeviceInfo->GetIPAddress().GetAscii());
+            if (!laddress.compare(IP))
+            {
+                lDeviceInfo = tDeviceInfo;
+                printf( "Interface %i\nMAC Address: %s\nIP Address: %s\nSubnet Mask: %s\n\n",
+                        x,
+                        lInterface->GetMACAddress().GetAscii(),
+                        lInterface->GetIPAddress().GetAscii(),
+                        lInterface->GetSubnetMask().GetAscii() );
+                printf( "Device %i\nMAC Address: %s\nIP Address: %s\nSerial number: %s\n\n",
+                        y,
+                        tDeviceInfo->GetMACAddress().GetAscii(),
+                        tDeviceInfo->GetIPAddress().GetAscii(),
+                        tDeviceInfo->GetSerialNumber().GetAscii() );
+            }
+        }
     }
 
     // Connect to the last GEV Device found.
     if( lDeviceInfo != NULL )
     {
-	printf( "Connecting to %s\n",
-		lDeviceInfo->GetMACAddress().GetAscii() );
+        printf( "Connecting to %s\n",
+                lDeviceInfo->GetMACAddress().GetAscii() );
 
-	lResult = lDevice.Connect( lDeviceInfo );
-	if ( !lResult.IsOK() )
-	{
-	    printf( "Unable to connect to %s\n", 
-		    lDeviceInfo->GetMACAddress().GetAscii() );
-	    return -1;
-	}
-	else
-	{
-	    printf( "Successfully connected to %s\n", 
-		    lDeviceInfo->GetMACAddress().GetAscii() );
-	}
+        lResult = lDevice.Connect( lDeviceInfo );
+        if ( !lResult.IsOK() )
+        {
+            printf( "Unable to connect to %s\n", 
+                    lDeviceInfo->GetMACAddress().GetAscii() );
+            return -1;
+        }
+        else
+        {
+            printf( "Successfully connected to %s\n", 
+                    lDeviceInfo->GetMACAddress().GetAscii() );
+        }
     }
     else
     {
-	printf( "No device found\n" );
-	return -1;
+        printf( "No device found\n" );
+        return -1;
     }
     // Get device parameters need to control streaming
     lDeviceParams = lDevice.GetGenParameters();
@@ -172,11 +172,11 @@ int ImperxStream::Connect(const std::string &IP)
 
 int ImperxStream::Initialize()
 {
-  std::cout << "ImperxStream::Initialize starting" << std::endl;
+    std::cout << "ImperxStream::Initialize starting" << std::endl;
     if(lDeviceInfo == NULL)
     {
-	std::cout << "ImperxStream::Initialize No device connected!" << std::endl;
-	return -1;
+        std::cout << "ImperxStream::Initialize No device connected!" << std::endl;
+        return -1;
     }
 
     // Negotiate streaming packet size
@@ -233,49 +233,49 @@ int ImperxStream::Snap(cv::Mat &frame, int timeout)
     // to start sending us images
     lDeviceParams->ExecuteCommand( "AcquisitionStart" );
     int lWidth, lHeight, result = 0;
-    // Retrieve next buffer		
+    // Retrieve next buffer             
     PvBuffer *lBuffer = NULL;
     PvResult lOperationResult;
     PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, timeout, &lOperationResult );
         
     if ( lResult.IsOK() )
     {
-	if ( lOperationResult.IsOK() )
-	{
-	    // Process Buffer
+        if ( lOperationResult.IsOK() )
+        {
+            // Process Buffer
             
-	    if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
-	    {
-//		std::cout << "ImperxStream::Snap Copying frame" << std::endl;
-		// Get image specific buffer interface
-		PvImage *lImage = lBuffer->GetImage();
-	      
-		// Read width, height
-		lWidth = (int) lImage->GetWidth();
-		lHeight = (int) lImage->GetHeight();
-		unsigned char *img = lImage->GetDataPointer();
-		cv::Mat lframe(lHeight,lWidth,CV_8UC1,img, cv::Mat::AUTO_STEP);
-		lframe.copyTo(frame);
-		result = 0;
-	    }
-	    else
-	    {
-		std::cout << "ImperxStream::Snap No image in buffer" << std::endl;
-		result = 1;
-	    }
-	}
-	else
-	{
-	    std::cout << "ImperxStream::Snap Operation result: " << lOperationResult << std::endl;
-	    result = 1;;
-	}
-	// We have an image - do some processing (...) and VERY IMPORTANT,
-	// release the buffer back to the pipeline
+            if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
+            {
+//              std::cout << "ImperxStream::Snap Copying frame" << std::endl;
+                // Get image specific buffer interface
+                PvImage *lImage = lBuffer->GetImage();
+              
+                // Read width, height
+                lWidth = (int) lImage->GetWidth();
+                lHeight = (int) lImage->GetHeight();
+                unsigned char *img = lImage->GetDataPointer();
+                cv::Mat lframe(lHeight,lWidth,CV_8UC1,img, cv::Mat::AUTO_STEP);
+                lframe.copyTo(frame);
+                result = 0;
+            }
+            else
+            {
+                std::cout << "ImperxStream::Snap No image in buffer" << std::endl;
+                result = 1;
+            }
+        }
+        else
+        {
+            std::cout << "ImperxStream::Snap Operation result: " << lOperationResult << std::endl;
+            result = 1;;
+        }
+        // We have an image - do some processing (...) and VERY IMPORTANT,
+        // release the buffer back to the pipeline
     }
     else
     {
-	std::cout << "ImperxStream::Snap Timeout: " << lResult << std::endl;
-	result = 1;
+        std::cout << "ImperxStream::Snap Timeout: " << lResult << std::endl;
+        result = 1;
     }
     
     lPipeline.ReleaseBuffer( lBuffer );
@@ -284,13 +284,13 @@ int ImperxStream::Snap(cv::Mat &frame, int timeout)
 }
 
 
-int8_t ImperxStream::getTemperature()
-{		
-    long long int lTempValue = -128;
-    lDevice.GetGenParameters()->GetIntegerValue( "CurrentTemperature", lTempValue );
-    if (lTempValue > 127) lTempValue = lTempValue-256;
+float ImperxStream::getTemperature()
+{               
+    long long int lTempValue = -512;
+    lDevice.GetGenParameters()->GetIntegerValue( "GetTemperature", lTempValue );
+    if (lTempValue >= 512) lTempValue = lTempValue-1024;
 
-    return (int8_t)lTempValue; 
+    return (float)lTempValue/4.;
 }
 
 
@@ -298,30 +298,30 @@ void ImperxStream::Stop()
 {
     if (lDeviceParams != NULL)
     {
-	// Tell the device to stop sending images
-	std::cout << "Stop: Send AcquisitionStop\n";
-	lDeviceParams->ExecuteCommand( "AcquisitionStop" );
+        // Tell the device to stop sending images
+        std::cout << "Stop: Send AcquisitionStop\n";
+        lDeviceParams->ExecuteCommand( "AcquisitionStop" );
     
-	// If present reset TLParamsLocked to 0. Must be done AFTER the 
-	// streaming has been stopped
-	std::cout << "Stop: set TLParamsLocked to 0\n";
-	lDeviceParams->SetIntegerValue( "TLParamsLocked", 0 );
+        // If present reset TLParamsLocked to 0. Must be done AFTER the 
+        // streaming has been stopped
+        std::cout << "Stop: set TLParamsLocked to 0\n";
+        lDeviceParams->SetIntegerValue( "TLParamsLocked", 0 );
     }
 
     // We stop the pipeline - letting the object lapse out of 
     // scope would have had the destructor do the same, but we do it anyway    
     if(lPipeline.IsStarted())
     {
-	std::cout << "Stop: Stop pipeline\n";
-	lPipeline.Stop();
+        std::cout << "Stop: Stop pipeline\n";
+        lPipeline.Stop();
     }
 
     // Now close the stream. Also optionnal but nice to have
     
     if(lStream.IsOpen())
     {
-	std::cout << "Stop: Closing stream\n";
-	lStream.Close();
+        std::cout << "Stop: Closing stream\n";
+        lStream.Close();
     }
 }
 
@@ -329,8 +329,8 @@ void ImperxStream::Disconnect()
 {
     if(lDevice.IsConnected())
     {
-	printf( "Disconnecting device\n" );
-	lDevice.Disconnect();
+        printf( "Disconnecting device\n" );
+        lDevice.Disconnect();
     }
 }
 
@@ -348,11 +348,11 @@ int ImperxStream::SetExposure(int exposureTime)
     PvResult outcome;
     if (exposureTime >= 5 && exposureTime <= 38221)
     {
-	outcome = lDeviceParams->SetIntegerValue("ExposureTimeRaw",exposureTime);
-	if (outcome.IsSuccess())
-	{
-	    return 0;
-	}
+        outcome = lDeviceParams->SetIntegerValue("ExposureTimeRaw",exposureTime);
+        if (outcome.IsSuccess())
+        {
+            return 0;
+        }
     }
     return -1;
 }
@@ -369,7 +369,7 @@ int ImperxStream::SetROISize(int width, int height)
     outcomes[1] = SetROIWidth(width);   
     if (outcomes[0] == 0 && outcomes[1] == 0)
     {
-	return 0;
+        return 0;
     }
     return -1;
 }
@@ -379,11 +379,11 @@ int ImperxStream::SetROIHeight(int height)
     PvResult outcome;
     if (height >= 1 && height <= 966)
     {
-	outcome = lDeviceParams->SetIntegerValue("Height", height);
-	if (outcome.IsSuccess())
-	{
-	    return 0;
-	}
+        outcome = lDeviceParams->SetIntegerValue("Height", height);
+        if (outcome.IsSuccess())
+        {
+            return 0;
+        }
     }
     return -1;
 }
@@ -393,11 +393,11 @@ int ImperxStream::SetROIWidth(int width)
     PvResult outcome;
     if (width >= 8 && width <= 1296 && (width % 8) == 0)
     {
-	outcome = lDeviceParams->SetIntegerValue("Width", width);
-	if (outcome.IsSuccess())
-	{
-	    return 0;
-	}
+        outcome = lDeviceParams->SetIntegerValue("Width", width);
+        if (outcome.IsSuccess())
+        {
+            return 0;
+        }
     }
     return -1;   
 }
@@ -414,11 +414,11 @@ int ImperxStream::SetROIOffset(int x, int y)
     outcomes[1] = SetROIOffsetY(y);   
     if (outcomes[0] == 0 && outcomes[1] == 0)
     {
-	return 0;
+        return 0;
     }
     else
     {
-	return -1;
+        return -1;
     }
 }
 
@@ -427,11 +427,11 @@ int ImperxStream::SetROIOffsetX(int x)
     PvResult outcome;
     if (x >= 0 && x <= 965)
     {
-	outcome = lDeviceParams->SetIntegerValue("OffsetX", x);
-	if (outcome.IsSuccess())
-	{
-	    return 0;
-	}
+        outcome = lDeviceParams->SetIntegerValue("OffsetX", x);
+        if (outcome.IsSuccess())
+        {
+            return 0;
+        }
     }
     return -1;
 }
@@ -441,11 +441,11 @@ int ImperxStream::SetROIOffsetY(int y)
     PvResult outcome;
     if (y >= 0 && y <= 1295)
     {
-	outcome = lDeviceParams->SetIntegerValue("OffsetY", y);
-	if (outcome.IsSuccess())
-	{
-	    return 0;
-	}
+        outcome = lDeviceParams->SetIntegerValue("OffsetY", y);
+        if (outcome.IsSuccess())
+        {
+            return 0;
+        }
     }
     return -1;
 }
@@ -455,11 +455,11 @@ int ImperxStream::SetAnalogGain(int gain)
     PvResult outcome;
     if (gain >= 0 && gain <= 1023)
     {
-	outcome = lDeviceParams->SetIntegerValue("GainRaw",gain);
-	if (outcome.IsSuccess())
-	{
-	    return 0;
-	}
+        outcome = lDeviceParams->SetIntegerValue("GainRaw",gain);
+        if (outcome.IsSuccess())
+        {
+            return 0;
+        }
     }
     return -1;
 }
@@ -472,23 +472,23 @@ int ImperxStream::SetPreAmpGain(int gain)
     {
     case -3: 
         value = "minus3dB";
-	break;
+        break;
     case 0: 
-	value = "zero_dB";
-	break;
+        value = "zero_dB";
+        break;
     case 3: 
-	value = "plus3dB";
-	break;
+        value = "plus3dB";
+        break;
     case 6:
         value = "plus6dB";
-	break;
+        break;
     default:
-	return -1;
+        return -1;
     }
     outcome = lDeviceParams->SetEnumValue("PreAmpRaw",value);
     if (outcome.IsSuccess())
     {
-	return 0;
+        return 0;
     }
     return -1;
 }
@@ -498,11 +498,11 @@ int ImperxStream::SetBlackLevel(int black)
     PvResult outcome;
     if (black >= 0 && black <= 1023)
     {
-	outcome = lDeviceParams->SetIntegerValue("BlackLevelRaw",black);
-	if (outcome.IsSuccess())
-	{
-	    return 0;
-	}
+        outcome = lDeviceParams->SetIntegerValue("BlackLevelRaw",black);
+        if (outcome.IsSuccess())
+        {
+            return 0;
+        }
     }
     return -1;
 }
@@ -580,19 +580,19 @@ int ImperxStream::GetPreAmpGain()
     switch((int) name)
     {
     case 0:
-	gain = -3;
-	break;
+        gain = -3;
+        break;
     case 1:
-	gain = 0;
-	break;
+        gain = 0;
+        break;
     case 2:
-	gain = 3;
-	break;
+        gain = 3;
+        break;
     case 3:
-	gain = 6;
-	break;
+        gain = 6;
+        break;
     default:
         gain = name;
     }
-   return gain;
+    return gain;
 }
