@@ -28,23 +28,30 @@ TCPSender::~TCPSender()
 
 int TCPSender::init_connection( void )
 {
+    
     // Create a reliable, stream socket using TCP
     sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock < 0){ printf("socket() failed"); } else {	
-		// Construct the server address structure
-		struct sockaddr_in servAddr; // Server address
-		memset(&servAddr, 0, sizeof(servAddr)); // Zero out structure
-		servAddr.sin_family = AF_INET; // IPv4 address family
-		// Convert address
-		int rtnVal = inet_pton(AF_INET, sendtoIP, &servAddr.sin_addr.s_addr);
-		if (rtnVal == 0){ printf("inet_pton() failed", "invalid address string"); }
-		else if (rtnVal < 0){ printf("inet_pton() failed"); }
-		servAddr.sin_port = htons(sendPort); // Server port
-	
-		// Establish the connection to the echo server
-		if (connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0)
-		{ printf("connect() failed"); sock = -1;}
-	}
+    if (sock < 0) {
+        printf("socket() failed");
+    } else {
+
+        // Construct the server address structure
+        struct sockaddr_in servAddr; // Server address
+        memset(&servAddr, 0, sizeof(servAddr)); // Zero out structure
+        servAddr.sin_family = AF_INET; // IPv4 address family
+        // Convert address
+        int rtnVal = inet_pton(AF_INET, sendtoIP, &servAddr.sin_addr.s_addr);
+        if (rtnVal == 0){ printf("inet_pton() failed, invalid address string"); }
+        else if (rtnVal < 0){ printf("inet_pton() failed"); }
+        servAddr.sin_port = htons(sendPort); // Server port
+
+        // Establish the connection to the echo server
+        if (connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
+            printf("connect() failed");
+            sock = -1;
+        }
+    }
+
     return sock;
 }
 
