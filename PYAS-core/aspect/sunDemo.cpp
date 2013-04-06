@@ -740,10 +740,10 @@ void *CommandSenderThread( void *threadid )
 
     while(1)    // run forever
     {
-        sleep(1);
+        usleep(5000);
     
         if( !cm_packet_queue.empty() ){
-            CommandPacket cp(0x01, 100);
+            CommandPacket cp(NULL);
             cm_packet_queue >> cp;
             comSender.send( &cp );
         }
@@ -808,7 +808,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         if( !localFrame.empty() ){
             int numXpixels = localFrame.cols;
             int numYpixels = localFrame.rows;
-            TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
+            TelemetryPacket tp(SAS_IMAGE_TYPE, SAS_TARGET_ID);
             printf("sending %dx%d image\n", numXpixels, numYpixels);
             int pixels_per_packet = 100;
             int num_packets = numXpixels * numYpixels / pixels_per_packet;
@@ -882,15 +882,11 @@ void *commandHandlerThread(void *threadargs)
     return NULL;
 }
 
-
 void start_all_threads( void ){
     int rc;
     long t;
  
-    pthread_mutex_init(&mutexImage, NULL);
-    pthread_mutex_init(&mutexProcess, NULL);
- 
-    for(int i = 0; i < NUM_THREADS; i++ ){
+    for(int i = 1; i < NUM_THREADS; i++ ){
         skip[i] = true;
         // reset stop message
         stop_message[i] = 0;
@@ -945,8 +941,6 @@ void start_all_threads( void ){
     //Thread #10 is for the commandHandler
 }
 
-
-
 int main(void)
 {  
     // to catch a Ctrl-C and clean up
@@ -954,9 +948,8 @@ int main(void)
 
     identifySAS();
 
-    recvd_command_queue = CommandQueue();
-    tm_packet_queue = TelemetryPacketQueue();
-    cm_packet_queue = CommandPacketQueue();
+    pthread_mutex_init(&mutexImage, NULL);
+    pthread_mutex_init(&mutexProcess, NULL);
 
     /* Create worker threads */
     printf("In main: creating threads\n");
@@ -968,6 +961,7 @@ int main(void)
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
+    stop_message[0] = 0;
     start_all_threads();
 
     while(g_running){
@@ -980,7 +974,8 @@ int main(void)
 
             latest_sas_command_key = command.get_sas_command();
             printf("Received command key 0x%x\n", latest_sas_command_key);
-            thread_data.command_num_vars = command.lookup_sas_payload_length(latest_sas_command_key)/2.0;
+            thread_data.command_key = latest_sas_command_key;
+            thread_data.command_num_vars = latest_sas_command_key & 0x000F;
             
             for(int i = 0; i < thread_data.command_num_vars; i++){
                 try {
@@ -991,9 +986,6 @@ int main(void)
             }
 
             switch( latest_sas_command_key ){
-                case 0xFFFF:     // dummy command, has sequence number
-                    queue_cmd_proc_ack_tmpacket( 1 );
-                    break;
                 case 0x1000:     // test, do nothing
                     queue_cmd_proc_ack_tmpacket( 1 );
                     break;
@@ -1019,7 +1011,6 @@ int main(void)
                         long t = 10L;
                         int rc;
                         thread_data.thread_id = t;
-                        thread_data.command_key = latest_sas_command_key;
                         rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data);
                         if ((skip[t] = (rc != 0))) {
                             printf("ERROR; return code from pthread_create() is %d\n", rc);
