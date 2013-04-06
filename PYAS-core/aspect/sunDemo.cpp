@@ -894,47 +894,47 @@ void start_all_threads( void ){
 
     // start all threads
     t = 1L;
-    rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, TelemetryPackagerThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 2L;
-    rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, sendCTLCommandsThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 3L;
-    rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, TelemetrySenderThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 4L;
-    rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, CommandSenderThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 5L;
-    rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, CameraStreamThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
-    rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, ImageProcessThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 7L;
-    rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, SaveImageThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 8L;
-    rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, SaveTemperaturesThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 9L;
-    rc = pthread_create(&threads[9],NULL, SBCInfoThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, SBCInfoThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
