@@ -1,0 +1,368 @@
+/*
+
+	Pleora Technologies - Main Stylesheet
+	Created by Industrial Media
+	www.industrialmedia.ca
+
+*/
+
+/* =General
+---------------------------------------------------------------------------------------------------- */
+
+body 
+{
+	color: #000000;
+	background-color: #0A508F;
+	margin: 0;
+	padding: 0;
+}
+
+body, div, table, td 
+{
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 11px;
+}
+	
+div 
+{
+	margin: 0 0 1em 0;
+}
+
+hr 
+{
+	background: #0A508F;
+	border:0;
+	border-top: 1px solid #0A508F;
+	clear: both;
+	height: 0;
+	margin: 0 0 1em 0;
+	_margin: 0 0 0.5em 0;
+	padding: 0;
+}
+
+/* =Layout
+---------------------------------------------------------------------------------------------------- */
+#content table {
+	margin: -0.5em 0 1em 0;
+	border-top: 1px solid #84A7C7;
+	border-bottom: 1px solid #84A7C7;
+	}
+	
+#content table th, #content table td {
+	padding: 3px 5px;
+	}
+	
+th {
+	font-size: 1em;
+	text-align: left;
+	}
+	
+tr.header {
+	background-color: #84A7C7;
+	}
+	
+tr.header {
+	color: #FFFFFF;
+	font-weight: bold;
+	}
+	
+#content table.layoutTable, #sidebar table {
+	border: 0;
+	margin: 0;
+	padding: 0;
+	}
+	
+#content table.layoutTable td {
+	padding: 0;
+	}
+	
+#sidebar {
+	background-color: #FFFFFF;
+	margin: 0;
+	padding: 0;
+	border-left: 1px solid #CF9F33;
+	}
+	
+td#logout a, td#logout a:active, td#logout a:visited 
+{
+	color: white;
+	text-decoration: none;
+}
+	
+/* =Links
+---------------------------------------------------------------------------------------------------- */
+
+a, a:active, a:visited 
+{
+	color: #0A508F;
+}
+	
+a:hover, a:visited:hover 
+{
+	color: #7BA366;
+}
+	
+a.resource, a.resource:visited 
+{
+	color: #759B67;
+	text-decoration:none;
+}
+
+a.vnewsticker:visited
+{
+	color: #FFFFFF;
+	text-decoration:none;
+}
+
+.feature a 
+{
+	text-transform: uppercase;
+}
+ 
+#menu a, #menu a:active, #menu a:visited 
+{
+	color: #0A508F;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-weight: bold;
+	line-height: 11px;
+	margin: 0;
+	padding: 0;
+	text-decoration: none;
+	text-transform: uppercase;
+}
+	
+#menu a.there, #menu a.there:active, #menu a.there:visited 
+{
+	color: #CF9F33;
+}
+
+#menu a:hover, #submenu a:hover, #menu a:active:hover, #submenu a:active:hover, #menu a:visited:hover,  #submenu a:visited:hover, #menu a.there:hover, #submenu a.there:hover, h3 a, h3 a:active, h3 a:visited 
+{	
+	color: #6A9753;
+}
+
+/* =Breadcrumbs
+---------------------------------------------------------------------------------------------------- */
+
+#breadcrumbs {
+	color: #7F7F7F;
+	height: 35px;
+	_height: 38px;
+	line-height: 11px;
+	margin: 0;
+	padding: 0;
+	}
+
+#breadcrumbs, #breadcrumbs a, #breadcrumbs a:active, #breadcrumbs a:visited {
+	color: #7F7F7F;
+	}
+	
+#breadcrumbs a:hover, #breadcrumbs a:visited:hover {
+	color: #0A508F;
+	}
+	
+/* =Navigation - Submenu
+---------------------------------------------------------------------------------------------------- */
+
+#submenu
+{
+	list-style: none;
+	margin: 0 0 10px 0;
+	padding: 0;
+}
+
+	
+#submenu a, #submenu a:active, #submenu a:visited 
+{
+	color: #CF9F33;
+	font-family: Verdana, Arial, Helvetica, sans-serif;	
+	font-style: italic;
+	font-weight: normal;
+	text-transform: none;
+}	
+
+
+/* =Typography
+---------------------------------------------------------------------------------------------------- */
+
+h1	{
+	color: #0A508F;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 1.8em;
+	font-weight: bold;
+	margin: -1px 0 0.65em 0;
+	padding: 0;
+	}
+
+h2, h3, h4 {
+	color: #0A508F;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 1.4em;
+	font-weight: bold;
+	margin: -1px 0 0.65em 0;
+	padding: 0;
+	}
+
+.feature h1 { /* Homepage Specific */
+	font-size: 1.2em;
+	margin: 0;
+	}
+	
+h2 span, h3, h4 {
+	text-transform: none;
+	}
+
+h3 {
+	font-size: 1.25em;
+	}
+	
+h4 {
+	font-size: 1.125em;
+	margin: 0 0 0.8em 0;
+	}
+	
+p {
+	margin: 0 0 1em 0;
+	}
+
+.teamTitle {
+	color: #759B67;
+	font-style: italic;
+	font-weight: bold;
+	margin-top: -0.85em;
+	margin-bottom: 0;
+	}
+	
+/* =Lists
+---------------------------------------------------------------------------------------------------- */
+
+ul {
+	list-style: square;
+	margin: 0 0 1em 0;
+	padding: 0 0 0 26px;
+	}
+	
+ol {
+	margin: 0 0 1em 0;
+	padding: 0 0 0 24px;
+	_padding-left: 28px;
+	}
+	
+li {
+	margin-bottom: 5px;
+	}
+	
+.resource li {
+	list-style-type: none;
+}
+	
+/* =Forms
+---------------------------------------------------------------------------------------------------- */
+
+form 
+{
+	margin: 0;
+	padding: 0;
+}
+	
+.admin-asterisk 
+{
+	color: #FF0000;
+}
+
+.validation 
+{
+	color: #FF0000;
+	font-weight:bold;
+}
+
+
+.button 
+{
+	background: url(../images/button_bg.gif);
+	border: 3px double #666666;
+	border-top-color: #A8A8A8;
+	border-left-color: #A8A8A8;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 9px;
+	padding: 2px;
+	background-color: #EBEBEB;
+	color: #666666;
+	font-weight: bold;
+}
+
+
+
+/* =Misc: Homepage Banner
+---------------------------------------------------------------------------------------------------- */
+
+#banner {
+	font-style: normal;
+	font-size: 14px;
+	font-weight: bold;
+	height: 40px;
+	padding: 10px 5px 2px 5px;
+	color: #FFFFFF;
+	}
+
+#banner a, #banner a:active, #banner a:visited {
+	color: #FFFFFF;
+	text-decoration: none;
+	font-size: 14px;
+	}
+	
+#banner a:hover, #banner a:visited:hover {
+	color: #FFFFFF;
+	text-decoration: none;
+	font-size: 14px;
+	}
+	
+/* =Misc: Homepage Feature
+---------------------------------------------------------------------------------------------------- */
+
+.feature div 
+{
+	margin: 0.5em 0;
+}
+
+/* =Misc: Images
+---------------------------------------------------------------------------------------------------- */
+
+.floatRight {
+	float: right;
+	margin-left: 1em;
+	}
+	
+.floatLeft {
+	float: left;
+	margin-right: 1em;
+	}
+	
+	
+/* =Misc: Pullout
+---------------------------------------------------------------------------------------------------- */
+	
+.pullout {
+	border-left: 1px solid #CF9F33;
+	color: #CF9F33;
+	float: right;
+	font-style: italic;
+	line-height: 1.375em;
+	margin: 0 0 1em 20px;
+	padding-left: 10px;
+	width: 38%;
+	}
+	
+.pullout ul, .pullout li {
+	margin-bottom: 0;
+	}
+	
+
+/* =Footer
+---------------------------------------------------------------------------------------------------- */
+	
+#footer {
+	font-size: 0.9em;
+	margin: 0;
+	padding: 10px 0;
+	}

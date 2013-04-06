@@ -1,0 +1,47 @@
+The following libraries have been used unmodified in the production of the software (version numbers have been striped):
+
+Used by Linux:
+CURL
+	libcurl
+DirectRenderingManager
+	libdrm
+ExpatXMLParser
+	libexpat
+FontConfig
+	libfontconfig
+FreeTypeProject
+	libfreetype
+OpenGL
+	libGL
+PCAP
+	libpcap
+Qt
+	libQtCore
+	libQtGui
+	libQtOpenGL
+xorg
+	libICE
+	libSM
+	libX11
+	libXau
+	libXdmcp
+	libXext
+	libXrender
+	libXxf86vm
+
+Used by both Linux and Windows:
+GenICam
+	libGCBase
+	libGenApi
+	liblog4cpp
+	libMathParser
+Log4Cxx
+	liblog4cxx
+xmlsoft
+	libxml2
+zlib
+	libz
+
+Licenses and/or copyright notices can be found in the included directories.
+
+
