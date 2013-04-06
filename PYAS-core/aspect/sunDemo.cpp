@@ -708,7 +708,7 @@ void *listenForCommandsThread(void *threadid)
             tm_packet_queue << ack_tp;
 
             // update the command count
-            printf("command sequence number to %i", command_sequence_number);
+            printf("command sequence number to %i\n", command_sequence_number);
 
             try { recvd_command_queue.add_packet(command_packet); }
             catch (std::exception& e) {
@@ -974,50 +974,53 @@ int main(void)
 
             latest_sas_command_key = command.get_sas_command();
             printf("Received command key 0x%x\n", latest_sas_command_key);
-            thread_data.command_key = latest_sas_command_key;
-            thread_data.command_num_vars = latest_sas_command_key & 0x000F;
-            
-            for(int i = 0; i < thread_data.command_num_vars; i++){
-                try {
-                    command >> thread_data.command_vars[i];
-                } catch (std::exception& e) {
-                    std::cerr << e.what() << std::endl;
-                }
-            }
 
-            switch( latest_sas_command_key & 0x0FFF){
-                case 0x0000:     // test, do nothing
-                    queue_cmd_proc_ack_tmpacket( 1 );
-                    break;
-                case 0x0010:    // kill all worker threads
-                    {
-                        kill_all_threads();
+            if ((latest_sas_command_key & (sas_id << 12)) != 0) { 
+                thread_data.command_key = latest_sas_command_key;
+                thread_data.command_num_vars = latest_sas_command_key & 0x000F;
+
+                for(int i = 0; i < thread_data.command_num_vars; i++){
+                    try {
+                      command >> thread_data.command_vars[i];
+                    } catch (std::exception& e) {
+                       std::cerr << e.what() << std::endl;
+                    }
+                }
+
+                switch( latest_sas_command_key & 0x0FFF){
+                    case 0x0000:     // test, do nothing
                         queue_cmd_proc_ack_tmpacket( 1 );
-                    }
-                    break;
-                case 0x0020:    // (re)start all worker threads
-                    {
-                        kill_all_threads();
-                        stop_message[0] = 1;    // also kill command listening thread
-                        sleep(1);
-                        t = 0L;
-                        rc = pthread_create(&threads[t], NULL, listenForCommandsThread,(void *)t);
-                        start_all_threads();
-                        queue_cmd_proc_ack_tmpacket( 1 );
-                    }
-                    break;
-                default:
-                    {
-                        long t = 10L;
-                        int rc;
-                        thread_data.thread_id = t;
-                        rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data);
-                        if ((skip[t] = (rc != 0))) {
-                            printf("ERROR; return code from pthread_create() is %d\n", rc);
-                        };
-                    }
-            }
-        }   
+                        break;
+                    case 0x0010:    // kill all worker threads
+                        {
+                            kill_all_threads();
+                            queue_cmd_proc_ack_tmpacket( 1 );
+                        }
+                        break;
+                    case 0x0020:    // (re)start all worker threads
+                        {
+                            kill_all_threads();
+                            stop_message[0] = 1;    // also kill command listening thread
+                            sleep(1);
+                            t = 0L;
+                            rc = pthread_create(&threads[t], NULL, listenForCommandsThread,(void *)t);
+                            start_all_threads();
+                            queue_cmd_proc_ack_tmpacket( 1 );
+                        }
+                        break;
+                    default:
+                        {
+                            long t = 10L;
+                            int rc;
+                            thread_data.thread_id = t;
+                            rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data);
+                            if ((skip[t] = (rc != 0))) {
+                                printf("ERROR; return code from pthread_create() is %d\n", rc);
+                            };
+                        }
+                } //switch
+            } else printf("Not intended recipient of this command\n");
+        }
     }
 
     /* Last thing that main() should do */
