@@ -200,10 +200,7 @@ int CommandQueue::add_packet(CommandPacket &cp)
     if(!cp.valid()) throw cpInvalidException;
 
     Command cm(0x10ff, 0xffff);
-    cm << cp.getSequenceNumber();
-    *this << cm;
-
-    int count = 1;
+    int count = 0;
 
     while(cp.remainingBytes() > 0) {
         cp.readNextCommandTo(cm);
