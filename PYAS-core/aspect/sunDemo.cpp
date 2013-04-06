@@ -13,8 +13,8 @@
 #define SAVE_LOCATION "/mnt/disk2/"
 #define SECONDS_AFTER_SAVE 5
 
-#define START_CTL_CMD_KEY 0x3245
-#define STOP_CTL_CMD_KEY 0x2456
+#define START_CTL_CMD_KEY 0x0030
+#define STOP_CTL_CMD_KEY 0x0040
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
@@ -847,15 +847,15 @@ void *commandHandlerThread(void *threadargs)
     my_data = (struct Thread_data *) threadargs;
     //long tid = (long)my_data->thread_id;
 
-    switch( my_data->command_key )
+    switch( my_data->command_key & 0x0FFF)
     {
-        case 0x1210:
+        case 0x0210:
             {
                 error_code = cmd_send_image_to_ground( 0 );
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case 0x1151:    // set exposure time
+        case 0x0151:    // set exposure time
             {
                 if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
                 std::cout << "Requested exposure time is: " << exposure << std::endl;
@@ -985,17 +985,17 @@ int main(void)
                 }
             }
 
-            switch( latest_sas_command_key ){
-                case 0x1000:     // test, do nothing
+            switch( latest_sas_command_key & 0x0FFF){
+                case 0x0000:     // test, do nothing
                     queue_cmd_proc_ack_tmpacket( 1 );
                     break;
-                case 0x1010:    // kill all worker threads
+                case 0x0010:    // kill all worker threads
                     {
                         kill_all_threads();
                         queue_cmd_proc_ack_tmpacket( 1 );
                     }
                     break;
-                case 0x1020:    // (re)start all worker threads
+                case 0x0020:    // (re)start all worker threads
                     {
                         kill_all_threads();
                         stop_message[0] = 1;    // also kill command listening thread
