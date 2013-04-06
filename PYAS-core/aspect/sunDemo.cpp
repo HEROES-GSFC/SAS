@@ -862,6 +862,9 @@ void *commandHandlerThread(void *threadargs)
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
+        case 0x0112:    // set new solar target
+            solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
+            break;
         case START_CTL_CMD_KEY:
             {
                 provide_CTL_solutions = 1;
