@@ -841,7 +841,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             uint8_t *array = new uint8_t[totalpixels];
 
             uint16_t rows = (localFrame.isContinuous() ? 1 : localFrame.rows);
-            uint16_t cols = totalpixels/rows;
+            uint32_t cols = totalpixels/rows;
 
             for (int j = 0; j < rows; j++) {
                 memcpy(array+j*cols, localFrame.ptr<uint8_t>(j), cols);
