@@ -3,10 +3,8 @@
 #include <arpa/inet.h>  /* for sockaddr_in and inet_addr() */
 #include <stdlib.h>     /* for atoi() and exit() */
 #include <arpa/inet.h>  /* for sockaddr_in and inet_addr() */
-#include "Command.hpp"
-#include "Telemetry.hpp"
 
-#define MAX_PACKET_SIZE 300
+#define MAX_PACKET_SIZE 500
 
 class TCPReceiver {
 protected:
@@ -21,12 +19,13 @@ protected:
     int numBytesRcvd;                /* Size of received message */
     unsigned int packet_size;
 public:
-    TCPReceiver( void );
     TCPReceiver( unsigned short port );
+    ~TCPReceiver();
     void set_packet_size( int num_bytes );
     void get_packet( uint8_t *packet  );
     unsigned int handle_tcpclient( int client_socket );
     int accept_packet();
-    void init_connection( void );
+    void init_listen( void );
     void close_connection( void );
+    void close_listen( void);
 };

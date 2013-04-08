@@ -36,6 +36,7 @@
 #include "UDPReceiver.hpp"
 #include "Command.hpp"
 #include "Telemetry.hpp"
+#include "Image.hpp"
 #include "Transform.hpp"
 #include "types.hpp"
 #include "TCPSender.hpp"
@@ -56,6 +57,7 @@ bool provide_CTL_solutions = 0;
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
 CommandPacketQueue cm_packet_queue;
+ImagePacketQueue im_packet_queue;
 
 // related to threads
 unsigned int stop_message[NUM_THREADS];
@@ -806,8 +808,9 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             pthread_mutex_unlock(&mutexImage);
         }
         if( !localFrame.empty() ){
-            int numXpixels = localFrame.cols;
-            int numYpixels = localFrame.rows;
+            uint16_t numXpixels = localFrame.cols;
+            uint16_t numYpixels = localFrame.rows;
+            /*
             TelemetryPacket tp(SAS_IMAGE_TYPE, SAS_TARGET_ID);
             printf("sending %dx%d image\n", numXpixels, numYpixels);
             int pixels_per_packet = 100;
@@ -833,6 +836,30 @@ uint16_t cmd_send_image_to_ground( int camera_id )
                 tcpSndr.send_packet( &tp );
                 count++;
             }
+            */
+            uint32_t totalpixels = numXpixels*numYpixels;
+            uint8_t *array = new uint8_t[totalpixels];
+
+            uint16_t rows = (localFrame.isContinuous() ? 1 : localFrame.rows);
+            uint32_t cols = totalpixels/rows;
+
+            for (int j = 0; j < rows; j++) {
+                memcpy(array+j*cols, localFrame.ptr<uint8_t>(j), cols);
+            }
+
+            im_packet_queue.add_array(sas_id+4*camera_id, numXpixels, numYpixels, array);
+
+            delete array;
+
+            std::cout << "Sending " << im_packet_queue.size() << " packets\n";
+
+            ImagePacket im(NULL);
+            while(!im_packet_queue.empty()) {
+                im_packet_queue >> im;
+                tcpSndr.send_packet( &im );
+                //std::cout << im << std::endl;
+            }
+
         }
         tcpSndr.close_connection();
         error_code = 1;

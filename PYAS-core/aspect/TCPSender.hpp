@@ -1,5 +1,5 @@
 #include "Command.hpp"
-#include "Telemetry.hpp"
+#include "Image.hpp"
 #include <arpa/inet.h>  /* for sockaddr_in and inet_addr() */
 
 class TCPSender {
@@ -15,7 +15,7 @@ public:
     TCPSender( const char *ip, unsigned short port );
     ~TCPSender();
         
-    virtual void send_packet(  TelemetryPacket *packet  );
+    virtual void send_packet(  ImagePacket *packet  );
     int init_connection( void );
     void close_connection( void );
 };
