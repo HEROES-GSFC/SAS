@@ -191,7 +191,8 @@ void ImagePacketQueue::add_array(uint8_t camera,
     }
 }
 
-void ImagePacketQueue::reassembleTo(std::vector<uint8_t> &output)
+void ImagePacketQueue::reassembleTo(std::vector<uint8_t> &output,
+                                    uint16_t &xpixels, uint16_t &ypixels)
 {
     ImageSectionPacket isp(NULL);
 
@@ -200,8 +201,8 @@ void ImagePacketQueue::reassembleTo(std::vector<uint8_t> &output)
         if (!isp.valid()) throw ipInvalidException;
     } while (isp.getTypeID() != IMAGE_DATA);
 
-    uint16_t xpixels = isp.getXPixels();
-    uint16_t ypixels = isp.getYPixels();
+    xpixels = isp.getXPixels();
+    ypixels = isp.getYPixels();
 
     output.clear();
     output.resize(xpixels*ypixels);

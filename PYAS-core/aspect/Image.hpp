@@ -84,7 +84,8 @@ public:
 
     void add_array(uint8_t camera, uint16_t xpixels, uint16_t ypixels,
                    const uint8_t *array);
-    void reassembleTo(std::vector<uint8_t> &output);
+    void reassembleTo(std::vector<uint8_t> &output,
+                      uint16_t &xpixels, uint16_t &ypixels);
 
     //Not yet implemented
     void add_FITS(const char *file);
