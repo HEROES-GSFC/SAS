@@ -104,7 +104,7 @@ public:
 };
 
 //Functions for manipulating bitfields (no range checking!)
-uint64_t bitread(const uint8_t *buf, uint16_t bit_location, uint8_t nbits);
-void bitwrite(uint8_t *buf, uint16_t bit_location, uint8_t nbits, uint64_t input);
+uint64_t bitread(const void *buf, uint16_t bit_location, uint8_t nbits);
+void bitwrite(void *buf, uint16_t bit_location, uint8_t nbits, uint64_t input);
 
 #endif

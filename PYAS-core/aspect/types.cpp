@@ -112,8 +112,9 @@ ByteString& operator>>(ByteString& bs, Float2B& f2)
     return bs >> f2.i_value;
 }
 
-uint64_t bitread(const uint8_t *buf, uint16_t bit_location, uint8_t nbits)
+uint64_t bitread(const void *ptr, uint16_t bit_location, uint8_t nbits)
 {
+    uint8_t *buf = (uint8_t *)ptr;
     if (nbits > 64) nbits = 64;
 
     uint16_t start_byte = bit_location/8;
@@ -134,8 +135,9 @@ uint64_t bitread(const uint8_t *buf, uint16_t bit_location, uint8_t nbits)
     return result;
 }
 
-void bitwrite(uint8_t *buf, uint16_t bit_location, uint8_t nbits, uint64_t input)
+void bitwrite(void *ptr, uint16_t bit_location, uint8_t nbits, uint64_t input)
 {
+    uint8_t *buf = (uint8_t *)ptr;
     if (nbits > 64) nbits = 64;
 
     uint16_t start_byte = bit_location/8;
