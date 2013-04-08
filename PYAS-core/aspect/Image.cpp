@@ -10,7 +10,6 @@
 #define SAS_TARGET_ID 0x30
 #define IMAGE_DATA 0x82
 #define IMAGE_TAG 0x83
-#define SECTION_MAX_PIXELS 10
 
 #define INDEX_NANOSECONDS 8
 #define INDEX_SECONDS 12
@@ -202,7 +201,7 @@ void ImagePacketQueue::reassembleTo(std::vector<uint8_t> &output)
     } while (isp.getTypeID() != IMAGE_DATA);
 
     uint16_t xpixels = isp.getXPixels();
-    uint16_t ypixels = isp.getXPixels();
+    uint16_t ypixels = isp.getYPixels();
 
     output.clear();
     output.resize(xpixels*ypixels);
