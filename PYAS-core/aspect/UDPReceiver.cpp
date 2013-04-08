@@ -30,7 +30,7 @@ unsigned int UDPReceiver::listen( void ){
 void UDPReceiver::init_connection( void ){
     /* Create socket for sending/receiving datagrams */
     if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
-        printf("socket() failed");
+        printf("UDPReceiver: socket() failed\n");
 
     /* Construct local address structure */
     memset(&myAddr, 0, sizeof(myAddr));   /* Zero out structure */
@@ -40,7 +40,7 @@ void UDPReceiver::init_connection( void ){
 
     /* Bind to the local address */
     if (bind(sock, (struct sockaddr *) &myAddr, sizeof(myAddr)) < 0)
-        printf("bind() failed");
+        printf("UDPReceiver: bind() failed\n");
 
     /* Set the size of the in-out parameter */
     cliAddrLen = sizeof(senderAddr);
