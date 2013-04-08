@@ -856,7 +856,8 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             ImagePacket im(NULL);
             while(!im_packet_queue.empty()) {
                 im_packet_queue >> im;
-                tcpSndr.send_packet( &im );
+                //tcpSndr.send_packet( &im );
+                std::cout << im << std::endl;
             }
 
         }

@@ -72,7 +72,7 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
     return numBytesRcvd;
 }
 
-void TCPReceiver::init_connection( void ){
+void TCPReceiver::init_listen( void ){
     /* Create socket for sending/receiving datagrams */
     if ((my_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
         printf("socket() failed\n");
@@ -104,6 +104,10 @@ void TCPReceiver::get_packet( uint8_t *packet ){
 
 void TCPReceiver::close_connection( void ){
     close( sender_sock );
+}
+
+void TCPReceiver::close_listen( void ){
+    close( my_sock );
 }
 
 

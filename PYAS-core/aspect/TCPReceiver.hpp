@@ -25,6 +25,7 @@ public:
     void get_packet( uint8_t *packet  );
     unsigned int handle_tcpclient( int client_socket );
     int accept_packet();
-    void init_connection( void );
+    void init_listen( void );
     void close_connection( void );
+    void close_listen( void);
 };
