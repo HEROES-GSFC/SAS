@@ -57,12 +57,14 @@ void UDPReceiver::close_connection( void ){
     }
 }
 
-CommandReceiver::CommandReceiver( unsigned short port ){
-    listeningPort = port;
+CommandReceiver::CommandReceiver( unsigned short port )
+    : UDPReceiver(port)
+{
 }
 
-TelemetryReceiver::TelemetryReceiver( unsigned short port ){
-    listeningPort = port;
+TelemetryReceiver::TelemetryReceiver( unsigned short port )
+    : UDPReceiver(port)
+{
 }
 
 
