@@ -4,12 +4,13 @@
 
 #include "UDPReceiver.hpp"
 
-UDPReceiver::UDPReceiver(void){
-    listeningPort = 5000;
-}
-
 UDPReceiver::UDPReceiver( unsigned short port ){
     listeningPort = port;
+    sock = -1;
+}
+
+UDPReceiver::~UDPReceiver() {
+    close_connection();
 }
 
 unsigned int UDPReceiver::listen( void ){
@@ -29,7 +30,7 @@ unsigned int UDPReceiver::listen( void ){
 void UDPReceiver::init_connection( void ){
     /* Create socket for sending/receiving datagrams */
     if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
-        printf("socket() failed");
+        printf("UDPReceiver: socket() failed\n");
 
     /* Construct local address structure */
     memset(&myAddr, 0, sizeof(myAddr));   /* Zero out structure */
@@ -39,7 +40,7 @@ void UDPReceiver::init_connection( void ){
 
     /* Bind to the local address */
     if (bind(sock, (struct sockaddr *) &myAddr, sizeof(myAddr)) < 0)
-        printf("bind() failed");
+        printf("UDPReceiver: bind() failed\n");
 
     /* Set the size of the in-out parameter */
     cliAddrLen = sizeof(senderAddr);
@@ -50,15 +51,20 @@ void UDPReceiver::get_packet( uint8_t *packet ){
 }
 
 void UDPReceiver::close_connection( void ){
-    close( sock );
+    if (sock >= 0) {
+        close( sock );
+        sock = -1;
+    }
 }
 
-CommandReceiver::CommandReceiver( unsigned short port ){
-    listeningPort = port;
+CommandReceiver::CommandReceiver( unsigned short port )
+    : UDPReceiver(port)
+{
 }
 
-TelemetryReceiver::TelemetryReceiver( unsigned short port ){
-    listeningPort = port;
+TelemetryReceiver::TelemetryReceiver( unsigned short port )
+    : UDPReceiver(port)
+{
 }
 
 

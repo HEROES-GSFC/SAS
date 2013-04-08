@@ -276,6 +276,9 @@ ByteStringQueue &operator<<(ByteStringQueue &bq, ByteStringQueue &other)
 
 ostream &operator<<(ostream &os, ByteStringQueue &bq)
 {
+    //Note: the queue thinks the objects are ByteStrings, so the proper
+    //  finish() for derived classes is not called
+
     bq.lock();
 
     if(bq.empty()) throw bqEmptyException;
@@ -313,23 +316,25 @@ namespace pkt
     void _template_loader()
     {
         ByteString dummy;
-        dummy << (uint8_t)0 << (uint16_t)0 << (uint32_t)0;
-        dummy << (int8_t)0 << (int16_t)0 << (int32_t)0;
+        dummy << (uint8_t)0 << (uint16_t)0 << (uint32_t)0 << (uint64_t)0;
+        dummy << (int8_t)0 << (int16_t)0 << (int32_t)0 << (int64_t)0;
         dummy << (float)0 << (double)0;
         dummy << dummy;
 
         double temp;
 
-        dummy >> *(uint8_t *)(&temp) >> *(uint16_t *)(&temp) >> *(uint32_t *)(&temp);
-        dummy >> *(int8_t *)(&temp) >> *(int16_t *)(&temp) >> *(int32_t *)(&temp);
+        dummy >> *(uint8_t *)(&temp) >> *(uint16_t *)(&temp) >> *(uint32_t *)(&temp) >> *(uint64_t *)(&temp);
+        dummy >> *(int8_t *)(&temp) >> *(int16_t *)(&temp) >> *(int32_t *)(&temp) >> *(int64_t *)(&temp);
         dummy >> *(float *)(&temp) >> *(double *)(&temp);
 
         dummy.replace(0, (uint8_t)0);
         dummy.replace(0, (uint16_t)0);
         dummy.replace(0, (uint32_t)0);
+        dummy.replace(0, (uint64_t)0);
         dummy.replace(0, (int8_t)0);
         dummy.replace(0, (int16_t)0);
         dummy.replace(0, (int32_t)0);
+        dummy.replace(0, (int64_t)0);
         dummy.replace(0, (float)0);
         dummy.replace(0, (double)0);
     }

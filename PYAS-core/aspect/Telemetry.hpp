@@ -32,11 +32,11 @@ if(!tpq.empty()) tpq >> tp;
 #define SAS2_SYNC_WORD 0xF626
 
 class TelemetryPacket : public Packet {
-private:
+protected:
     virtual void finish();
-    void writePayloadLength();
-    void writeChecksum();
-    void writeTime();
+    virtual void writePayloadLength();
+    virtual void writeChecksum();
+    virtual void writeTime();
 
 public:
     //Use this constructor when assembling a telemetry packet for sending
