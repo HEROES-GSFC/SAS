@@ -143,12 +143,12 @@ ImageTagPacket::ImageTagPacket(uint8_t camera, const void *data, uint8_t type,
                                const char *name, const char *comment)
     : ImagePacket(IMAGE_TAG, SAS_TARGET_ID)
 {
-    uint64_t tag_data = 0;
+    uint64_t tag_data[2] = { 0, 0 }; //initialize 16 bytes
     memcpy(&tag_data, data, sizeofTag(type));
 
-    *this << tag_data << type << camera;
+    *this << tag_data[0] << tag_data[1] << type << camera;
 
-    uint8_t tag_name[8], tag_comment[32];
+    uint8_t tag_name[8], tag_comment[32]; //not initialized
     strncpy((char *)tag_name, name, 8);
     strncpy((char *)tag_comment, comment, 32);
 
@@ -189,6 +189,13 @@ void ImagePacketQueue::add_array(uint8_t camera,
         isp.setTimeAndFinish(now);
         *this << isp;
     }
+
+    //No actual header information exists, so let's make some up
+    ImageTagPacket itp(NULL);
+    uint32_t exposure = 10000;
+    itp = ImageTagPacket(camera, &exposure, TLONG, "EXPOSURE", "Exposure time (msec)");
+    itp.setTimeAndFinish(now);
+    *this << itp;
 }
 
 void ImagePacketQueue::reassembleTo(std::vector<uint8_t> &output,
