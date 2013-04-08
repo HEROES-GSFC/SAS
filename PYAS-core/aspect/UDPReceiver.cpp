@@ -4,12 +4,13 @@
 
 #include "UDPReceiver.hpp"
 
-UDPReceiver::UDPReceiver(void){
-    listeningPort = 5000;
-}
-
 UDPReceiver::UDPReceiver( unsigned short port ){
     listeningPort = port;
+    sock = -1;
+}
+
+UDPReceiver::~UDPReceiver() {
+    close_connection();
 }
 
 unsigned int UDPReceiver::listen( void ){
@@ -50,7 +51,10 @@ void UDPReceiver::get_packet( uint8_t *packet ){
 }
 
 void UDPReceiver::close_connection( void ){
-    close( sock );
+    if (sock >= 0) {
+        close( sock );
+        sock = -1;
+    }
 }
 
 CommandReceiver::CommandReceiver( unsigned short port ){

@@ -102,11 +102,17 @@ void TCPReceiver::get_packet( uint8_t *packet ){
 }
 
 void TCPReceiver::close_connection( void ){
-    if (sender_sock >= 0) close( sender_sock );
+    if (sender_sock >= 0) {
+        close( sender_sock );
+        sender_sock = -1;
+    }
 }
 
 void TCPReceiver::close_listen( void ){
-    if (my_sock >= 0) close( my_sock );
+    if (my_sock >= 0) {
+        close( my_sock );
+        my_sock = -1;
+    }
 }
 
 
