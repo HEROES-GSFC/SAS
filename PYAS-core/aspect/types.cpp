@@ -1,6 +1,7 @@
 #include <iostream>
 #include <algorithm>
 
+#include <string.h>
 #include <math.h>
 
 #include "types.hpp"
@@ -127,7 +128,7 @@ uint64_t bitread(const void *ptr, uint16_t bit_location, uint8_t nbits)
     memcpy(&result, buf+start_byte, std::min(nbytes,(uint8_t)8));
     result = result >> start_bit;
     //If the field spilled over into a ninth bit, grab that portion too
-    if (nbytes > 8) result |= buf[start_byte+8] << 64-start_bit;
+    if (nbytes > 8) result |= buf[start_byte+8] << (64-start_bit);
 
     //Mask out the bits we didn't ask for
     result &= (1 << nbits) - 1;
