@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 
 #include <math.h>
 
@@ -109,4 +110,52 @@ ostream& operator<<(ostream& os, const Float2B& f2)
 ByteString& operator>>(ByteString& bs, Float2B& f2)
 {
     return bs >> f2.i_value;
+}
+
+uint64_t bitread(const void *ptr, uint16_t bit_location, uint8_t nbits)
+{
+    uint8_t *buf = (uint8_t *)ptr;
+    if (nbits > 64) nbits = 64;
+
+    uint16_t start_byte = bit_location/8;
+    uint16_t end_byte = ceil((bit_location+nbits)/8.)-1;
+    uint8_t start_bit = bit_location % 8;
+    uint8_t nbytes = end_byte-start_byte+1;
+
+    uint64_t result = 0;
+
+    memcpy(&result, buf+start_byte, std::min(nbytes,(uint8_t)8));
+    result = result >> start_bit;
+    //If the field spilled over into a ninth bit, grab that portion too
+    if (nbytes > 8) result |= buf[start_byte+8] << 64-start_bit;
+
+    //Mask out the bits we didn't ask for
+    result &= (1 << nbits) - 1;
+
+    return result;
+}
+
+void bitwrite(void *ptr, uint16_t bit_location, uint8_t nbits, uint64_t input)
+{
+    uint8_t *buf = (uint8_t *)ptr;
+    if (nbits > 64) nbits = 64;
+
+    uint16_t start_byte = bit_location/8;
+    uint16_t end_byte = ceil((bit_location+nbits)/8.)-1;
+    uint8_t start_bit = bit_location % 8;
+    uint8_t remainder_bits = (bit_location+nbits) % 8;
+    uint8_t nbytes = end_byte-start_byte+1;
+
+    uint64_t result = (input & ((1 << nbits) - 1)) << start_bit;
+
+    uint8_t buf2[9];
+    memcpy(buf2, &result, std::min(nbytes,(uint8_t)8));
+    if (nbytes > 8) {
+        buf2[8] = (input & ((1 << nbits) - 1)) >> (bit_location+nbits)/8;
+    }
+
+    buf2[0] |= buf[start_byte] & ((1 << start_bit) - 1);
+    buf2[end_byte-start_byte] |= buf[end_byte] & ~((1 << remainder_bits) - 1);
+
+    memcpy(buf+start_byte, buf2, nbytes);
 }
