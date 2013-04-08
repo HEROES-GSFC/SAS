@@ -60,7 +60,7 @@ void TCPSender::close_connection( void )
     close(sock);
 }
 
-void TCPSender::send_packet( TelemetryPacket *packet )
+void TCPSender::send_packet( ImagePacket *packet )
 {    
     int bytesSent;
 

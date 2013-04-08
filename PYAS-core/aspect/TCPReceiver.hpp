@@ -3,8 +3,6 @@
 #include <arpa/inet.h>  /* for sockaddr_in and inet_addr() */
 #include <stdlib.h>     /* for atoi() and exit() */
 #include <arpa/inet.h>  /* for sockaddr_in and inet_addr() */
-#include "Command.hpp"
-#include "Telemetry.hpp"
 
 #define MAX_PACKET_SIZE 300
 
