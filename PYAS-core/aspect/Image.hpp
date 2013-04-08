@@ -14,7 +14,7 @@
 
 #include "Telemetry.hpp"
 
-#define SECTION_MAX_PIXELS 100
+#define SECTION_MAX_PIXELS 1000
 
 #define TBYTE 11
 #define TSBYTE 12
