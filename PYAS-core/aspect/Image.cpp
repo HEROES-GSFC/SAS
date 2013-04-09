@@ -36,6 +36,14 @@ class ImageTagTypeException : public std::exception
         }
 } itTypeException;
 
+class ImageQueueEmptyException : public std::exception
+{
+    virtual const char* what() const throw()
+        {
+            return "Empty ImagePacketQueue";
+        }
+} iqEmptyException;
+
 uint8_t sizeofTag(uint8_t type)
 {
   switch(type) {
@@ -192,11 +200,13 @@ void ImagePacketQueue::add_array(uint8_t camera,
     }
 
     //No actual header information exists, so let's make some up
+    /*
     ImageTagPacket itp(NULL);
     uint32_t exposure = 10000;
     itp = ImageTagPacket(camera, &exposure, TLONG, "EXPOSURE", "Exposure time (msec)");
     itp.setTimeAndFinish(now);
     *this << itp;
+    */
 }
 
 void ImagePacketQueue::reassembleTo(uint8_t &camera,
@@ -228,6 +238,26 @@ void ImagePacketQueue::reassembleTo(uint8_t &camera,
 
     isp.readAtTo_bytes(INDEX_IMAGE_DATA, &output[isp.getOffset()],
                        isp.getLength()-INDEX_IMAGE_DATA);
+}
+
+void ImagePacketQueue::synchronize()
+{
+    timeval now;
+    gettimeofday(&now, NULL);
+
+    ImagePacket im(NULL);
+
+    lock();
+
+    if(empty()) throw iqEmptyException;
+    for (ImagePacketQueue::iterator it=begin(); it != end(); ++it) {
+        //Have to go through some contortions to make sure derived finish() is called
+        im = ImagePacket(*((ImagePacket *)&(*it)));
+        im.setTimeAndFinish(now);
+        *it = im;
+    }
+
+    unlock();
 }
 
 void ImagePacketQueue::add_FITS(const char* file)
