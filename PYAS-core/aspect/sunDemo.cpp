@@ -1094,7 +1094,7 @@ int main(void)
             printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, latest_sas_command_key);
 
             cmd_process_heroes_command(latest_heroes_command_key);
-            if(latest_heroes_command_key != 0x10FF) {
+            if(latest_heroes_command_key == 0x10FF) {
                 cmd_process_sas_command(latest_sas_command_key, command);
             }
         }
