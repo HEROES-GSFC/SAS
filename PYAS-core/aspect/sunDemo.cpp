@@ -91,6 +91,8 @@ CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 std::vector<float> mapping;
 
+HeaderData keys;
+
 bool staleFrame;
 Flag procReady, saveReady;
 int runtime = 10;
@@ -497,7 +499,6 @@ void *SaveImageThread(void *threadid)
     long int localFrameCount;
     std::string fitsfile;
     timespec waittime = {1,0};
-    HeaderData keys;
     //timespec thetimenow;
     while(1)
     {
@@ -799,45 +800,27 @@ uint16_t cmd_send_image_to_ground( int camera_id )
     // camera_id refers to 0 PYAS, 1 is RAS (if valid)
     uint16_t error_code = 0;
     cv::Mat localFrame;
+    HeaderData localKeys;
+
     TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
     int ret = tcpSndr.init_connection();
     if (ret > 0){
         if (pthread_mutex_trylock(&mutexImage) == 0){
-            if( !frame.empty() ){ frame.copyTo(localFrame); }
-            for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
+            if( !frame.empty() ){
+                frame.copyTo(localFrame);
+                localKeys = keys;
+            }
             pthread_mutex_unlock(&mutexImage);
         }
         if( !localFrame.empty() ){
+            //1 for SAS-1/PYAS, 2 for SAS-2/PYAS, 6 for SAS-2/RAS
+            uint8_t camera = sas_id+4*camera_id;
+
             uint16_t numXpixels = localFrame.cols;
             uint16_t numYpixels = localFrame.rows;
-            /*
-            TelemetryPacket tp(SAS_IMAGE_TYPE, SAS_TARGET_ID);
-            printf("sending %dx%d image\n", numXpixels, numYpixels);
-            int pixels_per_packet = 100;
-            int num_packets = numXpixels * numYpixels / pixels_per_packet;
-            tp << (uint16_t)numXpixels;
-            tp << (uint16_t)numYpixels;
-            tcpSndr.send_packet( &tp );
-            long k = 0;
-            long int count = 0;
- 
-            printf("sending %d packets\n", num_packets);
-
-            int x, y;
-            for( int i = 0; i < num_packets; i++ ){
-                TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
-
-                for( int j = 0; j < pixels_per_packet; j++){
-                    x = k % numXpixels;
-                    y = k / numXpixels;
-                    tp << (uint8_t)localFrame.at<uint8_t>(y, x);
-                    k++;
-                }
-                tcpSndr.send_packet( &tp );
-                count++;
-            }
-            */
             uint32_t totalpixels = numXpixels*numYpixels;
+
+            //Copy localFrame to a C array
             uint8_t *array = new uint8_t[totalpixels];
 
             uint16_t rows = (localFrame.isContinuous() ? 1 : localFrame.rows);
@@ -847,9 +830,15 @@ uint16_t cmd_send_image_to_ground( int camera_id )
                 memcpy(array+j*cols, localFrame.ptr<uint8_t>(j), cols);
             }
 
-            im_packet_queue.add_array(sas_id+4*camera_id, numXpixels, numYpixels, array);
+            im_packet_queue.add_array(camera, numXpixels, numYpixels, array);
 
             delete array;
+
+            //Add FITS header tags
+            im_packet_queue << ImageTagPacket(camera, (long)localKeys.exposureTime, TLONG, "EXPOSURE", "Exposure time (msec)");
+
+            //Make sure to synchronize all the timestamps
+            im_packet_queue.synchronize();
 
             std::cout << "Sending " << im_packet_queue.size() << " packets\n";
 
@@ -857,7 +846,6 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             while(!im_packet_queue.empty()) {
                 im_packet_queue >> im;
                 tcpSndr.send_packet( &im );
-                //std::cout << im << std::endl;
             }
 
         }
