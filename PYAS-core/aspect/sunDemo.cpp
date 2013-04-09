@@ -13,8 +13,8 @@
 #define SAVE_LOCATION "/mnt/disk2/"
 #define SECONDS_AFTER_SAVE 5
 
-#define START_CTL_CMD_KEY 0x0030
-#define STOP_CTL_CMD_KEY 0x0040
+#define SAS_MAKE_PRIMARY_KEY 0x0030
+#define SAS_MAKE_SECONDARY_KEY 0x0040
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
@@ -48,11 +48,13 @@
 
 // global declarations
 uint16_t command_sequence_number = 0;
+uint16_t latest_heroes_command_key = 0x0000;
 uint16_t latest_sas_command_key = 0x0000;
 uint16_t latest_sas_command_vars[15];
 uint32_t tm_frame_sequence_number = 0;
 
-bool provide_CTL_solutions = 0;
+bool isTracking = false; // does CTL want solutions?
+bool isPrimary = false; // is this SAS the primary one to provide solutions?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -769,7 +771,7 @@ void *sendCTLCommandsThread( void *threadid )
     while(1)    // run forever
     {
         usleep(2500);
-        if (provide_CTL_solutions) {
+        if (isTracking && isPrimary) {
             sleep(1);
             CommandPacket cp(0x01, 100);
             cp << (uint16_t)0x1100;
@@ -880,14 +882,14 @@ void *commandHandlerThread(void *threadargs)
         case 0x0112:    // set new solar target
             solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
             break;
-        case START_CTL_CMD_KEY:
+        case SAS_MAKE_PRIMARY_KEY:
             {
-                provide_CTL_solutions = 1;
+                isPrimary = true;
             }
             break;
-        case STOP_CTL_CMD_KEY:
+        case SAS_MAKE_SECONDARY_KEY:
             {
-                provide_CTL_solutions = 0;
+                isPrimary = false;
             }
             break;
         default:
@@ -898,6 +900,75 @@ void *commandHandlerThread(void *threadargs)
     }
 
     return NULL;
+}
+
+void cmd_process_heroes_command(uint16_t heroes_command)
+{
+    if ((heroes_command & 0xFF00) == 0x1000) {
+        switch(heroes_command) {
+            case 0x1000: // start tracking
+                isTracking = true;
+                // need to send 0x1100 command packet
+                break;
+            case 0x1001: // stop tracking
+                isTracking = false;
+                // need to send 0x1101 command packet
+                break;
+            case 0x10FF: // SAS command, so do nothing here
+                break;
+            default:
+                printf("Unknown HEROES command\n");
+        }
+    } else printf("Not a CTL-to-SAS command\n");
+}
+
+void cmd_process_sas_command(uint16_t sas_command)
+{
+    if ((sas_command & (sas_id << 12)) != 0) {
+        thread_data.command_key = sas_command;
+        thread_data.command_num_vars = sas_command & 0x000F;
+
+        for(int i = 0; i < thread_data.command_num_vars; i++){
+            try {
+              command >> thread_data.command_vars[i];
+            } catch (std::exception& e) {
+               std::cerr << e.what() << std::endl;
+            }
+        }
+
+        switch( sas & 0x0FFF){
+            case 0x0000:     // test, do nothing
+                queue_cmd_proc_ack_tmpacket( 1 );
+                break;
+            case 0x0010:    // kill all worker threads
+                {
+                    kill_all_threads();
+                    queue_cmd_proc_ack_tmpacket( 1 );
+                }
+                break;
+            case 0x0020:    // (re)start all worker threads
+                {
+                    kill_all_threads();
+                    stop_message[0] = 1;    // also kill command listening thread
+                    sleep(1);
+                    t = 0L;
+                    rc = pthread_create(&threads[t], NULL, listenForCommandsThread,(void *)t);
+                    start_all_threads();
+                    queue_cmd_proc_ack_tmpacket( 1 );
+                }
+                break;
+            default:
+                {
+                    long t = 10L;
+                    int rc;
+                    thread_data.thread_id = t;
+                    rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data);
+                    if ((skip[t] = (rc != 0))) {
+                        printf("ERROR; return code from pthread_create() is %d\n", rc);
+                    };
+                }
+        } //switch
+    } else printf("Not the intended SAS for this command\n");
 }
 
 void start_all_threads( void ){
@@ -965,6 +1036,7 @@ int main(void)
     signal(SIGINT, &sig_handler);
 
     identifySAS();
+    if (sas_id == 1) isPrimary = true;
 
     pthread_mutex_init(&mutexImage, NULL);
     pthread_mutex_init(&mutexProcess, NULL);
@@ -990,54 +1062,14 @@ int main(void)
             command = Command();
             recvd_command_queue >> command;
 
+            latest_heroes_command_key = command.heroes_sas_command();
             latest_sas_command_key = command.get_sas_command();
-            printf("Received command key 0x%x\n", latest_sas_command_key);
+            printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, latest_sas_command_key);
 
-            if ((latest_sas_command_key & (sas_id << 12)) != 0) { 
-                thread_data.command_key = latest_sas_command_key;
-                thread_data.command_num_vars = latest_sas_command_key & 0x000F;
-
-                for(int i = 0; i < thread_data.command_num_vars; i++){
-                    try {
-                      command >> thread_data.command_vars[i];
-                    } catch (std::exception& e) {
-                       std::cerr << e.what() << std::endl;
-                    }
-                }
-
-                switch( latest_sas_command_key & 0x0FFF){
-                    case 0x0000:     // test, do nothing
-                        queue_cmd_proc_ack_tmpacket( 1 );
-                        break;
-                    case 0x0010:    // kill all worker threads
-                        {
-                            kill_all_threads();
-                            queue_cmd_proc_ack_tmpacket( 1 );
-                        }
-                        break;
-                    case 0x0020:    // (re)start all worker threads
-                        {
-                            kill_all_threads();
-                            stop_message[0] = 1;    // also kill command listening thread
-                            sleep(1);
-                            t = 0L;
-                            rc = pthread_create(&threads[t], NULL, listenForCommandsThread,(void *)t);
-                            start_all_threads();
-                            queue_cmd_proc_ack_tmpacket( 1 );
-                        }
-                        break;
-                    default:
-                        {
-                            long t = 10L;
-                            int rc;
-                            thread_data.thread_id = t;
-                            rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data);
-                            if ((skip[t] = (rc != 0))) {
-                                printf("ERROR; return code from pthread_create() is %d\n", rc);
-                            };
-                        }
-                } //switch
-            } else printf("Not intended recipient of this command\n");
+            cmd_process_heroes_command(latest_heroes_command_key);
+            if(latest_heroes_command_key != 0x10FF) {
+                cmd_process_sas_command(latest_sas_command_key);
+            }
         }
     }
 
