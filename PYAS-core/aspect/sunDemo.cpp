@@ -109,6 +109,27 @@ float camera_temperature;
 int8_t sbc_temperature;
 float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 
+//Function declarations
+void sig_handler(int signum);
+void kill_all_threads( void );
+void identifySAS();
+void *CameraStreamThread( void * threadid);
+void *ImageProcessThread(void *threadid);
+void *TelemetrySenderThread(void *threadid);
+void *SBCInfoThread(void *threadid);
+void *SaveTemperaturesThread(void *threadid);
+void *SaveImageThread(void *threadid);
+void *TelemetryPackagerThread(void *threadid);
+void *listenForCommandsThread(void *threadid);
+void *CommandSenderThread( void *threadid );
+void *sendCTLCommandsThread( void *threadid );
+void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
+uint16_t cmd_send_image_to_ground( int camera_id );
+void *commandHandlerThread(void *threadargs);
+void cmd_process_heroes_command(uint16_t heroes_command);
+void cmd_process_sas_command(uint16_t sas_command, Command &command);
+void start_all_threads( void );
+
 void sig_handler(int signum)
 {
     if (signum == SIGINT)
@@ -837,7 +858,8 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             delete array;
 
             //Add FITS header tags
-            im_packet_queue << ImageTagPacket(camera, (long)localKeys.exposureTime, TLONG, "EXPOSURE", "Exposure time (msec)");
+            uint32_t temp = localKeys.exposureTime;
+            im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time (msec)");
 
             //Make sure to synchronize all the timestamps
             im_packet_queue.synchronize();
@@ -922,7 +944,7 @@ void cmd_process_heroes_command(uint16_t heroes_command)
     } else printf("Not a CTL-to-SAS command\n");
 }
 
-void cmd_process_sas_command(uint16_t sas_command)
+void cmd_process_sas_command(uint16_t sas_command, Command &command)
 {
     if ((sas_command & (sas_id << 12)) != 0) {
         thread_data.command_key = sas_command;
@@ -936,7 +958,7 @@ void cmd_process_sas_command(uint16_t sas_command)
             }
         }
 
-        switch( sas & 0x0FFF){
+        switch( sas_command & 0x0FFF){
             case 0x0000:     // test, do nothing
                 queue_cmd_proc_ack_tmpacket( 1 );
                 break;
@@ -951,8 +973,13 @@ void cmd_process_sas_command(uint16_t sas_command)
                     kill_all_threads();
                     stop_message[0] = 1;    // also kill command listening thread
                     sleep(1);
-                    t = 0L;
+                    long t = 0L;
+                    int rc = 0;
                     rc = pthread_create(&threads[t], NULL, listenForCommandsThread,(void *)t);
+                    if ((skip[t] = (rc != 0))) {
+                        printf("ERROR; return code from pthread_create() is %d\n", rc);
+                    }
+                    stop_message[0] = 0;
                     start_all_threads();
                     queue_cmd_proc_ack_tmpacket( 1 );
                 }
@@ -1062,13 +1089,13 @@ int main(void)
             command = Command();
             recvd_command_queue >> command;
 
-            latest_heroes_command_key = command.heroes_sas_command();
+            latest_heroes_command_key = command.get_heroes_command();
             latest_sas_command_key = command.get_sas_command();
             printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, latest_sas_command_key);
 
             cmd_process_heroes_command(latest_heroes_command_key);
             if(latest_heroes_command_key != 0x10FF) {
-                cmd_process_sas_command(latest_sas_command_key);
+                cmd_process_sas_command(latest_sas_command_key, command);
             }
         }
     }
