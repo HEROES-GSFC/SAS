@@ -1,5 +1,6 @@
 #define NUM_THREADS 11
 #define SAS_TARGET_ID 0x30
+#define CTL_TARGET_ID 0x01
 #define SAS_TM_TYPE 0x70
 #define SAS_IMAGE_TYPE 0x82
 #define SAS_CM_ACK_TYPE 0x01
@@ -75,9 +76,11 @@ uint16_t latest_heroes_command_key = 0x0000;
 uint16_t latest_sas_command_key = 0x0000;
 uint16_t latest_sas_command_vars[15];
 uint32_t tm_frame_sequence_number = 0;
+uint16_t solution_sequence_number = 0;
 
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
+bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -145,7 +148,7 @@ void *SaveImageThread(void *threadid);
 void *TelemetryPackagerThread(void *threadid);
 void *listenForCommandsThread(void *threadid);
 void *CommandSenderThread( void *threadid );
-void *sendCTLCommandsThread( void *threadid );
+void *CommandPackagerThread( void *threadid );
 void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
 uint16_t cmd_send_image_to_ground( int camera_id );
 void *commandHandlerThread(void *threadargs);
@@ -632,7 +635,7 @@ void *TelemetryPackagerThread(void *threadid)
         tp << command_sequence_number;
         tp << latest_sas_command_key;
 
-        if(pthread_mutex_trylock(&mutexProcess) == 0) 
+        if(pthread_mutex_trylock(&mutexProcess) == 0)
         {
             localMin = frameMin;
             localMax = frameMax;
@@ -799,31 +802,62 @@ void *CommandSenderThread( void *threadid )
 
         if (stop_message[tid] == 1){
             printf("CommandSender thread #%ld exiting\n", tid);
-            comSender.close_connection();
             pthread_exit( NULL );
         }
     }
   
 }
 
-void *sendCTLCommandsThread( void *threadid )
+void *CommandPackagerThread( void *threadid )
 {
     long tid;
     tid = (long)threadid;
-    printf("sendCTLCommands thread #%ld!\n", tid);
+    printf("CommandPackager thread #%ld!\n", tid);
 
     while(1)    // run forever
     {
-        usleep(2500);
-        if (isTracking && isOutputting) {
-            sleep(1);
-            CommandPacket cp(0x01, 100);
-            cp << (uint16_t)0x1100;
-            cm_packet_queue << cp;
-        }
+        sleep(1);
+
+        if (isOutputting) {
+            solution_sequence_number++;
+            CommandPacket cp(CTL_TARGET_ID, solution_sequence_number);
+
+            if (isTracking) {
+                if (!acknowledgedCTL) {
+                    cp << (uint16_t)HKEY_TRACKING_IS_ON;
+                    acknowledgedCTL = true;
+                } else {
+                    if(pthread_mutex_trylock(&mutexProcess) == 0)
+                    {
+                        localCenter = pixelCenter;
+                        localError = error;
+
+                        pthread_mutex_unlock(&mutexProcess);
+                    } else {
+                        std::cout << "Using stale information for solution packet" << std::endl;
+                    }
+
+                    cp << (uint16_t)HKEY_SAS_SOLUTION;
+                    cp << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y));
+                    cp << (double)0; // roll offset
+                    cp << (double)0.003; // error
+                    cp << (uint32_t)0; //seconds
+                    cp << (uint16_t)0; //milliseconds
+            } else { // isTracking is false
+                if (!acknowledgedCTL) {
+                    cp << (uint16_t)HKEY_TRACKING_IS_OFF;
+                    acknowledgedCTL = true;
+                }
+            } // isTracking
+
+            //Add packet to the queue if any commands have been inserted to the packet
+            if(cp.remainingBytes() > 0) {
+                cm_packet_queue << cp;
+            }
+        } // isOutputting
 
         if (stop_message[tid] == 1){
-            printf("sendCTLCommands thread #%ld exiting\n", tid);
+            printf("CommandPackager thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
     }
@@ -953,10 +987,12 @@ void cmd_process_heroes_command(uint16_t heroes_command)
         switch(heroes_command) {
             case HKEY_CTL_START_TRACKING: // start tracking
                 isTracking = true;
+                acknowledgedCTL = false;
                 // need to send 0x1100 command packet
                 break;
             case HKEY_CTL_STOP_TRACKING: // stop tracking
                 isTracking = false;
+                acknowledgedCTL = false;
                 // need to send 0x1101 command packet
                 break;
             case HKEY_FDR_SAS_CMD: // SAS command, so do nothing here
@@ -1038,7 +1074,7 @@ void start_all_threads( void ){
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 2L;
-    rc = pthread_create(&threads[t],NULL, sendCTLCommandsThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, CommandPackagerThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
