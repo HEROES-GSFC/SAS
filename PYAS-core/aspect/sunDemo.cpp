@@ -814,6 +814,8 @@ void *CommandPackagerThread( void *threadid )
     tid = (long)threadid;
     printf("CommandPackager thread #%ld!\n", tid);
 
+    cv::Point2f localCenter, localError;
+
     while(1)    // run forever
     {
         sleep(1);
@@ -824,7 +826,7 @@ void *CommandPackagerThread( void *threadid )
 
             if (isTracking) {
                 if (!acknowledgedCTL) {
-                    cp << (uint16_t)HKEY_TRACKING_IS_ON;
+                    cp << (uint16_t)HKEY_SAS_TRACKING_IS_ON;
                     acknowledgedCTL = true;
                 } else {
                     if(pthread_mutex_trylock(&mutexProcess) == 0)
@@ -843,9 +845,10 @@ void *CommandPackagerThread( void *threadid )
                     cp << (double)0.003; // error
                     cp << (uint32_t)0; //seconds
                     cp << (uint16_t)0; //milliseconds
+                }
             } else { // isTracking is false
                 if (!acknowledgedCTL) {
-                    cp << (uint16_t)HKEY_TRACKING_IS_OFF;
+                    cp << (uint16_t)HKEY_SAS_TRACKING_IS_OFF;
                     acknowledgedCTL = true;
                 }
             } // isTracking
@@ -1018,16 +1021,16 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
         }
 
         switch( sas_command & 0x0FFF){
-            case KEY_SAS_OP_DUMMY:     // test, do nothing
+            case SKEY_OP_DUMMY:     // test, do nothing
                 queue_cmd_proc_ack_tmpacket( 1 );
                 break;
-            case KEY_SAS_KILL_WORKERS:    // kill all worker threads
+            case SKEY_KILL_WORKERS:    // kill all worker threads
                 {
                     kill_all_threads();
                     queue_cmd_proc_ack_tmpacket( 1 );
                 }
                 break;
-            case KEY_SAS_RESTART_THREADS:    // (re)start all worker threads
+            case SKEY_RESTART_THREADS:    // (re)start all worker threads
                 {
                     kill_all_threads();
                     stop_message[0] = 1;    // also kill command listening thread
