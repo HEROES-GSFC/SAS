@@ -78,7 +78,6 @@ public:
 };
 
 class ImagePacketQueue : public TelemetryPacketQueue {
-
 public:
     ImagePacketQueue();
 
@@ -86,6 +85,8 @@ public:
                    const uint8_t *array);
     void reassembleTo(uint8_t &camera, uint16_t &xpixels, uint16_t &ypixels,
                       std::vector<uint8_t> &output);
+
+    void synchronize();
 
     //Not yet implemented
     void add_FITS(const char *file);
