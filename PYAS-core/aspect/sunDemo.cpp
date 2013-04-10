@@ -5,7 +5,7 @@
 #define SAS_IMAGE_TYPE 0x82
 #define SAS_CM_ACK_TYPE 0x01
 #define SAS_CM_PROC_ACK_TYPE 0xe1
-#define CTL_IP_ADDRESS "192.168.1.2"
+#define CTL_IP_ADDRESS "192.168.2.4"
 #define FDR_IP_ADDRESS "192.168.2.4"
 #define CTL_CMD_PORT 2000
 #define SAS_CMD_PORT 2001
@@ -798,6 +798,7 @@ void *CommandSenderThread( void *threadid )
             CommandPacket cp(NULL);
             cm_packet_queue >> cp;
             comSender.send( &cp );
+            //std::cout << "CommandSender: " << cp << std::endl;
         }
 
         if (stop_message[tid] == 1){
