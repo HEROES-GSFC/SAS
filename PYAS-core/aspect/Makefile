@@ -42,6 +42,12 @@ fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
 packetDemo: packetDemo.cpp ImperxStream.o utilities.o
 	$(CC) $(CFLAGS) $^ -o $@ $(IMPERX)
 
+CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o Packet.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@
+	
+CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@
+
 commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@
 
