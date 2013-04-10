@@ -13,8 +13,31 @@
 #define SAVE_LOCATION "/mnt/disk2/"
 #define SECONDS_AFTER_SAVE 5
 
-#define SAS_MAKE_PRIMARY_KEY 0x0030
-#define SAS_MAKE_SECONDARY_KEY 0x0040
+//HEROES commands, CTL/FDR to SAS
+#define HKEY_CTL_START_TRACKING 0x1000
+#define HKEY_CTL_STOP_TRACKING 0x1001
+#define HKEY_FDR_SAS_CMD 0x10FF
+
+//HEROES commands, SAS to CTL
+#define HKEY_SAS_TRACKING_IS_ON 0x1100
+#define HKEY_SAS_TRACKING_IS_OFF 0x1101
+#define HKEY_SAS_SOLUTION 0x1102
+#define HKEY_SAS_ERROR 0x1103
+#define HKEY_SAS_TIMESTAMP 0x1104
+
+//Operation commands
+#define SKEY_OP_DUMMY 0x0000
+#define SKEY_KILL_WORKERS 0x0010
+#define SKEY_RESTART_THREADS 0x0020
+#define SKEY_START_OUTPUTTING 0x0030
+#define SKEY_STOP_OUTPUTTING 0x0040
+
+//Setting commands
+#define SKEY_SET_TARGET 0x0112
+#define SKEY_SET_EXPOSURE 0x0151
+
+//Getting commands
+#define SKEY_REQUEST_IMAGE 0x0210
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
@@ -54,7 +77,7 @@ uint16_t latest_sas_command_vars[15];
 uint32_t tm_frame_sequence_number = 0;
 
 bool isTracking = false; // does CTL want solutions?
-bool isPrimary = false; // is this SAS the primary one to provide solutions?
+bool isOutputting = false; // is this SAS supposed to be outputting solutions?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -792,7 +815,7 @@ void *sendCTLCommandsThread( void *threadid )
     while(1)    // run forever
     {
         usleep(2500);
-        if (isTracking && isPrimary) {
+        if (isTracking && isOutputting) {
             sleep(1);
             CommandPacket cp(0x01, 100);
             cp << (uint16_t)0x1100;
@@ -888,30 +911,30 @@ void *commandHandlerThread(void *threadargs)
 
     switch( my_data->command_key & 0x0FFF)
     {
-        case 0x0210:
+        case SKEY_REQUEST_IMAGE:
             {
                 error_code = cmd_send_image_to_ground( 0 );
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case 0x0151:    // set exposure time
+        case SKEY_SET_EXPOSURE:    // set exposure time
             {
                 if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
                 std::cout << "Requested exposure time is: " << exposure << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case 0x0112:    // set new solar target
+        case SKEY_SET_TARGET:    // set new solar target
             solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
             break;
-        case SAS_MAKE_PRIMARY_KEY:
+        case SKEY_START_OUTPUTTING:
             {
-                isPrimary = true;
+                isOutputting = true;
             }
             break;
-        case SAS_MAKE_SECONDARY_KEY:
+        case SKEY_STOP_OUTPUTTING:
             {
-                isPrimary = false;
+                isOutputting = false;
             }
             break;
         default:
@@ -928,20 +951,20 @@ void cmd_process_heroes_command(uint16_t heroes_command)
 {
     if ((heroes_command & 0xFF00) == 0x1000) {
         switch(heroes_command) {
-            case 0x1000: // start tracking
+            case HKEY_CTL_START_TRACKING: // start tracking
                 isTracking = true;
                 // need to send 0x1100 command packet
                 break;
-            case 0x1001: // stop tracking
+            case HKEY_CTL_STOP_TRACKING: // stop tracking
                 isTracking = false;
                 // need to send 0x1101 command packet
                 break;
-            case 0x10FF: // SAS command, so do nothing here
+            case HKEY_FDR_SAS_CMD: // SAS command, so do nothing here
                 break;
             default:
                 printf("Unknown HEROES command\n");
         }
-    } else printf("Not a CTL-to-SAS command\n");
+    } else printf("Not a HEROES-to-SAS command\n");
 }
 
 void cmd_process_sas_command(uint16_t sas_command, Command &command)
@@ -959,16 +982,16 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
         }
 
         switch( sas_command & 0x0FFF){
-            case 0x0000:     // test, do nothing
+            case KEY_SAS_OP_DUMMY:     // test, do nothing
                 queue_cmd_proc_ack_tmpacket( 1 );
                 break;
-            case 0x0010:    // kill all worker threads
+            case KEY_SAS_KILL_WORKERS:    // kill all worker threads
                 {
                     kill_all_threads();
                     queue_cmd_proc_ack_tmpacket( 1 );
                 }
                 break;
-            case 0x0020:    // (re)start all worker threads
+            case KEY_SAS_RESTART_THREADS:    // (re)start all worker threads
                 {
                     kill_all_threads();
                     stop_message[0] = 1;    // also kill command listening thread
@@ -1063,7 +1086,7 @@ int main(void)
     signal(SIGINT, &sig_handler);
 
     identifySAS();
-    if (sas_id == 1) isPrimary = true;
+    if (sas_id == 1) isOutputting = true;
 
     pthread_mutex_init(&mutexImage, NULL);
     pthread_mutex_init(&mutexProcess, NULL);
@@ -1094,7 +1117,7 @@ int main(void)
             printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, latest_sas_command_key);
 
             cmd_process_heroes_command(latest_heroes_command_key);
-            if(latest_heroes_command_key == 0x10FF) {
+            if(latest_heroes_command_key == HKEY_FDR_SAS_CMD) {
                 cmd_process_sas_command(latest_sas_command_key, command);
             }
         }
