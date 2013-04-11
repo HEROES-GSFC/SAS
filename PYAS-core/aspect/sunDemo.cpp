@@ -118,6 +118,7 @@ ImagePacketQueue im_packet_queue;
 unsigned int stop_message[MAX_THREADS];
 pthread_t threads[MAX_THREADS];
 bool started[MAX_THREADS];
+int tid_listen = 0;
 pthread_attr_t attr;
 pthread_mutex_t mutexImage;
 pthread_mutex_t mutexProcess;
@@ -164,7 +165,8 @@ float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 
 //Function declarations
 void sig_handler(int signum);
-void kill_all_threads( void );
+void kill_all_threads( void ); //kills all threads
+void kill_all_workers( void ); //kills all threads except the one that listens for commands
 void identifySAS();
 void *CameraStreamThread( void * threadargs);
 void *ImageProcessThread(void *threadargs);
@@ -181,7 +183,7 @@ uint16_t cmd_send_image_to_ground( int camera_id );
 void *commandHandlerThread(void *threadargs);
 void cmd_process_heroes_command(uint16_t heroes_command);
 void cmd_process_sas_command(uint16_t sas_command, Command &command);
-void start_all_threads( void );
+void start_all_workers( void );
 void start_thread(void *(*start_routine) (void *), const Thread_data *tdata);
 
 void sig_handler(int signum)
@@ -192,9 +194,27 @@ void sig_handler(int signum)
     }
 }
 
-void kill_all_threads( void ){
-    for(int i = 1; i < MAX_THREADS; i++ ){
-        stop_message[i] = 1;
+void kill_all_workers( void ){
+    for(int i = 0; i < MAX_THREADS; i++ ){
+        if ((i != tid_listen) && started[i]) {
+            stop_message[i] = 1;
+        }
+    }
+    sleep(SLEEP_KILL);
+    for(int i = 0; i < MAX_THREADS; i++ ){
+        if ((i != tid_listen) && started[i]) {
+            printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
+            started[i] = false;
+        }
+    }
+}
+
+void kill_all_threads( void){
+    if (started[tid_listen]) {
+        stop_message[tid_listen] = 1;
+        kill_all_workers();
+        printf("Quitting thread %i, quitting status is %i\n", tid_listen, pthread_cancel(threads[tid_listen]));
+        started[tid_listen] = false;
     }
 }
 
@@ -760,6 +780,9 @@ void *listenForCommandsThread(void *threadargs)
 {  
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("listenForCommands thread #%ld!\n", tid);
+
+    tid_listen = tid;
+
     CommandReceiver comReceiver( (unsigned short) PORT_CMD_GROUND);
     comReceiver.init_connection();
     
@@ -1079,18 +1102,16 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
                 break;
             case SKEY_KILL_WORKERS:    // kill all worker threads
                 {
-                    kill_all_threads();
+                    kill_all_workers();
                     queue_cmd_proc_ack_tmpacket( 1 );
                 }
                 break;
             case SKEY_RESTART_THREADS:    // (re)start all worker threads
                 {
                     kill_all_threads();
-                    stop_message[0] = 1;    // also kill command listening thread
-                    sleep(SLEEP_KILL);
 
                     start_thread(listenForCommandsThread, NULL);
-                    start_all_threads();
+                    start_all_workers();
                     queue_cmd_proc_ack_tmpacket( 1 );
                 }
                 break;
@@ -1102,7 +1123,7 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
     } else printf("Not the intended SAS for this command\n");
 }
 
-void start_all_threads( void ){
+void start_all_workers( void ){
     start_thread(TelemetryPackagerThread, NULL);
     start_thread(CommandPackagerThread, NULL);
     start_thread(TelemetrySenderThread, NULL);
@@ -1134,7 +1155,7 @@ int main(void)
 
     // start the listen for commands thread right away
     start_thread(listenForCommandsThread, NULL);
-    start_all_threads();
+    start_all_workers();
 
     while(g_running){
         // check if new command have been added to command queue and service them
@@ -1159,13 +1180,6 @@ int main(void)
     printf("Quitting and cleaning up.\n");
     /* wait for threads to finish */
     kill_all_threads();
-    sleep(SLEEP_KILL);
-    for(int i = 0; i < MAX_THREADS; i++ ){
-        if (started[i]) {
-            printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
-            started[i] = false;
-        }
-    }
     pthread_mutex_destroy(&mutexImage);
     pthread_mutex_destroy(&mutexProcess);
     pthread_exit(NULL);
