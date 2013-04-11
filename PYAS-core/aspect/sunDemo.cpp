@@ -21,19 +21,17 @@
 #define IP_FDR      "192.168.2.4"   // will be 192.168.1.1 in flight
 #define IP_CTL      "192.168.2.4"   // will be 192.168.1.2 in flight
 #define IP_SAS1     "192.168.2.221" // will be 192.168.1.32 in flight
-#define IP_SAS2     "192.168.16.16" //
+#define IP_SAS2     "192.168.16.16" // not yet implemented
 #define IP_PYAS     "192.168.4.4"   // not yet implemented
 #define IP_RAS      "192.168.8.8"   // not yet implemented
 
 #define IP_LOOPBACK "127.0.0.1"   // should not change
 
 //UDP ports, aside from PORT_IMAGE, which is TCP
-#define PORT_CMD_FLIGHT   2000 // commands, FDR (receive) and CTL (send/receive)
-#define PORT_CMD_GROUND   2001 // receive commands from GSE
-#define PORT_TM           2002 // send telemetry to FDR (except images)
-#define PORT_IMAGE        2013 // send images to FDR, TCP port
-#define PORT_CMD_LOOPBACK 3000 //
-#define PORT_SBC_INFO     3456 //
+#define PORT_CMD      2000 // commands, FDR (receive) and CTL (send/receive)
+#define PORT_TM       2002 // send telemetry to FDR (except images)
+#define PORT_IMAGE    2013 // send images to FDR, TCP port
+#define PORT_SBC_INFO 3456 //
 
 //HEROES target ID for commands, source ID for telemetry
 #define TARGET_ID_CTL 0x01
@@ -837,7 +835,7 @@ void *CommandSenderThread( void *threadargs )
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("CommandSender thread #%ld!\n", tid);
 
-    CommandSender comSender(IP_CTL, PORT_CMD_FLIGHT);
+    CommandSender comSender(IP_CTL, PORT_CMD);
 
     while(1)    // run forever
     {
