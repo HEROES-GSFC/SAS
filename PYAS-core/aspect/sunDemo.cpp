@@ -7,7 +7,7 @@
 #define SLEEP_SAVE             5 // period for saving full images locally
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
-#define SLEEP_KILL 2           2 // waits when killing all threads
+#define SLEEP_KILL             2 // waits when killing all threads
 
 //Sleep settings (microseconds)
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
@@ -969,10 +969,10 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         
 void *commandHandlerThread(void *threadargs)
 {
+    long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     struct Thread_data *my_data;
     uint16_t error_code = 0;
     my_data = (struct Thread_data *) threadargs;
-    //long tid = (long)my_data->thread_id;
 
     switch( my_data->command_key & 0x0FFF)
     {
@@ -1009,6 +1009,7 @@ void *commandHandlerThread(void *threadargs)
             }
     }
 
+    started[tid] = false;
     return NULL;
 }
 
@@ -1064,7 +1065,7 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
         tdata.command_key = sas_command;
         tdata.command_num_vars = sas_command & 0x000F;
 
-        for(int i = 0; i < thread_data.command_num_vars; i++){
+        for(int i = 0; i < tdata.command_num_vars; i++){
             try {
               command >> tdata.command_vars[i];
             } catch (std::exception& e) {
