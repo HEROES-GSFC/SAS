@@ -947,12 +947,10 @@ void Aspect::FindFiducialIDs()
     IndexList rowPairs, colPairs;
     CoordList trash;
     K = pixelFiducials.size();
-    fiducialIDs.clear();
-    fiducialIDs.resize(K, cv::Point2i(-100,-100));
 
+    std::vector<cv::Point_<std::vector<int> > > votes;
+    votes.resize(K);
 
-    rowPairs.clear();
-    colPairs.clear();
     //Find fiducial pairs that are spaced correctly
     //std::cout << "Aspect: Find valid fiducial pairs" << std::endl;
     //std::cout << "Aspect: Searching through " << K << " Fiducials" << std::endl;
@@ -984,13 +982,13 @@ void Aspect::FindFiducialIDs()
             {
                 if (rowDiff > 0) 
                 {
-                    fiducialIDs[rowPairs[k].x].y = d-7;
-                    fiducialIDs[rowPairs[k].y].y = d+1-7;
+                    votes[rowPairs[k].x].y.push_back(d-7);
+                    votes[rowPairs[k].y].y.push_back(d+1-7);
                 }
                 else
                 {
-                    fiducialIDs[rowPairs[k].x].y = d+1-7;
-                    fiducialIDs[rowPairs[k].y].y = d-7;
+                    votes[rowPairs[k].x].y.push_back(d+1-7);
+                    votes[rowPairs[k].y].y.push_back(d-7);
                 }
             }
         }
@@ -1007,17 +1005,18 @@ void Aspect::FindFiducialIDs()
             {
                 if (colDiff > 0) 
                 {
-                    fiducialIDs[colPairs[k].x].x = d-7;
-                    fiducialIDs[colPairs[k].y].x = d+1-7;
+                    votes[rowPairs[k].x].x.push_back(d-7);
+                    votes[rowPairs[k].y].x.push_back(d+1-7);
                 }
                 else
                 {
-                    fiducialIDs[colPairs[k].x].x = d+1-7;
-                    fiducialIDs[colPairs[k].y].x = d-7;
+                    votes[rowPairs[k].x].x.push_back(d+1-7);
+                    votes[rowPairs[k].y].x.push_back(d-7);
                 }
             }
         }
     }
+    
 }       
 
 void Aspect::FindMapping()
