@@ -160,7 +160,7 @@ Aspect::Aspect()
     frameMax = 0;
     
     initialNumChords = 20;
-    chordsPerAxis = 5;
+    chordsPerAxis = 20;
     chordThreshold = .25;
     solarRadius = 105;
     limbWidth = 2;
@@ -1110,6 +1110,12 @@ void CircleFit(const CoordList& inPoints, std::vector<float>& fit)
     float Sxx, Sxy, Syy, Sxxx, Sxxy, Sxyy, Syyy;
     float xx, xy, yy;
     cv::Mat A, B, X;
+    cv::Point2f center;
+    float radius;
+
+    CoordList biasVectors;
+    cv::Point biasVector;
+    float bias;
     
     Sxx = Sxy = Syy = Sxxx = Sxxy = Sxyy = Syyy = 0;
     
@@ -1135,10 +1141,25 @@ void CircleFit(const CoordList& inPoints, std::vector<float>& fit)
 
     cv::solve((A.t()*A), (A.t()*B), X, cv::DECOMP_CHOLESKY);
     
+
+    center.x = X.at<float>(0);
+    center.y = X.at<float>(1);
+    radius = sqrt(pow(center.x,2) + pow(center.y,2) + (Sxx + Syy)/(float) points.size());
+    center = center + offset;
+    //Adjust for bias from unbalanced points
+    for (unsigned int k = 0; k < inPoints.size(); k++)
+    {
+        biasVector = center - inPoints[k];
+        bias = Euclidian(biasVector);
+        biasVectors.push_back((bias > radius ? (bias - radius)/bias : (radius - bias)/radius) * biasVector);
+        
+    }
+    center = center - Average(biasVectors);
+
     fit.resize(3);
-    fit[0] = X.at<float>(0) + offset.x;
-    fit[1] = X.at<float>(1) + offset.y;
-    fit[2] = sqrt(pow(X.at<float>(0),2) + pow(X.at<float>(1),2) + (Sxx + Syy)/(float) points.size());
+    fit[0] = center.x;
+    fit[1] = center.y;
+    fit[2] = radius;
     return;
 }
 
@@ -1163,9 +1184,14 @@ float Average(const std::vector<float>& d)
     return average/d.size();
 }
 
-float EuclidianDistance(cv::Point2f p1, cv::Point2f p2)
+float Euclidian(cv::Point2f d)
 {
-    return sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
+    return sqrt(pow(d.x, 2) + pow(d.y, 2));
+}
+
+float Euclidian(cv::Point2f p1, cv::Point2f p2)
+{
+    return Euclidian(p1-p2);
 }
 
 void matchKernel(cv::OutputArray _kernel)
