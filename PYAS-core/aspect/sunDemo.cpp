@@ -1,6 +1,7 @@
 #define MAX_THREADS 20
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define DEFAULT_EXPOSURE 15000 // microseconds, was 4500 microseconds in first Sun test
+#define REPORT_FOCUS false
 
 //Sleep settings (seconds)
 #define SLEEP_SOLUTION         1 // period for providing solutions to CTL
@@ -421,6 +422,7 @@ void *ImageProcessThread(void *threadargs)
 
                         case CENTER_ERROR:
                             aspect.GetPixelCrossings(localLimbs);
+                            if (REPORT_FOCUS) aspect.ReportFocus();
 
                         case LIMB_ERROR:
                         case RANGE_ERROR:
