@@ -160,7 +160,7 @@ Aspect::Aspect()
     frameMax = 0;
     
     initialNumChords = 20;
-    chordsPerAxis = 20;
+    chordsPerAxis = 5;
     chordThreshold = .25;
     solarRadius = 105;
     limbWidth = 2;
@@ -278,12 +278,14 @@ AspectCode Aspect::Run()
         {
             //std::cout << "Aspect: No Limb Crossings." << std::endl;
             state = NO_LIMB_CROSSINGS;
+            pixelCenter = cv::Point2f(-1,-1);
             return state;
         }
         else if (limbCrossings.size() < 4)
         {
             //std::cout << "Aspect: Too Few Limb Crossings." << std::endl;
             state = FEW_LIMB_CROSSINGS;
+            pixelCenter = cv::Point2f(-1,-1);
             return state;
         }
 
@@ -1106,11 +1108,16 @@ void CircleFit(const CoordList& points, std::vector<float>& fit)
     float x, y;
 
     cv::Point2f center;
-    float radius;
+    float radius, MSE;
+    std::vector<float> residual, CookDistance;
+    CoordList CookPoints;
+    cv::Mat H;
 
     B = cv::Mat(points.size(), 3, CV_32F);
     D = cv::Mat(points.size(), 1, CV_32F);
     Y = cv::Mat(3,1, CV_32F);
+    H = cv::Mat(points.size(), points.size(), CV_32F);
+    CookDistance = cv::Mat(points.size(), 1, CV_32F);
 
     for (unsigned int k = 0; k < points.size(); k++)
     {
@@ -1126,13 +1133,46 @@ void CircleFit(const CoordList& points, std::vector<float>& fit)
     center.x = Y.at<float>(0)/2;
     center.y = Y.at<float>(1)/2;
     radius = sqrt(Y.at<float>(2) + pow(center.x,2) + pow(center.y,2));
-    
-    fit.resize(3);
-    fit[0] = center.x;
-    fit[1] = center.y;
-    fit[2] = radius;
-    
-    return;
+
+    H = B*((B.t()*B).inv())*B.t();
+    for (unsigned int k = 0; k < points.size(); k++)
+    {
+        residual.push_back(pow(Euclidian(points[k] - center),2));
+        CookDistance[k] = residual[k] * H.at<float>(k,k) / 
+            pow(1 - H.at<float>(k,k), 2);
+    }
+    MSE = Average(residual); 
+    CookPoints = points;
+    for (unsigned int k = 0; k < CookPoints.size(); k++)
+    {
+        if (CookDistance[k] > MSE)
+    {
+        CookDistance.erase(CookDistance.begin() + k);
+        CookPoints.erase(CookPoints.begin() + k);
+        k--;
+    }
+}
+
+if (CookPoints.size() < points.size() && CookPoints.size() > 4)
+{
+    std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
+    CircleFit(CookPoints, fit);
+}
+
+fit.resize(3);
+if (CookPoints.size() <= 4)
+{
+    fit[0] = -1;
+    fit[1] = -1;
+    fit[2] = -1;
+}
+else
+{
+fit[0] = center.x;
+fit[1] = center.y;
+fit[2] = radius;
+}
+return;
 }
 
 cv::Point2f Average(const CoordList& points)
@@ -1154,6 +1194,16 @@ float Average(const std::vector<float>& d)
         average += d[k];
     }
     return average/d.size();
+}
+
+std::vector<float> Euclidian(CoordList& vectors)
+{
+    std::vector<float> lengths;
+    for (unsigned int k = 0; k < vectors.size(); k++)
+    {
+        lengths.push_back(Euclidian(vectors[k]));
+    }
+    return lengths;
 }
 
 float Euclidian(cv::Point2f d)

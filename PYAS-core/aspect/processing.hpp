@@ -158,6 +158,7 @@ void CircleFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
 void CircleFit(const CoordList &points, std::vector<float> &fit);
 cv::Point2f Average(const CoordList &points);
 float Average(const std::vector<float> &d);
+std::vector<float> Euclidian(CoordList& vectors);
 float Euclidian(cv::Point2f d);
 float Euclidian(cv::Point2f p1, cv::Point2f p2);
 int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
