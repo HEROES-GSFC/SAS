@@ -104,7 +104,7 @@ int main(int argc, char* argv[])
             case CENTER_ERROR:
                 //std::cout << "AspectTest: Get Crossings" << std::endl;
                 aspect.GetPixelCrossings(crossings);
-                    
+                aspect.GetPixelError(error);
             case LIMB_ERROR:
                 break;
             default:
@@ -140,6 +140,8 @@ int main(int argc, char* argv[])
             case FIDUCIAL_ERROR:
                 //std::cout << "AspectTest: Get Center" << std::endl;
                 DrawCross(image, center, centerColor, 20, 1, 8);
+
+                circle(image, center*pow(2,8), error.x*pow(2,8), centerColor, 1, CV_AA, 8);
             
                 //std::cout << "AspectTest: Get Error" << std::endl;
                 //std::cout << "AspectTest: Error:  " << error.x << " " << error.y << std::endl;

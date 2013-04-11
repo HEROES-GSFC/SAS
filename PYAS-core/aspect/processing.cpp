@@ -296,8 +296,8 @@ AspectCode Aspect::Run()
             state = CENTER_OUT_OF_BOUNDS;
             return state;
         }
-        else if (pixelError.x > 50 || pixelError.y > 50 ||
-                 std::isnan(pixelError.x) || std::isnan(pixelError.y))
+        else if (pixelError.x > 1.5*solarRadius || pixelError.x < .5*solarRadius|| 
+                 std::isnan(pixelError.x))
         {
             //std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
@@ -791,7 +791,7 @@ void Aspect::FindPixelCenter()
 
     CircleFit(limbCrossings, fit);
     pixelCenter = cv::Point2f(fit[0], fit[1]);
-
+    pixelError = cv::Point2f(fit[2], fit[2]);
     std::cout << "Radius found is " << fit[2] << std::endl;
 }
 
@@ -1160,8 +1160,7 @@ float Average(const std::vector<float>& d)
     {
         average += d[k];
     }
-    average /= d.size();
-    return average;
+    return average/d.size();
 }
 
 float EuclidianDistance(cv::Point2f p1, cv::Point2f p2)
