@@ -10,8 +10,8 @@
 
   The recommended approach to append data to a ByteString is to use the insertion
   operator <<, which can accept the following data types:
-  uint8_t, uint16_t, uint32_t, int8_t, int16_t, int32_t, float, double,
-  ByteString*
+      uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t, int64_t,
+      float, double, ByteString*
   For classes (*), the actual data inserted is customized.  To insert an array,
   you will need to use the append_bytes() method.
 
@@ -63,6 +63,7 @@ private:
     uint16_t length;
     uint16_t read_index;
 
+protected:
     //A hook to allow derived classes to apply finishing touches to the buffer
     //when outputTo() or >> is used
     virtual void finish() {};
@@ -116,7 +117,7 @@ public:
 };
 
 class Packet : public ByteString {
-private:
+protected:
     virtual void finish() {};
 
 public:

@@ -1,9 +1,11 @@
 #define NUM_THREADS 11
 #define SAS_TARGET_ID 0x30
+#define CTL_TARGET_ID 0x01
 #define SAS_TM_TYPE 0x70
 #define SAS_IMAGE_TYPE 0x82
 #define SAS_CM_ACK_TYPE 0x01
-#define CTL_IP_ADDRESS "192.168.1.2"
+#define SAS_CM_PROC_ACK_TYPE 0xe1
+#define CTL_IP_ADDRESS "192.168.2.4"
 #define FDR_IP_ADDRESS "192.168.2.4"
 #define CTL_CMD_PORT 2000
 #define SAS_CMD_PORT 2001
@@ -11,6 +13,32 @@
 #define UDPPORT_FOR_TM 2002
 #define SAVE_LOCATION "/mnt/disk2/"
 #define SECONDS_AFTER_SAVE 5
+
+//HEROES commands, CTL/FDR to SAS
+#define HKEY_CTL_START_TRACKING 0x1000
+#define HKEY_CTL_STOP_TRACKING 0x1001
+#define HKEY_FDR_SAS_CMD 0x10FF
+
+//HEROES commands, SAS to CTL
+#define HKEY_SAS_TRACKING_IS_ON 0x1100
+#define HKEY_SAS_TRACKING_IS_OFF 0x1101
+#define HKEY_SAS_SOLUTION 0x1102
+#define HKEY_SAS_ERROR 0x1103
+#define HKEY_SAS_TIMESTAMP 0x1104
+
+//Operation commands
+#define SKEY_OP_DUMMY 0x0000
+#define SKEY_KILL_WORKERS 0x0010
+#define SKEY_RESTART_THREADS 0x0020
+#define SKEY_START_OUTPUTTING 0x0030
+#define SKEY_STOP_OUTPUTTING 0x0040
+
+//Setting commands
+#define SKEY_SET_TARGET 0x0112
+#define SKEY_SET_EXPOSURE 0x0151
+
+//Getting commands
+#define SKEY_REQUEST_IMAGE 0x0210
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
@@ -32,6 +60,7 @@
 #include "UDPReceiver.hpp"
 #include "Command.hpp"
 #include "Telemetry.hpp"
+#include "Image.hpp"
 #include "Transform.hpp"
 #include "types.hpp"
 #include "TCPSender.hpp"
@@ -43,12 +72,20 @@
 
 // global declarations
 uint16_t command_sequence_number = 0;
+uint16_t latest_heroes_command_key = 0x0000;
 uint16_t latest_sas_command_key = 0x0000;
+uint16_t latest_sas_command_vars[15];
 uint32_t tm_frame_sequence_number = 0;
+uint16_t solution_sequence_number = 0;
+
+bool isTracking = false; // does CTL want solutions?
+bool isOutputting = false; // is this SAS supposed to be outputting solutions?
+bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
 CommandPacketQueue cm_packet_queue;
+ImagePacketQueue im_packet_queue;
 
 // related to threads
 unsigned int stop_message[NUM_THREADS];
@@ -58,11 +95,13 @@ pthread_attr_t attr;
 pthread_mutex_t mutexImage;
 pthread_mutex_t mutexProcess;
 
-struct thread_data{
+struct Thread_data{
     int  thread_id;
-    uint16_t  var;
+    uint16_t command_key;
+    uint8_t command_num_vars;
+    uint16_t command_vars[15];
 };
-struct thread_data thread_data_array[NUM_THREADS];
+struct Thread_data thread_data;
 
 sig_atomic_t volatile g_running = 1;
 
@@ -80,6 +119,8 @@ CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 std::vector<float> mapping;
 
+HeaderData keys;
+
 bool staleFrame;
 Flag procReady, saveReady;
 int runtime = 10;
@@ -91,9 +132,30 @@ int cameraReady = 0;
 timespec captureTimeNTP, captureTimeFixed;
 long int frameCount = 0;
 
-int8_t camera_temperature;
+float camera_temperature;
 int8_t sbc_temperature;
 float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
+
+//Function declarations
+void sig_handler(int signum);
+void kill_all_threads( void );
+void identifySAS();
+void *CameraStreamThread( void * threadid);
+void *ImageProcessThread(void *threadid);
+void *TelemetrySenderThread(void *threadid);
+void *SBCInfoThread(void *threadid);
+void *SaveTemperaturesThread(void *threadid);
+void *SaveImageThread(void *threadid);
+void *TelemetryPackagerThread(void *threadid);
+void *listenForCommandsThread(void *threadid);
+void *CommandSenderThread( void *threadid );
+void *CommandPackagerThread( void *threadid );
+void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
+uint16_t cmd_send_image_to_ground( int camera_id );
+void *commandHandlerThread(void *threadargs);
+void cmd_process_heroes_command(uint16_t heroes_command);
+void cmd_process_sas_command(uint16_t sas_command, Command &command);
+void start_all_threads( void );
 
 void sig_handler(int signum)
 {
@@ -104,7 +166,7 @@ void sig_handler(int signum)
 }
 
 void kill_all_threads( void ){
-    for(int i = 0; i < NUM_THREADS; i++ ){
+    for(int i = 1; i < NUM_THREADS; i++ ){
         stop_message[i] = 1;
     }
 }
@@ -309,59 +371,59 @@ void *ImageProcessThread(void *threadid)
                     
                     switch(GeneralizeError(runResult))
                     {
-                    case NO_ERROR:
-                        aspect.GetScreenFiducials(localScreenFiducials);
-                        aspect.GetScreenCenter(localScreenCenter);
-                        aspect.GetMapping(localMapping);
+                        case NO_ERROR:
+                            aspect.GetScreenFiducials(localScreenFiducials);
+                            aspect.GetScreenCenter(localScreenCenter);
+                            aspect.GetMapping(localMapping);
 
-                    case MAPPING_ERROR:
-                        aspect.GetFiducialIDs(localIds);
+                        case MAPPING_ERROR:
+                            aspect.GetFiducialIDs(localIds);
 
-                    case ID_ERROR:
-                        aspect.GetPixelFiducials(localPixelFiducials);
+                        case ID_ERROR:
+                            aspect.GetPixelFiducials(localPixelFiducials);
 
-                    case FIDUCIAL_ERROR:
-                        aspect.GetPixelCenter(localPixelCenter);
-                        aspect.GetPixelError(localError);
+                        case FIDUCIAL_ERROR:
+                            aspect.GetPixelCenter(localPixelCenter);
+                            aspect.GetPixelError(localError);
 
-                    case CENTER_ERROR:
-                        aspect.GetPixelCrossings(localLimbs);
+                        case CENTER_ERROR:
+                            aspect.GetPixelCrossings(localLimbs);
 
-                    case LIMB_ERROR:
-                    case RANGE_ERROR:
-                        aspect.GetPixelMinMax(localMin, localMax);
-                        break;
-                    default:
-                        std::cout << "Nothing worked\n";
+                        case LIMB_ERROR:
+                        case RANGE_ERROR:
+                            aspect.GetPixelMinMax(localMin, localMax);
+                            break;
+                        default:
+                            std::cout << "Nothing worked\n";
                     }
 
                     pthread_mutex_lock(&mutexProcess);
                     switch(GeneralizeError(runResult))
                     {
-                    case NO_ERROR:
-                        screenFiducials = localScreenFiducials;
-                        screenCenter = localScreenCenter;
-                        mapping = localMapping;
-                    case MAPPING_ERROR:
-                        ids = localIds;
+                        case NO_ERROR:
+                            screenFiducials = localScreenFiducials;
+                            screenCenter = localScreenCenter;
+                            mapping = localMapping;
+                        case MAPPING_ERROR:
+                            ids = localIds;
 
-                    case ID_ERROR:
-                        pixelFiducials = localPixelFiducials;
+                        case ID_ERROR:
+                            pixelFiducials = localPixelFiducials;
 
-                    case FIDUCIAL_ERROR:
-                        pixelCenter = localPixelCenter;  
-                        error = localError;
+                        case FIDUCIAL_ERROR:
+                            pixelCenter = localPixelCenter;  
+                            error = localError;
 
-                    case CENTER_ERROR:
-                        limbs = localLimbs;
+                        case CENTER_ERROR:
+                            limbs = localLimbs;
 
-                    case LIMB_ERROR:
-                    case RANGE_ERROR:
-                        frameMin = localMin;
-                        frameMax = localMax;
-                        break;
-                    default:
-                        break;
+                        case LIMB_ERROR:
+                        case RANGE_ERROR:
+                            frameMin = localMin;
+                            frameMax = localMax;
+                            break;
+                        default:
+                            break;
                     }
                     pthread_mutex_unlock(&mutexProcess);
                 }
@@ -369,7 +431,7 @@ void *ImageProcessThread(void *threadid)
                 {
                     //std::cout << "Frame empty!" << std::endl;
                 }
-                
+
                 /*
                   std::cout << ids.size() << " fiducials found:";
                   for(uint8_t i = 0; i < ids.size() && i < 20; i++) std::cout << pixelFiducials[i];
@@ -483,8 +545,8 @@ void *SaveTemperaturesThread(void *threadid)
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %d, %d\n", current_time, camera_temperature, sbc_temperature);
-            printf("%s, %d, %d\n", current_time, camera_temperature, sbc_temperature);
+            fprintf(file, "%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
+            printf("%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
         }
     }
 }
@@ -499,7 +561,6 @@ void *SaveImageThread(void *threadid)
     long int localFrameCount;
     std::string fitsfile;
     timespec waittime = {1,0};
-    HeaderData keys;
     //timespec thetimenow;
     while(1)
     {
@@ -588,7 +649,7 @@ void *TelemetryPackagerThread(void *threadid)
         tp << command_sequence_number;
         tp << latest_sas_command_key;
 
-        if(pthread_mutex_trylock(&mutexProcess) == 0) 
+        if(pthread_mutex_trylock(&mutexProcess) == 0)
         {
             localMin = frameMin;
             localMax = frameMax;
@@ -613,33 +674,8 @@ void *TelemetryPackagerThread(void *threadid)
             std::cout << "Using stale information for telemetry packet" << std::endl;
         }
 
-        /*
-          tp << (double)localCenter.x;
-          tp << (double)localCenter.y;
-
-          for(uint8_t i = 0; i < 20; i++){
-          if (i < localFiducials.size()) {
-          tp << (float) localFiducials[i].x;
-          tp << (float) localFiducials[i].y;
-          } else {
-          tp << (float)0 << (float)0;
-          }
-          }
-
-          for(uint8_t j = 0; j < 20; j++) {
-          if (j < localLimbs.size()) {
-          tp << localLimbs[j].x;
-          tp << localLimbs[j].y;
-          } else {
-          tp << (float)0 << (float)0;
-          }
-          }
-    
-          tp << (int) camera_temperature;
-        */
-
         //Housekeeping fields, two of them
-        tp << (uint16_t)camera_temperature;
+        tp << Float2B(camera_temperature);
         tp << (uint16_t)sbc_temperature;
 
         //Sun center and error
@@ -732,23 +768,23 @@ void *listenForCommandsThread(void *threadid)
 
             command_sequence_number = command_packet.getSequenceNumber();
 
-            // add tm ack packet
+            // add command ack packet
             TelemetryPacket ack_tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
             ack_tp << command_sequence_number;
             tm_packet_queue << ack_tp;
- 
+
             // update the command count
-            printf("command sequence number to %i", command_sequence_number);
-        
-            try { recvd_command_queue.add_packet(command_packet); } 
+            printf("command sequence number to %i\n", command_sequence_number);
+
+            try { recvd_command_queue.add_packet(command_packet); }
             catch (std::exception& e) {
                 std::cerr << e.what() << std::endl;
             }
-        
+
         } else {
             printf("listenForCommandsThread: bad command packet\n");
         }
-    
+
         if (stop_message[tid] == 1){
             printf("listenForCommands thread #%ld exiting\n", tid);
             comReceiver.close_connection();
@@ -770,40 +806,76 @@ void *CommandSenderThread( void *threadid )
 
     while(1)    // run forever
     {
-        sleep(1);
+        usleep(5000);
     
         if( !cm_packet_queue.empty() ){
-            CommandPacket cp(0x01, 100);
+            CommandPacket cp(NULL);
             cm_packet_queue >> cp;
             comSender.send( &cp );
+            //std::cout << "CommandSender: " << cp << std::endl;
         }
 
         if (stop_message[tid] == 1){
             printf("CommandSender thread #%ld exiting\n", tid);
-            comSender.close_connection();
             pthread_exit( NULL );
         }
     }
   
 }
 
-void *sendCTLCommandsThread( void *threadid )
+void *CommandPackagerThread( void *threadid )
 {
     long tid;
     tid = (long)threadid;
-    printf("sendCTLCommands thread #%ld!\n", tid);
+    printf("CommandPackager thread #%ld!\n", tid);
 
-    sleep(0.2);      // delay a little compared to the SenderThread
+    cv::Point2f localCenter, localError;
 
     while(1)    // run forever
     {
         sleep(1);
-        CommandPacket cp(0x01, 100);
-        cp << (uint16_t)0x1100;
-        cm_packet_queue << cp;
+
+        if (isOutputting) {
+            solution_sequence_number++;
+            CommandPacket cp(CTL_TARGET_ID, solution_sequence_number);
+
+            if (isTracking) {
+                if (!acknowledgedCTL) {
+                    cp << (uint16_t)HKEY_SAS_TRACKING_IS_ON;
+                    acknowledgedCTL = true;
+                } else {
+                    if(pthread_mutex_trylock(&mutexProcess) == 0)
+                    {
+                        localCenter = pixelCenter;
+                        localError = error;
+
+                        pthread_mutex_unlock(&mutexProcess);
+                    } else {
+                        std::cout << "Using stale information for solution packet" << std::endl;
+                    }
+
+                    cp << (uint16_t)HKEY_SAS_SOLUTION;
+                    cp << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y));
+                    cp << (double)0; // roll offset
+                    cp << (double)0.003; // error
+                    cp << (uint32_t)0; //seconds
+                    cp << (uint16_t)0; //milliseconds
+                }
+            } else { // isTracking is false
+                if (!acknowledgedCTL) {
+                    cp << (uint16_t)HKEY_SAS_TRACKING_IS_OFF;
+                    acknowledgedCTL = true;
+                }
+            } // isTracking
+
+            //Add packet to the queue if any commands have been inserted to the packet
+            if(cp.remainingBytes() > 0) {
+                cm_packet_queue << cp;
+            }
+        } // isOutputting
 
         if (stop_message[tid] == 1){
-            printf("sendCTLCommands thread #%ld exiting\n", tid);
+            printf("CommandPackager thread #%ld exiting\n", tid);
             pthread_exit( NULL );
         }
     }
@@ -812,143 +884,255 @@ void *sendCTLCommandsThread( void *threadid )
     return NULL;
 }
 
-void *commandHandlerThread(void *threadargs)
+void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 {
-    long tid;
-    struct thread_data *my_data;
-    my_data = (struct thread_data *) threadargs;
-    tid = (long)my_data->thread_id;
-    uint16_t command_key = my_data->var;
+    TelemetryPacket ack_tp(SAS_CM_PROC_ACK_TYPE, SAS_TARGET_ID);
+    ack_tp << command_sequence_number;
+    ack_tp << latest_sas_command_key;
+    ack_tp << error_code;
+    tm_packet_queue << ack_tp;
+}
 
-    printf("commandHandler thread #%ld!\n", tid);
-    printf("Received data 0x%04x\n", command_key);
+uint16_t cmd_send_image_to_ground( int camera_id )
+{
+    // camera_id refers to 0 PYAS, 1 is RAS (if valid)
+    uint16_t error_code = 0;
+    cv::Mat localFrame;
+    HeaderData localKeys;
 
-    switch( command_key )
-    {
-    case 0x1210:
-    {
-        //send_image_to_ground( localFrame );
-
-        cv::Mat localFrame;
-        TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
-        tcpSndr.init_connection();
-        if (pthread_mutex_trylock(&mutexImage) == 0)
-        { 
-            if( !frame.empty() ){ frame.copyTo(localFrame); }
-            for( int i = 0; i < 10; i++){ printf("%d\n", localFrame.at<uint8_t>(i,10));}
+    TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
+    int ret = tcpSndr.init_connection();
+    if (ret > 0){
+        if (pthread_mutex_trylock(&mutexImage) == 0){
+            if( !frame.empty() ){
+                frame.copyTo(localFrame);
+                localKeys = keys;
+            }
             pthread_mutex_unlock(&mutexImage);
         }
         if( !localFrame.empty() ){
-            int numXpixels = localFrame.cols;
-            int numYpixels = localFrame.rows;
-            TelemetryPacket tp(SAS_IMAGE_TYPE, 0x30);
-            printf("sending %dx%d image\n", numXpixels, numYpixels);
-            int pixels_per_packet = 100;
-            int num_packets = numXpixels * numYpixels / pixels_per_packet;
-            tp << (uint16_t)numXpixels;
-            tp << (uint16_t)numYpixels;
-            tcpSndr.send_packet( &tp );
-            long k = 0;
-            long int count = 0;
+            //1 for SAS-1/PYAS, 2 for SAS-2/PYAS, 6 for SAS-2/RAS
+            uint8_t camera = sas_id+4*camera_id;
 
-            printf("sending %d packets\n", num_packets);
+            uint16_t numXpixels = localFrame.cols;
+            uint16_t numYpixels = localFrame.rows;
+            uint32_t totalpixels = numXpixels*numYpixels;
 
-            int x, y;
-            for( int i = 0; i < num_packets; i++ ){
-                //if ((i % 100) == 0){ printf("sending %d/%d\n", i, num_packets); }
-                //printf("%d\n", i);
-                TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
+            //Copy localFrame to a C array
+            uint8_t *array = new uint8_t[totalpixels];
 
-                for( int j = 0; j < pixels_per_packet; j++){
-                    x = k % numXpixels;
-                    y = k / numXpixels;
-                    tp << (uint8_t)localFrame.at<uint8_t>(y, x);
-                    k++;
-                }
-                tcpSndr.send_packet( &tp );
-                //printf("sending %d bytes\n", tp.getLength());
-                count++;
+            uint16_t rows = (localFrame.isContinuous() ? 1 : localFrame.rows);
+            uint32_t cols = totalpixels/rows;
+
+            for (int j = 0; j < rows; j++) {
+                memcpy(array+j*cols, localFrame.ptr<uint8_t>(j), cols);
             }
+
+            im_packet_queue.add_array(camera, numXpixels, numYpixels, array);
+
+            delete array;
+
+            //Add FITS header tags
+            uint32_t temp = localKeys.exposureTime;
+            im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time (msec)");
+
+            //Make sure to synchronize all the timestamps
+            im_packet_queue.synchronize();
+
+            std::cout << "Sending " << im_packet_queue.size() << " packets\n";
+
+            ImagePacket im(NULL);
+            while(!im_packet_queue.empty()) {
+                im_packet_queue >> im;
+                tcpSndr.send_packet( &im );
+            }
+
         }
         tcpSndr.close_connection();
-    }
-    break;
-    default:
-        printf("Unknown command!\n");
+        error_code = 1;
+    } else { error_code = 2; }
+    return error_code;
+}
+        
+void *commandHandlerThread(void *threadargs)
+{
+    struct Thread_data *my_data;
+    uint16_t error_code = 0;
+    my_data = (struct Thread_data *) threadargs;
+    //long tid = (long)my_data->thread_id;
+
+    switch( my_data->command_key & 0x0FFF)
+    {
+        case SKEY_REQUEST_IMAGE:
+            {
+                error_code = cmd_send_image_to_ground( 0 );
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_EXPOSURE:    // set exposure time
+            {
+                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
+                std::cout << "Requested exposure time is: " << exposure << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_TARGET:    // set new solar target
+            solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
+            break;
+        case SKEY_START_OUTPUTTING:
+            {
+                isOutputting = true;
+            }
+            break;
+        case SKEY_STOP_OUTPUTTING:
+            {
+                isOutputting = false;
+            }
+            break;
+        default:
+            {
+                error_code = 0xffff;            // unknown command!
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
     }
 
-    /* NEVER REACHED */
     return NULL;
+}
+
+void cmd_process_heroes_command(uint16_t heroes_command)
+{
+    if ((heroes_command & 0xFF00) == 0x1000) {
+        switch(heroes_command) {
+            case HKEY_CTL_START_TRACKING: // start tracking
+                isTracking = true;
+                acknowledgedCTL = false;
+                // need to send 0x1100 command packet
+                break;
+            case HKEY_CTL_STOP_TRACKING: // stop tracking
+                isTracking = false;
+                acknowledgedCTL = false;
+                // need to send 0x1101 command packet
+                break;
+            case HKEY_FDR_SAS_CMD: // SAS command, so do nothing here
+                break;
+            default:
+                printf("Unknown HEROES command\n");
+        }
+    } else printf("Not a HEROES-to-SAS command\n");
+}
+
+void cmd_process_sas_command(uint16_t sas_command, Command &command)
+{
+    if ((sas_command & (sas_id << 12)) != 0) {
+        thread_data.command_key = sas_command;
+        thread_data.command_num_vars = sas_command & 0x000F;
+
+        for(int i = 0; i < thread_data.command_num_vars; i++){
+            try {
+              command >> thread_data.command_vars[i];
+            } catch (std::exception& e) {
+               std::cerr << e.what() << std::endl;
+            }
+        }
+
+        switch( sas_command & 0x0FFF){
+            case SKEY_OP_DUMMY:     // test, do nothing
+                queue_cmd_proc_ack_tmpacket( 1 );
+                break;
+            case SKEY_KILL_WORKERS:    // kill all worker threads
+                {
+                    kill_all_threads();
+                    queue_cmd_proc_ack_tmpacket( 1 );
+                }
+                break;
+            case SKEY_RESTART_THREADS:    // (re)start all worker threads
+                {
+                    kill_all_threads();
+                    stop_message[0] = 1;    // also kill command listening thread
+                    sleep(1);
+                    long t = 0L;
+                    int rc = 0;
+                    rc = pthread_create(&threads[t], NULL, listenForCommandsThread,(void *)t);
+                    if ((skip[t] = (rc != 0))) {
+                        printf("ERROR; return code from pthread_create() is %d\n", rc);
+                    }
+                    stop_message[0] = 0;
+                    start_all_threads();
+                    queue_cmd_proc_ack_tmpacket( 1 );
+                }
+                break;
+            default:
+                {
+                    long t = 10L;
+                    int rc;
+                    thread_data.thread_id = t;
+                    rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data);
+                    if ((skip[t] = (rc != 0))) {
+                        printf("ERROR; return code from pthread_create() is %d\n", rc);
+                    };
+                }
+        } //switch
+    } else printf("Not the intended SAS for this command\n");
 }
 
 void start_all_threads( void ){
     int rc;
     long t;
  
-    pthread_mutex_init(&mutexImage, NULL);
-    pthread_mutex_init(&mutexProcess, NULL);
- 
-    for(int i = 0; i < NUM_THREADS; i++ ){
+    for(int i = 1; i < NUM_THREADS; i++ ){
         skip[i] = true;
         // reset stop message
         stop_message[i] = 0;
     }
 
     // start all threads
-    t = 0L;
-    rc = pthread_create(&threads[0],NULL, TelemetryPackagerThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
     t = 1L;
-    rc = pthread_create(&threads[1],NULL, listenForCommandsThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, TelemetryPackagerThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 2L;
-    rc = pthread_create(&threads[2],NULL, sendCTLCommandsThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, CommandPackagerThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 3L;
-    rc = pthread_create(&threads[3],NULL, TelemetrySenderThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, TelemetrySenderThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 4L;
-    rc = pthread_create(&threads[4],NULL, CommandSenderThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, CommandSenderThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 5L;
-    rc = pthread_create(&threads[5],NULL, CameraStreamThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, CameraStreamThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 6L;
-    rc = pthread_create(&threads[6],NULL, ImageProcessThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, ImageProcessThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 7L;
-    rc = pthread_create(&threads[7],NULL, SaveImageThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, SaveImageThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }    
+    }
     t = 8L;
-    rc = pthread_create(&threads[8],NULL, SaveTemperaturesThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, SaveTemperaturesThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     t = 9L;
-    rc = pthread_create(&threads[9],NULL, SBCInfoThread,(void *)t);
+    rc = pthread_create(&threads[t],NULL, SBCInfoThread,(void *)t);
     if ((skip[t] = (rc != 0))) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     //Thread #10 is for the commandHandler
 }
-
-
 
 int main(void)
 {  
@@ -956,14 +1140,22 @@ int main(void)
     signal(SIGINT, &sig_handler);
 
     identifySAS();
+    if (sas_id == 1) isOutputting = true;
 
-    recvd_command_queue = CommandQueue();
-    tm_packet_queue = TelemetryPacketQueue();
-    cm_packet_queue = CommandPacketQueue();
+    pthread_mutex_init(&mutexImage, NULL);
+    pthread_mutex_init(&mutexProcess, NULL);
 
     /* Create worker threads */
     printf("In main: creating threads\n");
 
+    // start the listen for commands thread right away
+    long t = 0L;
+    int rc = 0;
+    rc = pthread_create(&threads[t],NULL, listenForCommandsThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    stop_message[0] = 0;
     start_all_threads();
 
     while(g_running){
@@ -974,40 +1166,15 @@ int main(void)
             command = Command();
             recvd_command_queue >> command;
 
+            latest_heroes_command_key = command.get_heroes_command();
             latest_sas_command_key = command.get_sas_command();
-            printf("sas command key: %X\n", (uint16_t) latest_sas_command_key);
-        
-            switch( latest_sas_command_key ){
-            case 0xFFFF:     // dummy command, has sequence number
-                break;
-            case 0x1000:     // test, do nothing
-                break;
-            case 0x1010:    // kill all worker threads
-                kill_all_threads();
-                break;
-            case 0x1020:    // (re)start all worker threads
-                // kill them all just in case
-                kill_all_threads();
-                sleep(1);
-                start_all_threads();
-                break;
-            case 0x1151:    // set exposure time
-                //Currently put here due to lack of avenue to pass command variables down to commandHandler
-                command >> exposure; //overwrites global
-                std::cout << "Requested exposure time is: " << exposure << std::endl;
-                break;
-            default:
-                long t = 10L;
-                int rc;
-                thread_data_array[t].thread_id = t;
-                thread_data_array[t].var = latest_sas_command_key;
-                //thread_data_array[t].message = messages[t];
-                rc = pthread_create(&threads[t],NULL, commandHandlerThread,(void *) &thread_data_array[t]);
-                if ((skip[t] = (rc != 0))) {
-                    printf("ERROR; return code from pthread_create() is %d\n", rc);
-                };
+            printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, latest_sas_command_key);
+
+            cmd_process_heroes_command(latest_heroes_command_key);
+            if(latest_heroes_command_key == HKEY_FDR_SAS_CMD) {
+                cmd_process_sas_command(latest_sas_command_key, command);
             }
-        }   
+        }
     }
 
     /* Last thing that main() should do */
