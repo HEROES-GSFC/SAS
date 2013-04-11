@@ -1,47 +1,76 @@
 #define NUM_THREADS 11
-#define SAS_TARGET_ID 0x30
-#define CTL_TARGET_ID 0x01
-#define SAS_TM_TYPE 0x70
-#define SAS_IMAGE_TYPE 0x82
-#define SAS_CM_ACK_TYPE 0x01
-#define SAS_CM_PROC_ACK_TYPE 0xe1
-#define CTL_IP_ADDRESS "192.168.2.4"
-#define FDR_IP_ADDRESS "192.168.2.4"
-#define CTL_CMD_PORT 2000
-#define SAS_CMD_PORT 2001
-#define TPCPORT_FOR_IMAGE_DATA 2013
-#define UDPPORT_FOR_TM 2002
-#define SAVE_LOCATION "/mnt/disk2/"
-#define SECONDS_AFTER_SAVE 5
+#define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
+#define DEFAULT_EXPOSURE 15000 // microseconds, was 4500 microseconds in first Sun test
 
-//HEROES commands, CTL/FDR to SAS
-#define HKEY_CTL_START_TRACKING 0x1000
-#define HKEY_CTL_STOP_TRACKING 0x1001
-#define HKEY_FDR_SAS_CMD 0x10FF
+//Sleep settings (seconds)
+#define SLEEP_SOLUTION         1 // period for providing solutions to CTL
+#define SLEEP_SAVE             5 // period for saving full images locally
+#define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
+#define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
+#define SLEEP_KILL 2           2 // waits when killing all threads
 
-//HEROES commands, SAS to CTL
-#define HKEY_SAS_TRACKING_IS_ON 0x1100
-#define HKEY_SAS_TRACKING_IS_OFF 0x1101
-#define HKEY_SAS_SOLUTION 0x1102
-#define HKEY_SAS_ERROR 0x1103
-#define HKEY_SAS_TIMESTAMP 0x1104
-
-//Operation commands
-#define SKEY_OP_DUMMY 0x0000
-#define SKEY_KILL_WORKERS 0x0010
-#define SKEY_RESTART_THREADS 0x0020
-#define SKEY_START_OUTPUTTING 0x0030
-#define SKEY_STOP_OUTPUTTING 0x0040
-
-//Setting commands
-#define SKEY_SET_TARGET 0x0112
-#define SKEY_SET_EXPOSURE 0x0151
-
-//Getting commands
-#define SKEY_REQUEST_IMAGE 0x0210
+//Sleep settings (microseconds)
+#define USLEEP_CMD_SEND     5000 // period for popping off the command queue
+#define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
+#define USLEEP_TM_GENERIC 250000 // period for adding generic telemetry packets to queue
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
+
+//IP addresses
+#define IP_FDR      "192.168.2.4"   // will be 192.168.1.1 in flight
+#define IP_CTL      "192.168.2.4"   // will be 192.168.1.2 in flight
+#define IP_SAS1     "192.168.2.221" // will be 192.168.1.32 in flight
+#define IP_SAS2     "192.168.16.16" //
+#define IP_PYAS     "192.168.4.4"   // not yet implemented
+#define IP_RAS      "192.168.8.8"   // not yet implemented
+
+#define IP_LOOPBACK "127.0.0.1"   // should not change
+
+//UDP ports, aside from PORT_IMAGE, which is TCP
+#define PORT_CMD_FLIGHT   2000 // commands, FDR (receive) and CTL (send/receive)
+#define PORT_CMD_GROUND   2001 // receive commands from GSE
+#define PORT_TM           2002 // send telemetry to FDR (except images)
+#define PORT_IMAGE        2013 // send images to FDR, TCP port
+#define PORT_CMD_LOOPBACK 3000 //
+#define PORT_SBC_INFO     3456 //
+
+//HEROES target ID for commands, source ID for telemetry
+#define TARGET_ID_CTL 0x01
+#define SOURCE_ID_SAS 0x30
+
+//HEROES telemetry types
+#define TM_ACK_RECEIPT 0x01
+#define TM_ACK_PROCESS 0xE1
+#define TM_SAS_GENERIC 0x70
+#define TM_SAS_IMAGE   0x82
+#define TM_SAS_TAG     0x83
+
+//HEROES commands, CTL/FDR to SAS
+#define HKEY_CTL_START_TRACKING  0x1000
+#define HKEY_CTL_STOP_TRACKING   0x1001
+#define HKEY_FDR_SAS_CMD         0x10FF
+
+//HEROES commands, SAS to CTL
+#define HKEY_SAS_TRACKING_IS_ON  0x1100
+#define HKEY_SAS_TRACKING_IS_OFF 0x1101
+#define HKEY_SAS_SOLUTION        0x1102
+#define HKEY_SAS_ERROR           0x1103
+#define HKEY_SAS_TIMESTAMP       0x1104
+
+//Operation commands
+#define SKEY_OP_DUMMY            0x0000
+#define SKEY_KILL_WORKERS        0x0010
+#define SKEY_RESTART_THREADS     0x0020
+#define SKEY_START_OUTPUTTING    0x0030
+#define SKEY_STOP_OUTPUTTING     0x0040
+
+//Setting commands
+#define SKEY_SET_TARGET          0x0112
+#define SKEY_SET_EXPOSURE        0x0151
+
+//Getting commands
+#define SKEY_REQUEST_IMAGE       0x0210
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -50,7 +79,6 @@
 #include <unistd.h>     /* for sleep()  */
 #include <signal.h>     /* for signal() */
 #include <math.h>       /* for testing only, remove when done */
-#include <sys/io.h>     /* for outb, computer parameters */
 #include <ctime>        /* time_t, struct tm, time, gmtime */
 #include <opencv.hpp>
 #include <iostream>
@@ -68,7 +96,6 @@
 #include "processing.hpp"
 #include "compression.hpp"
 #include "utilities.hpp"
-//#include "commandHandler.hpp"
 
 // global declarations
 uint16_t command_sequence_number = 0;
@@ -124,7 +151,7 @@ HeaderData keys;
 bool staleFrame;
 Flag procReady, saveReady;
 int runtime = 10;
-uint16_t exposure = 4500;
+uint16_t exposure = DEFAULT_EXPOSURE;
 timespec frameRate = {0,100000000L};
 int cameraReady = 0;
 
@@ -229,7 +256,7 @@ void *CameraStreamThread( void * threadid)
             if (camera.Connect() != 0)
             {
                 std::cout << "Error connecting to camera!\n";
-                sleep(1);
+                sleep(SLEEP_CAMERA_CONNECT);
                 continue;
             }
             else
@@ -246,7 +273,7 @@ void *CameraStreamThread( void * threadid)
                 {
                     std::cout << "Error initializing camera!\n";
                     //may need disconnect here
-                    sleep(1);
+                    sleep(SLEEP_CAMERA_CONNECT);
                     continue;
                 }
                 cameraReady = 1;
@@ -443,11 +470,11 @@ void *TelemetrySenderThread(void *threadid)
     tid = (long)threadid;
     printf("TelemetrySender thread #%ld!\n", tid);
 
-    TelemetrySender telSender(FDR_IP_ADDRESS, (unsigned short) UDPPORT_FOR_TM);
+    TelemetrySender telSender(IP_FDR, (unsigned short) PORT_TM);
 
     while(1)    // run forever
     {
-        usleep(50000);
+        usleep(USLEEP_TM_SEND);
 
         if( !tm_packet_queue.empty() ){
             TelemetryPacket tp(NULL);
@@ -469,7 +496,7 @@ void *SBCInfoThread(void *threadid)
     tid = (long)threadid;
     printf("SBCInfo thread #%ld!\n", tid);
 
-    UDPReceiver receiver(3456);
+    UDPReceiver receiver(PORT_SBC_INFO);
     receiver.init_connection();
 
     uint16_t packet_length;
@@ -517,7 +544,7 @@ void *SaveTemperaturesThread(void *threadid)
         pthread_exit( NULL );
     } else {
         fprintf(file, "time, camera temp, cpu temp\n");
-        sleep(10);
+        sleep(SLEEP_LOG_TEMPERATURE);
         while(1)
         {
             char current_time[25];
@@ -527,7 +554,7 @@ void *SaveTemperaturesThread(void *threadid)
                 fclose(file);
                 pthread_exit( NULL );
             }
-            sleep(5);
+            sleep(SLEEP_LOG_TEMPERATURE);
 
             time(&ltime);
             times = localtime(&ltime);
@@ -600,7 +627,7 @@ void *SaveImageThread(void *threadid)
                     printf("Saving image %s with exposure %d microseconds\n", obsfilespec, exposure);
                     writeFITSImage(localFrame, keys, obsfilespec);
 
-                    sleep(SECONDS_AFTER_SAVE);
+                    sleep(SLEEP_SAVE);
                 }
                 else
                 {
@@ -617,8 +644,6 @@ void *TelemetryPackagerThread(void *threadid)
     tid = (long)threadid;
     printf("TelemetryPackager thread #%ld!\n", tid);
 
-    sleep(1);      // delay a little compared to the TelemetrySenderThread
-
     unsigned char localMin, localMax;
     CoordList localLimbs, localFiducials;
     std::vector<float> localMapping;
@@ -626,10 +651,10 @@ void *TelemetryPackagerThread(void *threadid)
 
     while(1)    // run forever
     {
-        usleep(250000);
+        usleep(USLEEP_TM_GENERIC);
         tm_frame_sequence_number++;
 
-        TelemetryPacket tp(SAS_TM_TYPE, SAS_TARGET_ID);
+        TelemetryPacket tp(TM_SAS_GENERIC, SOURCE_ID_SAS);
         tp.setSAS(sas_id);
         tp << tm_frame_sequence_number;
         tp << command_sequence_number;
@@ -734,7 +759,7 @@ void *listenForCommandsThread(void *threadid)
     long tid;
     tid = (long)threadid;
     printf("listenForCommands thread #%ld!\n", tid);
-    CommandReceiver comReceiver( (unsigned short) SAS_CMD_PORT);
+    CommandReceiver comReceiver( (unsigned short) PORT_CMD_GROUND);
     comReceiver.init_connection();
     
     while(1)    // run forever
@@ -755,7 +780,7 @@ void *listenForCommandsThread(void *threadid)
             command_sequence_number = command_packet.getSequenceNumber();
 
             // add command ack packet
-            TelemetryPacket ack_tp(SAS_CM_ACK_TYPE, SAS_TARGET_ID);
+            TelemetryPacket ack_tp(TM_ACK_RECEIPT, SOURCE_ID_SAS);
             ack_tp << command_sequence_number;
             tm_packet_queue << ack_tp;
 
@@ -788,11 +813,11 @@ void *CommandSenderThread( void *threadid )
     tid = (long)threadid;
     printf("CommandSender thread #%ld!\n", tid);
 
-    CommandSender comSender( CTL_IP_ADDRESS, CTL_CMD_PORT);
+    CommandSender comSender(IP_CTL, PORT_CMD_FLIGHT);
 
     while(1)    // run forever
     {
-        usleep(5000);
+        usleep(USLEEP_CMD_SEND);
     
         if( !cm_packet_queue.empty() ){
             CommandPacket cp(NULL);
@@ -819,11 +844,11 @@ void *CommandPackagerThread( void *threadid )
 
     while(1)    // run forever
     {
-        sleep(1);
+        sleep(SLEEP_SOLUTION);
 
         if (isOutputting) {
             solution_sequence_number++;
-            CommandPacket cp(CTL_TARGET_ID, solution_sequence_number);
+            CommandPacket cp(TARGET_ID_CTL, solution_sequence_number);
 
             if (isTracking) {
                 if (!acknowledgedCTL) {
@@ -872,7 +897,7 @@ void *CommandPackagerThread( void *threadid )
 
 void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 {
-    TelemetryPacket ack_tp(SAS_CM_PROC_ACK_TYPE, SAS_TARGET_ID);
+    TelemetryPacket ack_tp(TM_ACK_PROCESS, SOURCE_ID_SAS);
     ack_tp << command_sequence_number;
     ack_tp << latest_sas_command_key;
     ack_tp << error_code;
@@ -886,7 +911,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
     cv::Mat localFrame;
     HeaderData localKeys;
 
-    TCPSender tcpSndr(FDR_IP_ADDRESS, (unsigned short) TPCPORT_FOR_IMAGE_DATA);
+    TCPSender tcpSndr(IP_FDR, (unsigned short) PORT_IMAGE);
     int ret = tcpSndr.init_connection();
     if (ret > 0){
         if (pthread_mutex_trylock(&mutexImage) == 0){
@@ -1035,7 +1060,7 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
                 {
                     kill_all_threads();
                     stop_message[0] = 1;    // also kill command listening thread
-                    sleep(1);
+                    sleep(SLEEP_KILL);
                     long t = 0L;
                     int rc = 0;
                     rc = pthread_create(&threads[t], NULL, listenForCommandsThread,(void *)t);
@@ -1168,7 +1193,7 @@ int main(void)
     //    kill_all_threads();
     /* wait for threads to finish */
     kill_all_threads();
-    sleep(2);
+    sleep(SLEEP_KILL);
     for(int i = 0; i < NUM_THREADS; i++ ){
         if (!skip[i]) {
             printf("Quitting thread %i, quitting status is %i\n", i, pthread_cancel(threads[i]));
