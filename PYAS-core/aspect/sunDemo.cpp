@@ -781,7 +781,7 @@ void *listenForCommandsThread(void *threadargs)
 
     tid_listen = tid;
 
-    CommandReceiver comReceiver( (unsigned short) PORT_CMD_GROUND);
+    CommandReceiver comReceiver( (unsigned short) PORT_CMD);
     comReceiver.init_connection();
     
     while(1)    // run forever
