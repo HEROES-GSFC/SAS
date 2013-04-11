@@ -43,10 +43,10 @@ packetDemo: packetDemo.cpp ImperxStream.o utilities.o
 	$(CC) $(CFLAGS) $^ -o $@ $(IMPERX)
 
 CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o Packet.o lib_crc.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 	
 CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@
