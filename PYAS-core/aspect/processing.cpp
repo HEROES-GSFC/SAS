@@ -1063,61 +1063,88 @@ void Aspect::FindFiducialIDs()
         rowDiff = pixelFiducials[rowPairs[k].y].y 
             - pixelFiducials[rowPairs[k].x].y;
 
+        //If part of a row pair has an unidentified column index, it should match its partner
         if (fiducialIDs[rowPairs[k].x].x == -100 && fiducialIDs[rowPairs[k].y].x != -100)
         {
-            fiducialIDs[rowPairs[k].x].x = fiducialIDs[rowPairs[k].y].x;
+            colVotes[rowPairs[k].x].push_back(fiducialIDs[rowPairs[k].y].x);
         }
         else if (fiducialIDs[rowPairs[k].x].x != -100 && fiducialIDs[rowPairs[k].y].x == -100)
         {
-            fiducialIDs[rowPairs[k].y].x = fiducialIDs[rowPairs[k].x].x;
+            colVotes[rowPairs[k].y].push_back(fiducialIDs[rowPairs[k].x].x);
         }
-
+    
+        //If part of a row pair has an unidentified row index, it should be incremented from its partner
         if (fiducialIDs[rowPairs[k].x].y == -100 && fiducialIDs[rowPairs[k].y].y != -100)
         {
             if (rowDiff >= 0)
-                fiducialIDs[rowPairs[k].x].y = fiducialIDs[rowPairs[k].y].y - 1;
+                rowVotes[rowPairs[k].x].push_back(fiducialIDs[rowPairs[k].y].y - 1);
             else 
-                fiducialIDs[rowPairs[k].x].y = fiducialIDs[rowPairs[k].y].y + 1;
+                rowVotes[rowPairs[k].x].push_back(fiducialIDs[rowPairs[k].y].y + 1);
         }
         else if (fiducialIDs[rowPairs[k].x].y != -100 && fiducialIDs[rowPairs[k].y].y == -100)
         {
             if (rowDiff >= 0)
-                fiducialIDs[rowPairs[k].y].y = fiducialIDs[rowPairs[k].x].y + 1;
+                rowVotes[rowPairs[k].y].push_back(fiducialIDs[rowPairs[k].x].y + 1);
             else 
-                fiducialIDs[rowPairs[k].y].y = fiducialIDs[rowPairs[k].x].y - 1;
+                rowVotes[rowPairs[k].y].push_back(fiducialIDs[rowPairs[k].x].y - 1);
         }
     }
 
     for (k = 0; k <  colPairs.size(); k++)
     {
-        colDiff = pixelFiducials[colPairs[k].y].x 
-            - pixelFiducials[colPairs[k].x].x;
+        colDiff = pixelFiducials[colPairs[k].x].x 
+            - pixelFiducials[colPairs[k].y].x;
 
+        //For columns, pairs should match in row
         if (fiducialIDs[colPairs[k].x].y == -100 && fiducialIDs[colPairs[k].y].y != -100)
         {
-                fiducialIDs[colPairs[k].x].y = fiducialIDs[colPairs[k].y].y;
+            rowVotes[colPairs[k].x].push_back(fiducialIDs[colPairs[k].y].y);
         }
         else if (fiducialIDs[colPairs[k].x].y != -100 && fiducialIDs[colPairs[k].y].y == -100)
         {
-            fiducialIDs[colPairs[k].y].y = fiducialIDs[colPairs[k].x].y;
+            rowVotes[colPairs[k].y].push_back(fiducialIDs[colPairs[k].x].y);
         }
 
+        //For columns, pairs should increment in column.
         if (fiducialIDs[colPairs[k].x].x == -100 && fiducialIDs[colPairs[k].y].x != -100)
         {
             if (colDiff >= 0)
-                fiducialIDs[colPairs[k].x].x = fiducialIDs[colPairs[k].y].x + 1;
+                colVotes[colPairs[k].x].push_back(fiducialIDs[colPairs[k].y].x - 1);
             else 
-                fiducialIDs[colPairs[k].x].x = fiducialIDs[colPairs[k].y].x - 1;
+                colVotes[colPairs[k].x].push_back(fiducialIDs[colPairs[k].y].x + 1);
         }
         else if (fiducialIDs[colPairs[k].x].x != -100 && fiducialIDs[colPairs[k].y].x == -100)
         {
             if (colDiff >= 0)
-                fiducialIDs[colPairs[k].y].x = fiducialIDs[colPairs[k].x].x - 1;
+                colVotes[colPairs[k].y].push_back(fiducialIDs[colPairs[k].x].x + 1);
             else 
-                fiducialIDs[colPairs[k].y].x = fiducialIDs[colPairs[k].x].x + 1;
+                colVotes[colPairs[k].y].push_back(fiducialIDs[colPairs[k].x].x - 1);
         }
     }
     
+    //Vote on second pass
+    for (k = 0; k < K; k++)
+    {
+        modes = Mode(rowVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].y = -200;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].y = modes[0];
+        }
+
+        modes = Mode(colVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].x = -200;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].x = modes[0];
+        }
+    }
 }       
 
 void Aspect::FindMapping()
