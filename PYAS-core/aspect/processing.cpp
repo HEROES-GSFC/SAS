@@ -1071,6 +1071,21 @@ void Aspect::FindFiducialIDs()
         {
             fiducialIDs[rowPairs[k].y].x = fiducialIDs[rowPairs[k].x].x;
         }
+
+        if (fiducialIDs[rowPairs[k].x].y == -100 && fiducialIDs[rowPairs[k].y].y != -100)
+        {
+            if (rowDiff >= 0)
+                fiducialIDs[rowPairs[k].x].y = fiducialIDs[rowPairs[k].y].y - 1;
+            else 
+                fiducialIDs[rowPairs[k].x].y = fiducialIDs[rowPairs[k].y].y + 1;
+        }
+        else if (fiducialIDs[rowPairs[k].x].y != -100 && fiducialIDs[rowPairs[k].y].y == -100)
+        {
+            if (rowDiff >= 0)
+                fiducialIDs[rowPairs[k].y].y = fiducialIDs[rowPairs[k].x].y + 1;
+            else 
+                fiducialIDs[rowPairs[k].y].y = fiducialIDs[rowPairs[k].x].y - 1;
+        }
     }
 
     for (k = 0; k <  colPairs.size(); k++)
@@ -1085,6 +1100,21 @@ void Aspect::FindFiducialIDs()
         else if (fiducialIDs[colPairs[k].x].y != -100 && fiducialIDs[colPairs[k].y].y == -100)
         {
             fiducialIDs[colPairs[k].y].y = fiducialIDs[colPairs[k].x].y;
+        }
+
+        if (fiducialIDs[colPairs[k].x].x == -100 && fiducialIDs[colPairs[k].y].x != -100)
+        {
+            if (colDiff >= 0)
+                fiducialIDs[colPairs[k].x].x = fiducialIDs[colPairs[k].y].x + 1;
+            else 
+                fiducialIDs[colPairs[k].x].x = fiducialIDs[colPairs[k].y].x - 1;
+        }
+        else if (fiducialIDs[colPairs[k].x].x != -100 && fiducialIDs[colPairs[k].y].x == -100)
+        {
+            if (colDiff >= 0)
+                fiducialIDs[colPairs[k].y].x = fiducialIDs[colPairs[k].x].x - 1;
+            else 
+                fiducialIDs[colPairs[k].y].x = fiducialIDs[colPairs[k].x].x + 1;
         }
     }
     
