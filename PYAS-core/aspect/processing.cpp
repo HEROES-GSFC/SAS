@@ -1022,13 +1022,13 @@ void Aspect::FindFiducialIDs()
         }
     }
     
+    // Accumulate results of first pass
     for (k = 0; k < K; k++)
     {
         modes = Mode(rowVotes[k]);
         if (modes.size() > 1)
         {
             fiducialIDs[k].y = -200;
-            std::cout << "PICKLE" << std::endl;
         }
         else if (modes.size() == 1)
         {
@@ -1043,17 +1043,51 @@ void Aspect::FindFiducialIDs()
         if (modes.size() > 1)
         {
             fiducialIDs[k].x = -200;
-            std::cout << "PICKLE" << std::endl;
         }
         else if (modes.size() == 1)
         {
             fiducialIDs[k].x = modes[0];
         }
-        else
+       else
         {
             fiducialIDs[k].x = -100;
         }
     }
+
+    // Start second pass
+    rowVotes.clear(); rowVotes.resize(K);
+    colVotes.clear(); colVotes.resize(K);
+    //std::cout << "Aspect: Compute intra-pair distances for row pairs." << std::endl;
+    for (k = 0; k <  rowPairs.size(); k++)
+    {
+        rowDiff = pixelFiducials[rowPairs[k].y].y 
+            - pixelFiducials[rowPairs[k].x].y;
+
+        if (fiducialIDs[rowPairs[k].x].x == -100 && fiducialIDs[rowPairs[k].y].x != -100)
+        {
+            fiducialIDs[rowPairs[k].x].x = fiducialIDs[rowPairs[k].y].x;
+        }
+        else if (fiducialIDs[rowPairs[k].x].x != -100 && fiducialIDs[rowPairs[k].y].x == -100)
+        {
+            fiducialIDs[rowPairs[k].y].x = fiducialIDs[rowPairs[k].x].x;
+        }
+    }
+
+    for (k = 0; k <  colPairs.size(); k++)
+    {
+        colDiff = pixelFiducials[colPairs[k].y].x 
+            - pixelFiducials[colPairs[k].x].x;
+
+        if (fiducialIDs[colPairs[k].x].y == -100 && fiducialIDs[colPairs[k].y].y != -100)
+        {
+                fiducialIDs[colPairs[k].x].y = fiducialIDs[colPairs[k].y].y;
+        }
+        else if (fiducialIDs[colPairs[k].x].y != -100 && fiducialIDs[colPairs[k].y].y == -100)
+        {
+            fiducialIDs[colPairs[k].y].y = fiducialIDs[colPairs[k].x].y;
+        }
+    }
+    
 }       
 
 void Aspect::FindMapping()
