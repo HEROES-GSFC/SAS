@@ -163,7 +163,7 @@ Flag procReady, saveReady;
 int runtime = 10;
 uint16_t exposure = CAMERA_EXPOSURE;
 uint16_t analogGain = CAMERA_ANALOGGAIN;
-uint16_t preampGain = CAMERA_PREAMPGAIN;
+int16_t preampGain = CAMERA_PREAMPGAIN;
 
 timespec frameRate = {0,100000000L};
 int cameraReady = 0;
@@ -672,7 +672,7 @@ void *SaveImageThread(void *threadargs)
 
                     sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
 
-                    printf("Saving image %s with exposure %d microseconds\n", obsfilespec, exposure);
+                    printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
                     writeFITSImage(localFrame, keys, obsfilespec);
 
                     sleep(SLEEP_SAVE);
@@ -1040,14 +1040,14 @@ void *commandHandlerThread(void *threadargs)
             break;
         case SKEY_SET_PREAMPGAIN:    // set preamp gain
             {
-                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) preampGain = (int16_t)my_data->command_vars[0];
+                if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
                 std::cout << "Requested preamp gain is: " << preampGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
         case SKEY_SET_ANALOGGAIN:    // set analog gain
             {
-                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) analogGain = my_data->command_vars[0];
+                if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
                 std::cout << "Requested analog gain is: " << analogGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
