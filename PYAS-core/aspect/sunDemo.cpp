@@ -1,6 +1,8 @@
 #define MAX_THREADS 20
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define DEFAULT_EXPOSURE 15000 // microseconds, was 4500 microseconds in first Sun test
+#define DEFAULT_ANALOGGAIN 1 // ???
+#define DEFAULT_PREAMPGAIN 1 // ???
 #define REPORT_FOCUS false
 
 //Sleep settings (seconds)
@@ -67,6 +69,8 @@
 //Setting commands
 #define SKEY_SET_TARGET          0x0112
 #define SKEY_SET_EXPOSURE        0x0151
+#define SKEY_SET_ANALOGGAIN      0x0181
+#define SKEY_SET_PREAMPGAIN      0x0191
 
 //Getting commands
 #define SKEY_REQUEST_IMAGE       0x0210
@@ -152,6 +156,9 @@ bool staleFrame;
 Flag procReady, saveReady;
 int runtime = 10;
 uint16_t exposure = DEFAULT_EXPOSURE;
+uint16_t analogGain = DEFAULT_ANALOGGAIN;
+uint16_t preampGain = DEFAULT_PREAMPGAIN;
+
 timespec frameRate = {0,100000000L};
 int cameraReady = 0;
 
@@ -256,8 +263,9 @@ void *CameraStreamThread( void * threadargs)
     int width, height;
     int failcount = 0;
 
-    uint16_t localExposure;
-    localExposure = exposure;
+    uint16_t localExposure = exposure;
+    uint16_t localPreampGainain = preampGain;
+    uint16_t localAnalogGain = analogGain;
 
     cameraReady = 0;
     staleFrame = true;
@@ -285,6 +293,8 @@ void *CameraStreamThread( void * threadargs)
                 //camera.SetROISize(960,960);
                 //camera.SetROIOffset(165,0);
                 camera.SetExposure(exposure);
+                //camera.SetAnalogGain(analogGain);
+                //camera.SetPreAmpGain(localPreampGain);
 
                 width = camera.GetROIWidth();
                 height = camera.GetROIHeight();
@@ -305,6 +315,16 @@ void *CameraStreamThread( void * threadargs)
             if (localExposure != exposure) {
                 localExposure = exposure;
                 camera.SetExposure(localExposure);
+            }
+            
+            if (localPreampGain != preampGain) {
+                localPreampGain = preampGain;
+                camera.SetPreAmpGain(localPreampGain);
+            }
+            
+            if (localAnalogGain != analogGain) {
+                localAnalogGain = analogGain;
+                camera.SetAnalogGain(analogGain);
             }
 
             clock_gettime(CLOCK_REALTIME, &preExposure);
@@ -1009,6 +1029,20 @@ void *commandHandlerThread(void *threadargs)
             {
                 if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
                 std::cout << "Requested exposure time is: " << exposure << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_PREAMPGAIN:    // set exposure time
+            {
+                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) preampGain = my_data->command_vars[0];
+                std::cout << "Requested preamp gain is: " << preampGain << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_ANALOGGAIN:    // set exposure time
+            {
+                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) analogGain = my_data->command_vars[0];
+                std::cout << "Requested analog gain is: " << analogGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
