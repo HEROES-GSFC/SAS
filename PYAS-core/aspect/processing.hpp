@@ -1,5 +1,6 @@
 #include <opencv.hpp>
 #include <vector>
+#include <list>
 #include <opencv.hpp>
 #include <cstring>
 
@@ -97,6 +98,7 @@ public:
     void SetFloat(FloatParameter, float value);
     void SetInteger(IntParameter, int value);
 
+    AspectCode ReportFocus();
 
 private:
     AspectCode state;
@@ -157,6 +159,8 @@ private:
     std::vector<float> mapping;
 
     bool frameProcessed;
+
+    std::list<float> slopes;
 };
 
 
