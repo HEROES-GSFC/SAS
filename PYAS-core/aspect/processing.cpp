@@ -946,10 +946,15 @@ void Aspect::FindFiducialIDs()
     float rowDiff, colDiff;
     IndexList rowPairs, colPairs;
     CoordList trash;
+    
     K = pixelFiducials.size();
-
-    std::vector<cv::Point_<std::vector<int> > > votes;
-    votes.resize(K);
+    fiducialIDs.clear();
+    fiducialIDs.resize(K);
+    
+    std::vector<std::vector<int> > rowVotes, colVotes;
+    rowVotes.resize(K); colVotes.resize(K);
+    
+    std::vector<int> modes;
 
     //Find fiducial pairs that are spaced correctly
     //std::cout << "Aspect: Find valid fiducial pairs" << std::endl;
@@ -982,13 +987,13 @@ void Aspect::FindFiducialIDs()
             {
                 if (rowDiff > 0) 
                 {
-                    votes[rowPairs[k].x].y.push_back(d-7);
-                    votes[rowPairs[k].y].y.push_back(d+1-7);
+                    rowVotes[rowPairs[k].x].push_back(d-7);
+                    rowVotes[rowPairs[k].y].push_back(d+1-7);
                 }
                 else
                 {
-                    votes[rowPairs[k].x].y.push_back(d+1-7);
-                    votes[rowPairs[k].y].y.push_back(d-7);
+                    rowVotes[rowPairs[k].x].push_back(d+1-7);
+                    rowVotes[rowPairs[k].y].push_back(d-7);
                 }
             }
         }
@@ -1005,18 +1010,50 @@ void Aspect::FindFiducialIDs()
             {
                 if (colDiff > 0) 
                 {
-                    votes[rowPairs[k].x].x.push_back(d-7);
-                    votes[rowPairs[k].y].x.push_back(d+1-7);
+                    colVotes[colPairs[k].x].push_back(d-7);
+                    colVotes[colPairs[k].y].push_back(d+1-7);
                 }
                 else
                 {
-                    votes[rowPairs[k].x].x.push_back(d+1-7);
-                    votes[rowPairs[k].y].x.push_back(d-7);
+                    colVotes[colPairs[k].x].push_back(d+1-7);
+                    colVotes[colPairs[k].y].push_back(d-7);
                 }
             }
         }
     }
     
+    for (k = 0; k < K; k++)
+    {
+        modes = Mode(rowVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].y = -200;
+            std::cout << "PICKLE" << std::endl;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].y = modes[0];
+        }
+        else
+        {
+            fiducialIDs[k].y = -100;
+        }
+
+        modes = Mode(colVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].x = -200;
+            std::cout << "PICKLE" << std::endl;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].x = modes[0];
+        }
+        else
+        {
+            fiducialIDs[k].x = -100;
+        }
+    }
 }       
 
 void Aspect::FindMapping()
@@ -1145,4 +1182,29 @@ void matchKernel(cv::OutputArray _kernel)
             }
         }       
     }
+}
+
+template <class T>
+std::vector<T> Mode(std::vector<T> data)
+{
+    std::map<T,unsigned> frequencyCount;
+    for(size_t i = 0; i < data.size(); ++i)
+        frequencyCount[data[i]]++;
+
+    unsigned currentMax = 0;
+    std::vector<T> mode;
+    for(auto it = frequencyCount.cbegin(); it != frequencyCount.cend(); ++it )
+    {
+        if (it->second > currentMax)
+        {
+            mode.clear();
+            mode.push_back(it->first);
+            currentMax = it->second;
+        }
+        else if (it->second == currentMax)
+        {
+            mode.push_back(it->first);
+        }
+    }
+    return mode;
 }
