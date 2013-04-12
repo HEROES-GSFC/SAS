@@ -46,7 +46,7 @@ int main()
         //std::cout << (int)ambtemp << " " << (float)p1v05/1000. << " " << (float)p2v5/1000. << " " << (float)p3v3/1000. << " " << (float)p5v0/1000. << " " << (float)p12v0/100. << std::endl;
 
         Packet packet;
-        packet << (int8_t)ambtemp << (float)p1v05/1000. << (float)p2v5/1000. << (float)p3v3/1000. << (float)p5v0/1000. << (float)p12v0/100.;
+        packet << (int8_t)ambtemp << (float)(p1v05/1000.) << (float)(p2v5/1000.) << (float)(p3v3/1000.) << (float)(p5v0/1000.) << (float)(p12v0/100.);
 
         //std::cout << packet << std::endl;
         sender.send(&packet);

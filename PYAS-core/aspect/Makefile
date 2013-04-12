@@ -79,6 +79,9 @@ AspectVideo: AspectVideo.cpp processing.o utilities.o compression.o
 sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
+sbc_info_reader: sbc_info_reader.cpp Packet.o lib_crc.o UDPReceiver.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp
 	$(CC) -c $(CFLAGS) $< -o $@
