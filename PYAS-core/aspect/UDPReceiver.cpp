@@ -1,5 +1,6 @@
 #include <string.h>     /* for memset() */
 #include <unistd.h>     /* for close() */
+#include <fcntl.h>      /* for fcntl() */
 #include "lib_crc/lib_crc.h"
 
 #include "UDPReceiver.hpp"
@@ -31,6 +32,8 @@ void UDPReceiver::init_connection( void ){
     /* Create socket for sending/receiving datagrams */
     if ((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
         printf("UDPReceiver: socket() failed\n");
+    if (fcntl(sock, F_SETFL, O_NONBLOCK) < 0)
+        printf("Unable to put client sock into non-blocking/async mode");
 
     /* Construct local address structure */
     memset(&myAddr, 0, sizeof(myAddr));   /* Zero out structure */

@@ -1,5 +1,6 @@
 #include <string.h>     /* for memset() */
 #include <unistd.h>     /* for close() */
+#include <fcntl.h>      /* for fcntl() */
 #include "lib_crc/lib_crc.h"
 
 #include "TCPReceiver.hpp"
@@ -60,14 +61,6 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
     int no_bytes_count;
     no_bytes_count = 0;
 
-    //while (numBytesRcvd < packet_size) { // 0 indicates end of stream
-    // See if there is more data to receive
-    //    bytes = recv(client_socket, payload, BUFSIZE, 0);
-    // printf("received %i\n, %i\n", bytes, no_bytes_count);
-    //if (bytes == 0){ no_bytes_count++; if (no_bytes_count > 5){ close_connection(); break; } }
-    //    if (bytes < 0){ printf("recv() failed\n"); } else { numBytesRcvd += bytes; }
-    // }
-    //close(client_socket); // Close client socket
     return numBytesRcvd;
 }
 
@@ -75,7 +68,10 @@ void TCPReceiver::init_listen( void ){
     /* Create socket for sending/receiving datagrams */
     if ((my_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
         printf("TCPReceiver: socket() failed\n");
+    if (fcntl(sock, F_SETFL, O_NONBLOCK) < 0)
+        printf("Unable to put client sock into non-blocking/async mode");
 
+    //
     /* Construct local address structure */
     struct sockaddr_in myAddr;
     memset(&myAddr, 0, sizeof(myAddr));
