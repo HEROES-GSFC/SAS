@@ -30,7 +30,7 @@ int TCPReceiver::accept_packet( void ){
     // Wait for a client to connect
     sender_sock = accept(my_sock, (struct sockaddr *) &senderAddr, &senderAddrLen);
     if (sender_sock < 0){ 
-        printf("TCPReceiver: accept() failed\n");
+        //printf("TCPReceiver: accept() failed\n");
         return -1;
     }
     return sender_sock;
