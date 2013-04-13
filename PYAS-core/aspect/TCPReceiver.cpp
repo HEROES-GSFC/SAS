@@ -30,7 +30,7 @@ int TCPReceiver::accept_packet( void ){
     // Wait for a client to connect
     sender_sock = accept(my_sock, (struct sockaddr *) &senderAddr, &senderAddrLen);
     if (sender_sock < 0){ 
-        printf("TCPReceiver: accept() failed\n");
+        //printf("TCPReceiver: accept() failed\n");
         return -1;
     }
     return sender_sock;
@@ -41,14 +41,14 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
     // clntSock is connected to a client!
     char sender_name[INET_ADDRSTRLEN]; // String to contain client address
     if (inet_ntop(AF_INET, &senderAddr.sin_addr.s_addr, sender_name, sizeof(sender_name)) != NULL)
-    { printf("Handling client %s/%d\n", sender_name, ntohs(senderAddr.sin_port)); }
+    { //printf("Handling client %s/%d\n", sender_name, ntohs(senderAddr.sin_port)); }
     else {printf("TCPReceiver: Unable to get client address\n");}
     
     numBytesRcvd = 0;
     
     // Receive message from client
     ssize_t bytes = recv(client_socket, payload, MAX_PACKET_SIZE, 0);
-    printf("TCPReceiver: just received %ld\n", bytes);
+    //printf("TCPReceiver: just received %ld\n", bytes);
 
     if (bytes < 0){ 
         printf("TCPReceiver: recv() failed\n");
