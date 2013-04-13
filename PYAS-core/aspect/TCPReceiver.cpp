@@ -68,7 +68,7 @@ void TCPReceiver::init_listen( void ){
     /* Create socket for sending/receiving datagrams */
     if ((my_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
         printf("TCPReceiver: socket() failed\n");
-    if (fcntl(sock, F_SETFL, O_NONBLOCK) < 0)
+    if (fcntl(my_sock, F_SETFL, O_NONBLOCK) < 0)
         printf("Unable to put client sock into non-blocking/async mode");
 
     //
