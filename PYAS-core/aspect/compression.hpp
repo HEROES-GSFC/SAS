@@ -6,7 +6,8 @@ struct HeaderData
 {
     timespec captureTime;
     long frameCount;
-    int exposureTime;
+    int exposure;
+    
 };
 
 int writePNGImage(cv::InputArray _image, const std::string fileName);

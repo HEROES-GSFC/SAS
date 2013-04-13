@@ -652,7 +652,7 @@ void *SaveImageThread(void *threadargs)
                     keys.frameCount = frameCount;
                     pthread_mutex_unlock(&mutexImage);
 
-                    keys.exposureTime = exposure;
+                    keys.exposure = exposure;
 
                     char stringtemp[80];
                     char obsfilespec[128];
