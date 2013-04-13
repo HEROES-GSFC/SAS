@@ -650,9 +650,32 @@ void *SaveImageThread(void *threadargs)
                     frame.copyTo(localFrame);
                     keys.captureTime = frameTime;
                     keys.frameCount = frameCount;
-                    pthread_mutex_unlock(&mutexImage);
-
                     keys.exposure = exposure;
+                    keys.preampGain = preampGain
+                    keys.analogGain = analogGain
+                    keys.sunCenter[0] = pixelCenter.x
+                    keys.sunCenter[1] = pixelCenter.y
+                    keys.cameraTemperature = camera_temperature;
+                    keys.cpuTemperature = sbc_temperature;
+                    keys.cameraID = 1;
+
+                    Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
+
+                    //keys.CTLsolution[0] = 
+                    //keys.CTLsolution[1] = 
+                    keys.screenCenter[0] = screenCenter.x 
+                    keys.screenCenter[1] = screenCenter.y
+                    keys.screenCenterError[0] = error.x;
+                    keys.screenCenterError[1] = error.y;
+                    keys.imageMinMax[0] = frameMin;
+                    keys.imageMinMax[1] = frameMax;
+                    keys.XYinterceptslope[0] = mapping[0];
+                    keys.XYinterceptslope[1] = mapping[2];
+                    keys.XYinterceptslope[2] = mapping[1];
+                    keys.XYinterceptslope[3] = mapping[3];
+                    keys.isTracking = isTracking;
+
+                    pthread_mutex_unlock(&mutexImage);
 
                     char stringtemp[80];
                     char obsfilespec[128];
