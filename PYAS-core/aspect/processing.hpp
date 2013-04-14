@@ -154,8 +154,7 @@ private:
 
 cv::Range SafeRange(int start, int stop, int size);
 void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
-void CircleFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
-void CircleFit(const CoordList &points, std::vector<float> &fit);
+void CoopeFit(const CoordList &points, std::vector<float> &fit);
 cv::Point2f Average(const CoordList &points);
 float Average(const std::vector<float> &d);
 std::vector<float> Euclidian(CoordList& vectors);

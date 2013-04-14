@@ -791,7 +791,7 @@ void Aspect::FindPixelCenter()
         }
     }
 
-    CircleFit(limbCrossings, fit);
+    CoopeFit(limbCrossings, fit);
     pixelCenter = cv::Point2f(fit[0], fit[1]);
     pixelError = cv::Point2f(fit[2], fit[2]);
     std::cout << "Radius found is " << fit[2] << std::endl;
@@ -1089,20 +1089,7 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
     fit[1] = X.at<float>(0); //slope
 }
 
-void CircleFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit)
-{
-    if (x.size() != y.size())
-    {
-        std::cout << "CircleFit: Vector lengths don't match." << std::endl;
-        return;
-    }
-    CoordList points;
-    for (unsigned int k = 0; k < x.size(); k++)
-        points.add(x[k], y[k]);
-    return CircleFit(points, fit);
-}
-
-void CircleFit(const CoordList& points, std::vector<float>& fit)
+void CoopeFit(const CoordList& points, std::vector<float>& fit)
 {
     cv::Mat B, D, Y;
     float x, y;
@@ -1156,7 +1143,7 @@ void CircleFit(const CoordList& points, std::vector<float>& fit)
 if (CookPoints.size() < points.size() && CookPoints.size() > 4)
 {
     std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
-    CircleFit(CookPoints, fit);
+    CoopeFit(CookPoints, fit);
 }
 
 fit.resize(3);
