@@ -155,6 +155,21 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("SLOPE1", (double)keys.XYinterceptslope[2], "");
     pFits->pHDU().addKey("SLOPE2", (double)keys.XYinterceptslope[3], "");    
 
+    unsigned long rows(10);
+    string hduName("LIMB_SOLUTIONS");
+    std::vector<string> colName(2,"");
+    std::vector<string> colForm(2,"");
+    std::vector<string> colUnit(2,"");
+    
+    /* define the name, datatype, and physical units for the 3 columns */    
+    colName[0] = "X";
+    colName[1] = "Y";
+    colForm[0] = "f4.2";
+    colForm[1] = "f4.2";
+    colUnit[0] = "pixels";
+    colUnit[1] = "pixels";
+    Table *newTable = pFits->addTable(hduName,rows,colName,colForm,colUnit,AsciiTbl);    
+
     try
     {
         imageExt->write(fpixel,nelements,array);
@@ -164,7 +179,16 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
         std::cout << e.message();
         return -1;
     }
-
+    try
+    {
+        newTable->column(colName[0]).write(keys.limbsX,1);  
+        newTable->column(colName[1]).write(keys.limbsY,rows,1);
+    }
+    catch(FitsException e)
+    {
+        std::cout << e.message();
+        return -1;        
+    }
     return 0;
 }
 
