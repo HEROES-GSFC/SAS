@@ -155,5 +155,4 @@ cv::Range SafeRange(int start, int stop, int size);
 void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
 int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
 void matchKernel(cv::OutputArray);
-template <class T>
-std::vector<T> Mode(std::vector<T> data);
+template <class T> std::vector<T> Mode(std::vector<T> data);
