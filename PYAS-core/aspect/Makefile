@@ -13,7 +13,7 @@ INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR)
 
 CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
 ifeq "$(GCC_VERSION_GE_43)" "1"
-    CFLAGS += -std=gnu++0x  -lrt
+    CFLAGS += -std=gnu++0x
 endif
 
 IMPERX =-L$(PUREGEV_ROOT)/lib/		\
@@ -27,6 +27,9 @@ IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
 CCFITS = -lCCfits
+ifeq "$(GCC_VERSION_GE_43)" "1"
+    CCFITS += -lrt
+endif
 
 EXEC = sunDemo fullDemo packetDemo commandingDemo networkDemo test_command test_sender AspectTest sbc_info
 
@@ -35,7 +38,7 @@ default: sunDemo sbc_info
 all: $(EXEC)
 
 fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS) -pg
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS)
 
 packetDemo: packetDemo.cpp ImperxStream.o utilities.o
 	$(CC) $(CFLAGS) $^ -o $@ $(IMPERX)

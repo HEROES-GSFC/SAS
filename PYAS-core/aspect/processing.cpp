@@ -300,8 +300,11 @@ AspectCode Aspect::Run()
             state = CENTER_OUT_OF_BOUNDS;
             return state;
         }
-        else if (pixelError.x > 1.5*solarRadius || pixelError.x < .5*solarRadius|| 
+/*        else if (pixelError.x > 1.5*solarRadius || pixelError.x < .5*solarRadius|| 
                  std::isnan(pixelError.x))
+*/
+        else if (pixelError.x > 50 || pixelError.y > 50 || 
+                 std::isnan(pixelError.x) || std::isnan(pixelError.y))
         {
             //std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
@@ -725,9 +728,10 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 void Aspect::FindPixelCenter()
 {
     std::vector<int> rows, cols;
-    std::vector<float> crossings, fit;
-    int rowStart, colStart, rowStep, colStep, limit, K;
+    std::vector<float> crossings, midpoints;
+    int rowStart, colStart, rowStep, colStep, limit, K, M;
     cv::Range rowRange, colRange;
+    float mean, std;
 
     rows.clear();
     cols.clear();
@@ -789,6 +793,9 @@ void Aspect::FindPixelCenter()
         if (dim) K =  rows.size();
         else K =  cols.size();
 
+        //Find the midpoints of the chords.
+        //For each chord
+        midpoints.clear();
         for (int k = 0; k < K; k++)
         {
             //Determine the limb crossings in that chord
@@ -806,9 +813,40 @@ void Aspect::FindPixelCenter()
                     if (dim) limbCrossings.add(crossings[l], rows[k]);
                     else limbCrossings.add(cols[k], crossings[l]);
                 }
+                //Compute and store the midpoint
+                midpoints.push_back((crossings[0] + crossings[1])/2);
             }
         }
+
+        //Determine the mean of the midpoints for this dimension
+        mean = 0;
+        M =  midpoints.size();
+        for (int m = 0; m < M; m++)
+            mean += midpoints[m];
+        mean = (float)mean/M;
+        
+        //Determine the std dev of the midpoints
+        std = 0;
+        for (int m = 0; m < M; m++)
+        {
+            std += pow(midpoints[m]-mean,2);
+        }
+        std = sqrt(std/M);
+
+        //Store the Center and RMS Error for this dimension
+        //std::cout << "Aspect: Setting Center and Error for this dimension." << std::endl;
+        if (dim)
+        {
+            pixelCenter.x = mean;
+            pixelError.x = std;
+        }
+        else
+        {
+            pixelCenter.y = mean;
+            pixelError.y = std;
+        }       
     }
+    //std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
 }
 
 void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
