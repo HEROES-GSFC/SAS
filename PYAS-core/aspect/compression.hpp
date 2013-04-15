@@ -1,12 +1,14 @@
 #include "opencv.hpp"
 #include "utilities.hpp"
 #include <string>
+#include <time.h>
 
 struct HeaderData
 {
     timespec captureTime;
     int cameraID;
     int cameraTemperature;
+    int cpuTemperature;
     long frameCount;
     int exposure;
     timespex imageWriteTime;
