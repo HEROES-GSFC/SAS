@@ -616,6 +616,8 @@ void *SaveImageThread(void *threadargs)
     long int localFrameCount;
     std::string fitsfile;
     timespec waittime = {1,0};
+    CoordList localLimbs, localPixelFiducials, localScreenFiducials;
+
     //timespec thetimenow;
     while(1)
     {
@@ -674,6 +676,13 @@ void *SaveImageThread(void *threadargs)
                     keys.XYinterceptslope[2] = mapping[1];
                     keys.XYinterceptslope[3] = mapping[3];
                     keys.isTracking = isTracking;
+                    
+                    for(uint8_t j = 0; j < 8; j++) {
+                        if (j < localLimbs.size()) {
+                            keys.limbsX[j] = limbs[j].x,
+                            keys.limbsY[j] = limbs[j].y;
+                    }
+                    keys.limbsX[0] = 
 
                     pthread_mutex_unlock(&mutexImage);
 
@@ -899,7 +908,6 @@ void *CommandSenderThread( void *threadargs )
             pthread_exit( NULL );
         }
     }
-  
 }
 
 void *CommandPackagerThread( void *threadargs )

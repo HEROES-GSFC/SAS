@@ -36,7 +36,6 @@ int writePNGImage(cv::InputArray _image, const std::string fileName)
 
 int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fileName)
 {
-   
     cv::Mat image = _image.getMat();
     cv::Size size = image.size();
     std::string timeKey;
@@ -69,12 +68,10 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->setCompressionType(RICE_1);
 
     ExtHDU* imageExt;
-    try
-    {
+    try{
         imageExt = pFits->addImage(newName, BYTE_IMG, extAx, 1);
     }
-    catch(FitsError e)
-    {
+    catch(FitsError e){
         std::cout << e.message() << "\n";
         return -1;
     }
@@ -157,35 +154,40 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
 
     unsigned long rows(10);
     string hduName("LIMB_SOLUTIONS");
-    std::vector<string> colName(2,"");
-    std::vector<string> colForm(2,"");
-    std::vector<string> colUnit(2,"");
+    std::vector<string> colName(4,"");
+    std::vector<string> colForm(4,"");
+    std::vector<string> colUnit(4,"");
     
     /* define the name, datatype, and physical units for the 3 columns */    
     colName[0] = "X";
     colName[1] = "Y";
+    colName[2] = "Xerror";
+    colName[3] = "Yerror";
     colForm[0] = "f4.2";
     colForm[1] = "f4.2";
+    colForm[2] = "f4.2";
+    colForm[3] = "f4.2";
     colUnit[0] = "pixels";
     colUnit[1] = "pixels";
+    colUnit[2] = "pixels";
+    colUnit[3] = "pixels";
+
     Table *newTable = pFits->addTable(hduName,rows,colName,colForm,colUnit,AsciiTbl);    
 
-    try
-    {
+    try{
         imageExt->write(fpixel,nelements,array);
     }
-    catch(FitsException e)
-    {
+    catch(FitsException e){
         std::cout << e.message();
         return -1;
     }
-    try
-    {
+    try{
         newTable->column(colName[0]).write(keys.limbsX,1);  
         newTable->column(colName[1]).write(keys.limbsY,rows,1);
+        newTable->column(colName[2]).write(keys.limbsXerror,1);  
+        newTable->column(colName[3]).write(keys.limbsYerror,rows,1);
     }
-    catch(FitsException e)
-    {
+    catch(FitsException e){
         std::cout << e.message();
         return -1;        
     }
