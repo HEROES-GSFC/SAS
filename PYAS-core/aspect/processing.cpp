@@ -1089,6 +1089,82 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
     fit[1] = X.at<float>(0); //slope
 }
 
+void CircleFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit)
+{
+    if (x.size() != y.size())
+    {
+        std::cout << "CircleFit: Vector lengths don't match." << std::endl;
+        return;
+    }
+    CoordList points;
+    for (unsigned int k = 0; k < x.size(); k++)
+        points.add(x[k], y[k]);
+    return CircleFit(points, fit);
+}
+
+void CircleFit(const CoordList& inPoints, std::vector<float>& fit)
+{
+    CoordList points;
+    cv::Point2f offset = Average(inPoints);
+    for (unsigned int k = 0; k < inPoints.size(); k++)
+        points.push_back((inPoints[k] - offset));
+
+    float Sxx, Sxy, Syy, Sxxx, Sxxy, Sxyy, Syyy;
+    float xx, xy, yy;
+    cv::Mat A, B, X;
+    cv::Point2f center;
+    float radius;
+
+    CoordList biasVectors;
+    cv::Point biasVector;
+    float bias;
+    
+    Sxx = Sxy = Syy = Sxxx = Sxxy = Sxyy = Syyy = 0;
+    
+    for (unsigned int k = 0; k < inPoints.size(); k++)
+    {
+        xx = std::pow(points[k].x,2);
+        xy = points[k].x*points[k].y;
+        yy = std::pow(points[k].y,2);
+        
+        Sxx += xx;
+        Sxy += xy;
+        Syy += yy;
+
+        Sxxx += xx*points[k].x;
+        Sxxy += xx*points[k].y;
+        Sxyy += yy*points[k].x;
+        Syyy += yy*points[k].y;
+    }
+    float a[2][2] = {{Sxx, Sxy}, {Sxy, Syy}};
+    float b[2][1] = {{-(Sxxx + Sxyy)/2}, {-(Sxxy + Syyy)/2}};
+    A = cv::Mat(2, 2, CV_32F, a);
+    B = cv::Mat(2, 1, CV_32F, b);
+
+    cv::solve((A.t()*A), (A.t()*B), X, cv::DECOMP_CHOLESKY);
+    
+
+    center.x = X.at<float>(0);
+    center.y = X.at<float>(1);
+    radius = sqrt(pow(center.x,2) + pow(center.y,2) + (Sxx + Syy)/(float) points.size());
+    center = center + offset;
+    //Adjust for bias from unbalanced points
+    for (unsigned int k = 0; k < inPoints.size(); k++)
+    {
+        biasVector = center - inPoints[k];
+        bias = Euclidian(biasVector);
+        biasVectors.push_back((bias > radius ? (bias - radius)/bias : (radius - bias)/radius) * biasVector);
+        
+    }
+    center = center - Average(biasVectors);
+
+    fit.resize(3);
+    fit[0] = center.x;
+    fit[1] = center.y;
+    fit[2] = radius;
+    return;
+}
+
 void CoopeFit(const CoordList& points, std::vector<float>& fit)
 {
     cv::Mat B, D, Y;
