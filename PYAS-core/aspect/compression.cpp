@@ -172,7 +172,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     colUnit[2] = "pixels";
     colUnit[3] = "pixels";
 
-    Table *newTable = pFits->addTable(hduName,rows,colName,colForm,colUnit,AsciiTbl);    
+    //Table *newTable = pFits->addTable(hduName,rows,colName,colForm,colUnit,AsciiTbl);    
 
     try{
         imageExt->write(fpixel,nelements,array);
@@ -182,10 +182,10 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
         return -1;
     }
     try{
-        newTable->column(colName[0]).write(keys.limbX,1);  
-        newTable->column(colName[1]).write(keys.limbY,rows,1);
-        newTable->column(colName[2]).write(keys.limbXerror,1);  
-        newTable->column(colName[3]).write(keys.limbYerror,rows,1);
+        //newTable->column(colName[0]).write(keys.limbX,1);  
+        //newTable->column(colName[1]).write(keys.limbY,rows,1);
+        //newTable->column(colName[2]).write(keys.limbXerror,1);  
+        //newTable->column(colName[3]).write(keys.limbYerror,rows,1);
     }
     catch(FitsException e){
         std::cout << e.message();

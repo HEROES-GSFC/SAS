@@ -1,7 +1,7 @@
 #include "opencv.hpp"
 #include "utilities.hpp"
 #include <string>
-#include <time.h>
+#include <ctime>
 
 struct HeaderData
 {
@@ -11,7 +11,7 @@ struct HeaderData
     int cpuTemperature;
     long frameCount;
     int exposure;
-    timespex imageWriteTime;
+    timespec imageWriteTime;
     int preampGain;
     int analogGain;
     float sunCenter[2];
@@ -20,13 +20,17 @@ struct HeaderData
     float XYinterceptslope[4];
     float CTLsolution[2];
     float screenCenter[2];
+	float screenCenterError[2];
     float fiducialX[10];
     float fiducialY[10];
     float limbX[10];
     float limbY[10];
+    float limbXerror[10];
+    float limbYerror[10];
     int fiducialIDX[10];
     int fiducialIDY[10];
     float cpuVoltages[6];
+    int isTracking;
 };
 
 int writePNGImage(cv::InputArray _image, const std::string fileName);

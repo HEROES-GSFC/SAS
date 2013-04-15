@@ -264,7 +264,7 @@ void *CameraStreamThread( void * threadargs)
     int failcount = 0;
 
     uint16_t localExposure = exposure;
-    uint16_t localPreampGainain = preampGain;
+    uint16_t localPreampGain = preampGain;
     uint16_t localAnalogGain = analogGain;
 
     cameraReady = 0;
@@ -653,20 +653,18 @@ void *SaveImageThread(void *threadargs)
                     keys.captureTime = frameTime;
                     keys.frameCount = frameCount;
                     keys.exposure = exposure;
-                    keys.preampGain = preampGain
-                    keys.analogGain = analogGain
-                    keys.sunCenter[0] = pixelCenter.x
-                    keys.sunCenter[1] = pixelCenter.y
+                    keys.preampGain = preampGain;
+                    keys.analogGain = analogGain;
+                    keys.sunCenter[0] = pixelCenter.x;
+                    keys.sunCenter[1] = pixelCenter.y;
                     keys.cameraTemperature = camera_temperature;
                     keys.cpuTemperature = sbc_temperature;
                     keys.cameraID = 1;
 
                     Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
 
-                    //keys.CTLsolution[0] = 
-                    //keys.CTLsolution[1] = 
-                    keys.screenCenter[0] = screenCenter.x 
-                    keys.screenCenter[1] = screenCenter.y
+                    keys.screenCenter[0] = screenCenter.x; 
+                    keys.screenCenter[1] = screenCenter.y;
                     keys.screenCenterError[0] = error.x;
                     keys.screenCenterError[1] = error.y;
                     keys.imageMinMax[0] = frameMin;
@@ -679,10 +677,9 @@ void *SaveImageThread(void *threadargs)
                     
                     for(uint8_t j = 0; j < 8; j++) {
                         if (j < localLimbs.size()) {
-                            keys.limbsX[j] = limbs[j].x,
-                            keys.limbsY[j] = limbs[j].y;
-                    }
-                    keys.limbsX[0] = 
+                            keys.limbX[j] = limbs[j].x,
+                            keys.limbY[j] = limbs[j].y;
+                    }}
 
                     pthread_mutex_unlock(&mutexImage);
 
@@ -1020,7 +1017,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             delete array;
 
             //Add FITS header tags
-            uint32_t temp = localKeys.exposureTime;
+            uint32_t temp = localKeys.exposure;
             im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time (msec)");
 
             //Make sure to synchronize all the timestamps
