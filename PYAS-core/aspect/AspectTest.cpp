@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
     cv::Scalar textColor(0,165,255);
 
     CoordList crossings, fiducials;
-    Circle circle;
+    Circle circle[2];
     IndexList IDs;
     std::vector<float> mapping;
         
@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
             found = filename.find("png",0);
             if (found != std::string::npos)
             {
-                std::cout << "Loading png file: " << filename << std::endl;
+                //std::cout << "Loading png file: " << filename << std::endl;
                 frame = cv::imread(filename, 0);
             }
             else
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
                 found = filename.find("fit",0);
                 if (found!=std::string::npos)
                 {
-                    std::cout << "Loading fits file: " << filename << std::endl;
+                    //std::cout << "Loading fits file: " << filename << std::endl;
                     readFITSImage(filename, frame);
                 }
                 else
@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
             }
             clock_gettime(CLOCK_REALTIME, &stopTime);
             diffTime = TimespecDiff(startTime, stopTime);
-            std::cout << "Runtime : " << diffTime.tv_sec << nanoString(diffTime.tv_nsec) << std::endl;
+            //std::cout << "Runtime : " << diffTime.tv_sec << nanoString(diffTime.tv_nsec) << std::endl;
 
             //Generate summary image with accurate data products marked.
             switch(GeneralizeError(runResult))
@@ -143,18 +143,17 @@ int main(int argc, char* argv[])
                 DrawCross(image, center, centerColor , 20, 1, 8);
                 //std::cout << "AspectTest: Get Error" << std::endl;
                 //std::cout << "AspectTest: Error:  " << error.x << " " << error.y << std::endl;
-                 for (int k = 1; k < 2; k++)
+                for (int k = 0; k < 2; k++)
                 {
-                    CircleFit(crossings, k, circle);
-                    DrawCross(image, circle.center(), cv::Scalar(0,50+k*100,255) , 20, 1, 8);
-                    //   cv::circle(image, circle.center()*pow(2,8), circle.r()*pow(2,8), cv::Scalar(0,50+k*100,255), 1, CV_AA, 8);
+                    CircleFit(crossings, k, circle[k]);
+                    DrawCross(image, circle[k].center(), cv::Scalar(0,50+k*100,255) , 20, 1, 8);
+                    //   cv::circle(image, circle[k].center()*pow(2,8), circle[k].r()*pow(2,8), cv::Scalar(0,50+k*100,255), 1, CV_AA, 8);
                 }
+
             case CENTER_ERROR:
                 //std::cout << "AspectTest: Get Crossings" << std::endl;;
                 for (int k = 0; k < crossings.size(); k++)
                     DrawCross(image, crossings[k], crossingColor, 10, 1, 8);
-                
-               
 
             case LIMB_ERROR:
                 break;
@@ -164,16 +163,18 @@ int main(int argc, char* argv[])
 
 
             //Print data to screen.
+
             if(GeneralizeError(runResult) < CENTER_ERROR)
-                std::cout << "Center (pixels): " << center << std::endl;
+                std::cout << "Centers: " << center << " " << 
+                    circle[0].center() << " " << circle[1].center() << std::endl;
             else
                 std::cout << "Center (pixels): " << "Not valid" << std::endl;
-
+/*
             if(GeneralizeError(runResult) < MAPPING_ERROR)
                 std::cout << "Center (screen): " << IDCenter << std::endl;
             else
                 std::cout << "Center (screen): " << "Not valid" << std::endl;
-            
+*/            
             cv::putText(image, filename, cv::Point(0,(frame.size()).height-20), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             message = GetMessage(runResult);
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
