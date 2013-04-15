@@ -790,11 +790,6 @@ void Aspect::FindPixelCenter()
             }
         }
     }
-
-    CoopeFit(limbCrossings, fit);
-    pixelCenter = cv::Point2f(fit[0], fit[1]);
-    pixelError = cv::Point2f(fit[2], fit[2]);
-    std::cout << "Radius found is " << fit[2] << std::endl;
 }
 
 void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
@@ -1089,7 +1084,7 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
     fit[1] = X.at<float>(0); //slope
 }
 
-void CircleFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit)
+void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int method, std::vector<float> &fit)
 {
     if (x.size() != y.size())
     {
@@ -1099,13 +1094,27 @@ void CircleFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
     CoordList points;
     for (unsigned int k = 0; k < x.size(); k++)
         points.add(x[k], y[k]);
-    return CircleFit(points, fit);
+    return CircleFit(points, method, fit);
 }
 
-void CircleFit(const CoordList& inPoints, std::vector<float>& fit)
+void CircleFit(const CoordList& points, int method, std::vector<float>& fit)
+{
+    switch(method)
+    {
+    case 0:
+        return BullockCircleFit(points, fit);
+    case 1:
+        return CoopeCircleFit(points, fit);
+    default:
+        std::cout << "Unrecognized circle fitting method" << std::endl;
+        return;
+    }
+}
+
+void BullockCircleFit(const CoordList& inPoints, std::vector<float>& fit)
 {
     CoordList points;
-    cv::Point2f offset = Average(inPoints);
+    cv::Point2f offset = Mean(inPoints);
     for (unsigned int k = 0; k < inPoints.size(); k++)
         points.push_back((inPoints[k] - offset));
 
@@ -1156,7 +1165,7 @@ void CircleFit(const CoordList& inPoints, std::vector<float>& fit)
         biasVectors.push_back((bias > radius ? (bias - radius)/bias : (radius - bias)/radius) * biasVector);
         
     }
-    center = center - Average(biasVectors);
+    center = center - Mean(biasVectors);
 
     fit.resize(3);
     fit[0] = center.x;
@@ -1165,7 +1174,7 @@ void CircleFit(const CoordList& inPoints, std::vector<float>& fit)
     return;
 }
 
-void CoopeFit(const CoordList& points, std::vector<float>& fit)
+void CoopeCircleFit(const CoordList& points, std::vector<float>& fit)
 {
     cv::Mat B, D, Y;
     float x, y;
@@ -1204,41 +1213,41 @@ void CoopeFit(const CoordList& points, std::vector<float>& fit)
         CookDistance[k] = residual[k] * H.at<float>(k,k) / 
             pow(1 - H.at<float>(k,k), 2);
     }
-    MSE = Average(residual); 
+    MSE = Mean(residual); 
     CookPoints = points;
     for (unsigned int k = 0; k < CookPoints.size(); k++)
     {
         if (CookDistance[k] > MSE)
-    {
-        CookDistance.erase(CookDistance.begin() + k);
-        CookPoints.erase(CookPoints.begin() + k);
-        k--;
+        {
+            CookDistance.erase(CookDistance.begin() + k);
+            CookPoints.erase(CookPoints.begin() + k);
+            k--;
+        }
     }
+
+    if (CookPoints.size() < points.size() && CookPoints.size() > 4)
+    {
+        std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
+        CoopeCircleFit(CookPoints, fit);
+    }
+
+    fit.resize(3);
+    if (CookPoints.size() <= 4)
+    {
+        fit[0] = -1;
+        fit[1] = -1;
+        fit[2] = -1;
+    }
+    else
+    {
+        fit[0] = center.x;
+        fit[1] = center.y;
+        fit[2] = radius;
+    }
+    return;
 }
 
-if (CookPoints.size() < points.size() && CookPoints.size() > 4)
-{
-    std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
-    CoopeFit(CookPoints, fit);
-}
-
-fit.resize(3);
-if (CookPoints.size() <= 4)
-{
-    fit[0] = -1;
-    fit[1] = -1;
-    fit[2] = -1;
-}
-else
-{
-fit[0] = center.x;
-fit[1] = center.y;
-fit[2] = radius;
-}
-return;
-}
-
-cv::Point2f Average(const CoordList& points)
+cv::Point2f Mean(const CoordList& points)
 {
     std::vector<float> x, y;
     for (unsigned int k = 0; k < points.size(); k++)
@@ -1246,10 +1255,10 @@ cv::Point2f Average(const CoordList& points)
         x.push_back(points[k].x);
         y.push_back(points[k].y);
     }
-    return cv::Point2f(Average(x), Average(y));
+    return cv::Point2f(Mean(x), Mean(y));
 }
 
-float Average(const std::vector<float>& d)
+float Mean(const std::vector<float>& d)
 {
     float average = 0;
     for (unsigned int k = 0; k < d.size(); k++)
