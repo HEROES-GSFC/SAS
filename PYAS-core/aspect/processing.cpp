@@ -970,13 +970,16 @@ void Aspect::FindFiducialIDs()
     float rowDiff, colDiff;
     IndexList rowPairs, colPairs;
     CoordList trash;
+    
     K = pixelFiducials.size();
     fiducialIDs.clear();
-    fiducialIDs.resize(K, cv::Point2i(-100,-100));
+    fiducialIDs.resize(K);
+    
+    std::vector<std::vector<int> > rowVotes, colVotes;
+    rowVotes.resize(K); colVotes.resize(K);
+    
+    std::vector<int> modes;
 
-
-    rowPairs.clear();
-    colPairs.clear();
     //Find fiducial pairs that are spaced correctly
     //std::cout << "Aspect: Find valid fiducial pairs" << std::endl;
     //std::cout << "Aspect: Searching through " << K << " Fiducials" << std::endl;
@@ -1008,13 +1011,13 @@ void Aspect::FindFiducialIDs()
             {
                 if (rowDiff > 0) 
                 {
-                    fiducialIDs[rowPairs[k].x].y = d-7;
-                    fiducialIDs[rowPairs[k].y].y = d+1-7;
+                    rowVotes[rowPairs[k].x].push_back(d-7);
+                    rowVotes[rowPairs[k].y].push_back(d+1-7);
                 }
                 else
                 {
-                    fiducialIDs[rowPairs[k].x].y = d+1-7;
-                    fiducialIDs[rowPairs[k].y].y = d-7;
+                    rowVotes[rowPairs[k].x].push_back(d+1-7);
+                    rowVotes[rowPairs[k].y].push_back(d-7);
                 }
             }
         }
@@ -1031,15 +1034,139 @@ void Aspect::FindFiducialIDs()
             {
                 if (colDiff > 0) 
                 {
-                    fiducialIDs[colPairs[k].x].x = d-7;
-                    fiducialIDs[colPairs[k].y].x = d+1-7;
+                    colVotes[colPairs[k].x].push_back(d-7);
+                    colVotes[colPairs[k].y].push_back(d+1-7);
                 }
                 else
                 {
-                    fiducialIDs[colPairs[k].x].x = d+1-7;
-                    fiducialIDs[colPairs[k].y].x = d-7;
+                    colVotes[colPairs[k].x].push_back(d+1-7);
+                    colVotes[colPairs[k].y].push_back(d-7);
                 }
             }
+        }
+    }
+    
+    // Accumulate results of first pass
+    for (k = 0; k < K; k++)
+    {
+        modes = Mode(rowVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].y = -200;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].y = modes[0];
+        }
+        else
+        {
+            fiducialIDs[k].y = -100;
+        }
+
+        modes = Mode(colVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].x = -200;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].x = modes[0];
+        }
+       else
+        {
+            fiducialIDs[k].x = -100;
+        }
+    }
+
+    // Start second pass
+    rowVotes.clear(); rowVotes.resize(K);
+    colVotes.clear(); colVotes.resize(K);
+    //std::cout << "Aspect: Compute intra-pair distances for row pairs." << std::endl;
+    for (k = 0; k <  rowPairs.size(); k++)
+    {
+        rowDiff = pixelFiducials[rowPairs[k].y].y 
+            - pixelFiducials[rowPairs[k].x].y;
+
+        //If part of a row pair has an unidentified column index, it should match its partner
+        if (fiducialIDs[rowPairs[k].x].x == -100 && fiducialIDs[rowPairs[k].y].x != -100)
+        {
+            colVotes[rowPairs[k].x].push_back(fiducialIDs[rowPairs[k].y].x);
+        }
+        else if (fiducialIDs[rowPairs[k].x].x != -100 && fiducialIDs[rowPairs[k].y].x == -100)
+        {
+            colVotes[rowPairs[k].y].push_back(fiducialIDs[rowPairs[k].x].x);
+        }
+    
+        //If part of a row pair has an unidentified row index, it should be incremented from its partner
+        if (fiducialIDs[rowPairs[k].x].y == -100 && fiducialIDs[rowPairs[k].y].y != -100)
+        {
+            if (rowDiff >= 0)
+                rowVotes[rowPairs[k].x].push_back(fiducialIDs[rowPairs[k].y].y - 1);
+            else 
+                rowVotes[rowPairs[k].x].push_back(fiducialIDs[rowPairs[k].y].y + 1);
+        }
+        else if (fiducialIDs[rowPairs[k].x].y != -100 && fiducialIDs[rowPairs[k].y].y == -100)
+        {
+            if (rowDiff >= 0)
+                rowVotes[rowPairs[k].y].push_back(fiducialIDs[rowPairs[k].x].y + 1);
+            else 
+                rowVotes[rowPairs[k].y].push_back(fiducialIDs[rowPairs[k].x].y - 1);
+        }
+    }
+
+    for (k = 0; k <  colPairs.size(); k++)
+    {
+        colDiff = pixelFiducials[colPairs[k].x].x 
+            - pixelFiducials[colPairs[k].y].x;
+
+        //For columns, pairs should match in row
+        if (fiducialIDs[colPairs[k].x].y == -100 && fiducialIDs[colPairs[k].y].y != -100)
+        {
+            rowVotes[colPairs[k].x].push_back(fiducialIDs[colPairs[k].y].y);
+        }
+        else if (fiducialIDs[colPairs[k].x].y != -100 && fiducialIDs[colPairs[k].y].y == -100)
+        {
+            rowVotes[colPairs[k].y].push_back(fiducialIDs[colPairs[k].x].y);
+        }
+
+        //For columns, pairs should increment in column.
+        if (fiducialIDs[colPairs[k].x].x == -100 && fiducialIDs[colPairs[k].y].x != -100)
+        {
+            if (colDiff >= 0)
+                colVotes[colPairs[k].x].push_back(fiducialIDs[colPairs[k].y].x - 1);
+            else 
+                colVotes[colPairs[k].x].push_back(fiducialIDs[colPairs[k].y].x + 1);
+        }
+        else if (fiducialIDs[colPairs[k].x].x != -100 && fiducialIDs[colPairs[k].y].x == -100)
+        {
+            if (colDiff >= 0)
+                colVotes[colPairs[k].y].push_back(fiducialIDs[colPairs[k].x].x + 1);
+            else 
+                colVotes[colPairs[k].y].push_back(fiducialIDs[colPairs[k].x].x - 1);
+        }
+    }
+    
+    //Vote on second pass
+    for (k = 0; k < K; k++)
+    {
+        modes = Mode(rowVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].y = -200;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].y = modes[0];
+        }
+
+        modes = Mode(colVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].x = -200;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].x = modes[0];
         }
     }
 }       
@@ -1372,4 +1499,29 @@ void matchKernel(cv::OutputArray _kernel)
             }
         }       
     }
+}
+
+template <class T>
+std::vector<T> Mode(std::vector<T> data)
+{
+    std::map<T,unsigned> frequencyCount;
+    for(size_t i = 0; i < data.size(); ++i)
+        frequencyCount[data[i]]++;
+
+    unsigned currentMax = 0;
+    std::vector<T> mode;
+    for(auto it = frequencyCount.cbegin(); it != frequencyCount.cend(); ++it )
+    {
+        if (it->second > currentMax)
+        {
+            mode.clear();
+            mode.push_back(it->first);
+            currentMax = it->second;
+        }
+        else if (it->second == currentMax)
+        {
+            mode.push_back(it->first);
+        }
+    }
+    return mode;
 }

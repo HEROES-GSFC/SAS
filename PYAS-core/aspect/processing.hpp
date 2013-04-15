@@ -173,7 +173,6 @@ private:
     std::list<float> slopes;
 };
 
-
 cv::Range SafeRange(int start, int stop, int size);
 void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
 void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int method, Circle &fit);
@@ -187,3 +186,4 @@ float Euclidian(cv::Point2f d);
 float Euclidian(cv::Point2f p1, cv::Point2f p2);
 int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
 void matchKernel(cv::OutputArray);
+template <class T> std::vector<T> Mode(std::vector<T> data);
