@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <list>
 #include <cmath>
 
 cv::Point2f fiducialIDtoScreen(cv::Point2i id) 
@@ -241,6 +242,7 @@ AspectCode Aspect::Run()
     double max, min;
 
     limbCrossings.clear();    
+    slopes.clear();    
     pixelFiducials.clear();
     fiducialIDs.clear();
     mapping.clear();
@@ -405,6 +407,21 @@ AspectCode Aspect::GetPixelCrossings(CoordList& crossings)
         crossings.clear();
         for (unsigned int k = 0; k <  limbCrossings.size(); k++)
             crossings.push_back(limbCrossings[k]);
+        return NO_ERROR;
+    }
+    else return state;
+}
+
+AspectCode Aspect::ReportFocus()
+{
+    if (state < LIMB_ERROR)
+    {
+        slopes.sort();
+        slopes.reverse();
+        std::cout << "Focus report: ";
+        for (std::list<float>::iterator it = slopes.begin(); it != slopes.end(); ++it)
+            std::cout << *it << " ";
+        std::cout << std::endl;
         return NO_ERROR;
     }
     else return state;
@@ -699,6 +716,7 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
             }
             LinearFit(x,y,fit);
             crossings.push_back((threshold - fit[0])/fit[1]);
+            slopes.push_back(fabs(fit[1]));
         }
     }
     return 0; 
@@ -760,6 +778,7 @@ void Aspect::FindPixelCenter()
     //Initialize
     pixelCenter = cv::Point2f(0,0);
     limbCrossings.clear();
+    slopes.clear();
 
     //For each dimension
     for (int dim = 0; dim < 2; dim++)
