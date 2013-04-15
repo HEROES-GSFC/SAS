@@ -1141,7 +1141,7 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
     fit[1] = X.at<float>(0); //slope
 }
 
-void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int method, std::vector<float> &fit)
+void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int method, Circle& fit)
 {
     if (x.size() != y.size())
     {
@@ -1154,7 +1154,7 @@ void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int met
     return CircleFit(points, method, fit);
 }
 
-void CircleFit(const CoordList& points, int method, std::vector<float>& fit)
+void CircleFit(const CoordList& points, int method, Circle& fit)
 {
     switch(method)
     {
@@ -1168,7 +1168,7 @@ void CircleFit(const CoordList& points, int method, std::vector<float>& fit)
     }
 }
 
-void BullockCircleFit(const CoordList& inPoints, std::vector<float>& fit)
+void BullockCircleFit(const CoordList& inPoints, Circle& fit)
 {
     CoordList points;
     cv::Point2f offset = Mean(inPoints);
@@ -1224,14 +1224,13 @@ void BullockCircleFit(const CoordList& inPoints, std::vector<float>& fit)
     }
     center = center - Mean(biasVectors);
 
-    fit.resize(3);
     fit[0] = center.x;
     fit[1] = center.y;
     fit[2] = radius;
     return;
 }
 
-void CoopeCircleFit(const CoordList& points, std::vector<float>& fit)
+void CoopeCircleFit(const CoordList& points, Circle& fit)
 {
     cv::Mat B, D, Y;
     float x, y;
@@ -1288,7 +1287,6 @@ void CoopeCircleFit(const CoordList& points, std::vector<float>& fit)
         CoopeCircleFit(CookPoints, fit);
     }
 
-    fit.resize(3);
     if (CookPoints.size() <= 4)
     {
         fit[0] = -1;

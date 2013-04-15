@@ -23,12 +23,13 @@ int main(int argc, char* argv[])
     cv::Point2f center,error, IDCenter;
 
     cv::Scalar crossingColor(0,255,0);
-    cv::Scalar centerColor(0,0,255);
+    cv::Scalar centerColor(64,0,128);
     cv::Scalar fiducialColor(255,0,0);
     cv::Scalar IDColor(165,0,165);
     cv::Scalar textColor(0,165,255);
 
     CoordList crossings, fiducials;
+    Circle circle;
     IndexList IDs;
     std::vector<float> mapping;
         
@@ -139,17 +140,21 @@ int main(int argc, char* argv[])
                 
             case FIDUCIAL_ERROR:
                 //std::cout << "AspectTest: Get Center" << std::endl;
-                DrawCross(image, center, centerColor, 20, 1, 8);
-
-                circle(image, center*pow(2,8), error.x*pow(2,8), centerColor, 1, CV_AA, 8);
-            
+                DrawCross(image, center, centerColor , 20, 1, 8);
                 //std::cout << "AspectTest: Get Error" << std::endl;
                 //std::cout << "AspectTest: Error:  " << error.x << " " << error.y << std::endl;
-                
+                 for (int k = 1; k < 2; k++)
+                {
+                    CircleFit(crossings, k, circle);
+                    DrawCross(image, circle.center(), cv::Scalar(0,50+k*100,255) , 20, 1, 8);
+                    //   cv::circle(image, circle.center()*pow(2,8), circle.r()*pow(2,8), cv::Scalar(0,50+k*100,255), 1, CV_AA, 8);
+                }
             case CENTER_ERROR:
                 //std::cout << "AspectTest: Get Crossings" << std::endl;;
                 for (int k = 0; k < crossings.size(); k++)
                     DrawCross(image, crossings[k], crossingColor, 10, 1, 8);
+                
+               
 
             case LIMB_ERROR:
                 break;
