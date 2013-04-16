@@ -661,6 +661,12 @@ void *SaveImageThread(void *threadargs)
                     keys.cpuTemperature = sbc_temperature;
                     keys.cameraID = 1;
 
+					keys.cpuVoltage[0] = sbc_v105;
+					keys.cpuVoltage[1] = sbc_v25;
+					keys.cpuVoltage[2] = sbc_v33;
+					keys.cpuVoltage[3] = sbc_v50;
+					keys.cpuVoltage[4] = sbc_v120;
+
                     Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
 
                     keys.screenCenter[0] = screenCenter.x; 

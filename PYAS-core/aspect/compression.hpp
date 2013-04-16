@@ -29,7 +29,7 @@ struct HeaderData
     float limbYerror[10];
     int fiducialIDX[10];
     int fiducialIDY[10];
-    float cpuVoltages[6];
+    float cpuVoltage[5];
     int isTracking;
 };
 
