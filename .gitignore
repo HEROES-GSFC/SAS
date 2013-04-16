@@ -15,6 +15,11 @@
 *~
 #*#
 *.out
+*Demo
+frame*.png
+temp*.dat
+image*.fits
+*.avi
 
 # Mac Files
 .DS_Store

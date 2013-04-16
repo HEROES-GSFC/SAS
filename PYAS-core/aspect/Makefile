@@ -1,11 +1,24 @@
+# Pattern matching in make files
+#   $^ matches all the input dependencies
+#   $< matches the first input dependency
+#   $@ matches the output
+
 CC=g++
-OPENCVDIR = /usr/include/opencv2/
-CCFITSDIR = /usr/local/include/CCfits/
-CFLAGS=-c -Wall
-AVT = -lPvAPI
+GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
+
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
+OPENCVDIR = /usr/include/opencv2/
+CCFITSDIR = /usr/include/CCfits/
+INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR)
+
+#removed to compile on Mac -schriste
+#CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas -lrt
+CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
+ifeq "$(GCC_VERSION_GE_43)" "1"
+    CFLAGS += -std=gnu++0x
+endif
+
 IMPERX =-L$(PUREGEV_ROOT)/lib/		\
-	-I$(PUREGEV_ROOT)/include/	\
 	-lPvBase             		\
 	-lPvDevice          		\
 	-lPvBuffer          		\
@@ -13,48 +26,76 @@ IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 	-lPvGenICam          		\
 	-lPvStreamRaw        		\
 	-lPvStream 
-OPENCV = -I$(OPENCVDIR) -lopencv_core -lopencv_highgui -lopencv_imgproc
-CCFITS = -I$(CCFITSDIR) -lCCfits
-THREAD = -lpthread -std=gnu++0x
-OBJ = -I.
+OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
+THREAD = -lpthread
+CCFITS = -lCCfits
 
-all: fullDemo
+EXEC = sunDemo fullDemo packetDemo commandingDemo networkDemo test_command test_sender AspectTest sbc_info
 
-fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o
-	$(CC) fullDemo.cpp processing.o utilities.o ImperxStream.o -o fullDemo $(OBJ) $(OPENCV) $(THREAD) $(IMPERX) -pg
+default: sunDemo sbc_info
 
-fidDemo: fidDemo.cpp processing.o compression.o
-	$(CC) fidDemo.cpp processing.o compression.o -o fidDemo $(OBJ) $(OPENCV) $(CCFITS) -pg
+all: $(EXEC)
 
-threadDemo: threadDemo.cpp processing.o utilities.o
-	$(CC) threadDemo.cpp processing.o utilities.o -o threadDemo $(OBJ) $(OPENCV) $(THREAD) -pg
+fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS) -pg
 
-packetDemo: packetDemo.cpp TelemetryStream.o ImperxStream.o utilities.o
-	$(CC) packetDemo.cpp TelemetryStream.o lib_crc.o ImperxStream.o utilities.o -o packetDemo $(OBJ) $(OPENCV) $(IMPERX) $(THREAD)
+packetDemo: packetDemo.cpp ImperxStream.o utilities.o
+	$(CC) $(CFLAGS) $^ -o $@ $(IMPERX)
 
-commandingDemo: commandingDemo.cpp Commanding.o 
-	$(CC) commandingDemo.cpp Commanding.o lib_crc.o -o commandingDemo
+CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o Packet.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+	
+CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-processing.o: processing.cpp
-	$(CC) $(CFLAGS) processing.cpp -o processing.o $(OBJ) $(OPENCV)
+commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@
 
-camera.o: camera.cpp
-	$(CC) $(CFLAGS) camera.cpp $(OBJ) $(AVT)
+networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o TCPSender.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) -pg
 
-ImperxStream.o: ImperxStream.cpp utilities.o
-	$(CC) $(CFLAGS) ImperxStream.cpp utilities.o -o ImperxStream.o $(OBJ) $(THREAD) $(IMPERX) $(OPENCV)
+sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
-compression.o: compression.cpp
-	$(CC) $(CFLAGS) compression.cpp -o compression.o $(OBJ) $(OPENCV) $(CCFITS)
+tcpDemo: tcpDemo.cpp TCPReceiver.o Packet.o lib_crc.o TCPSender.o
+	$(CC) $(CFLAGS) $^ -o $@
 
-TelemetryStream.o: TelemetryStream.cpp ./lib_crc/lib_crc.c
-	$(CC) $(CFLAGS) TelemetryStream.cpp ./lib_crc/lib_crc.c -I./lib_crc/
+tcpSend: tcpSend.cpp Telemetry.o Packet.o lib_crc.o TCPSender.o
+	$(CC) $(CFLAGS) $^ -o $@ -pg
 
-Commanding.o: Commanding.cpp ./lib_crc/lib_crc.c
-	$(CC) $(CFLAGS) Commanding.cpp ./lib_crc/lib_crc.c -I./lib_crc/
+test_command: test_command.cpp Packet.o Command.o lib_crc.o UDPSender.o
+	$(CC) $(CFLAGS) $^ -o $@
 
-utilities.o: utilities.cpp
-	$(CC) $(CFLAGS) utilities.cpp -o utilities.o $(OBJ) $(THREAD)
+test_sender: test_sender.cpp UDPSender.o Packet.o lib_crc.o Telemetry.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+AspectTest: AspectTest.cpp processing.o utilities.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
+
+AspectVideo: AspectVideo.cpp processing.o utilities.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
+
+#This executable need to be copied to /usr/local/bin/ after it is built
+sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
+sbc_info_reader: sbc_info_reader.cpp Packet.o lib_crc.o UDPReceiver.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
+#This pattern matching will catch all "simple" object dependencies
+%.o: %.cpp %.hpp
+	$(CC) -c $(CFLAGS) $< -o $@
+
+lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
+	$(CC) -c $(CFLAGS) $< -o $@
+
+Transform.o: Transform.cpp Transform.hpp spa/spa.c spa/spa.h
+	$(CC) -c $(CFLAGS) $< -o $@
+
+install: sbc_info
+	sudo systemctl stop sbc_info
+	sudo cp $^ /usr/local/bin
+	sudo systemctl start sbc_info
 
 clean:
-	rm -rf *.o fullDemo fidDemo threadDemo packetDemo commandingDemo *.out
+	rm -rf *.o *.out $(EXEC)

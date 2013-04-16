@@ -1,213 +1,203 @@
-#define CHORDS 50
-#define THRESHOLD 50
-
-#define FID_WIDTH 5
-#define FID_LENGTH 23
-#define SOLAR_RADIUS 105
-#define FID_ROW_THRESH 5
-#define FID_COL_THRESH 0
-#define FID_MATCH_THRESH 7
-
-#define DEBUG 0
 #define DISPLAY 1
-#define SAVE 0
-#define RATE 0
-#define FIDTYPE 1
+#define SAVE 1
+#define DEBUG 1
 #include <string.h>
 #include <iostream>
 #include <time.h>
 #include <vector>
 #include <fstream>
 
-#include <ImperxStream.hpp>
-#include <processing.hpp>
+#include "ImperxStream.hpp"
+#include "processing.hpp"
+#include "compression.hpp"
  
+void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
+{
+    cv::Point2f pt1, pt2;
+    length = (length+1)/2;
+    pt1.x = point.x-length;
+    pt1.y = point.y-length;
+    pt2.x = point.x+length;
+    pt2.y = point.y+length;
+    cv::line(image, pt1*128, pt2*128, color, thickness, CV_AA, 7);
+    pt1.x = point.x+length;
+    pt1.y = point.y-length;
+    pt2.x = point.x-length;
+    pt2.y = point.y+length;
+    cv::line(image, pt1*128, pt2*128, color, thickness, CV_AA, 7);
+}
+
 int main(int argc, char* agrv[])
 {
-    int startTime, endTime, framesCapped = 0;
-    float duration = 0;
-    double center[6];
-    cv::Scalar color(0,0,192);
-    cv::Scalar color2(128,0,0);
-    cv::Point2d pt;
-    cv::Point2d pt1,pt2;
-    int numLocs = 20;
-#if FIDTYPE == 0
-    int locs[2*numLocs];
-#else
-    cv::Point locs[numLocs];
-#endif
-    double* temp;
-    int fidLocs;
-    
+    int startTime, duration, framesCapped = 0;
+    ImperxStream camera;
+    int exposure;
+    cv::Mat frame;
+    int width, height;
+    Aspect aspect;
+
+
 #if SAVE == 1
     char number[4] = "000";
     std::string savefile;
-    std::vector<int> pngstuff;
-    pngstuff.push_back(CV_IMWRITE_PNG_COMPRESSION);
-    pngstuff.push_back(RATE);
+                                
 #endif
-    ImperxStream camera;
-    int height, width;
-    camera.Connect();
-    camera.ConfigureSnap(width, height);
-    camera.Initialize();
-    std::cout << "CameraStart Done. Running CameraSnap loop\n";
-    std::cout << "Run for how many seconds: ";
-    std::cin >> duration;
-    cv::Mat frame(height, width, CV_8UC1);
-	
-    cv::Mat subImage;
-    cv::Range rowRange, colRange;
-					
+    
+
+#if DISPLAY == 1
     cv::Mat image; //contains RGB version of image
-#if FIDTYPE == 0					
-    morphParams rowParams;
-    rowParams.dim = 0;
-    rowParams.tophatWidth = FID_LENGTH;
-    rowParams.threshold = FID_ROW_THRESH;
-        
-    morphParams colParams;
-    colParams.dim = 1;
-    colParams.tophatWidth = FID_WIDTH;
-    colParams.threshold = FID_COL_THRESH;
-#else
-    cv::Mat kernel;
-    matchKernel(kernel);
+    std::string label;
+    cv::Scalar color(0,0,192);
+    cv::Scalar color2(128,0,0);
+    cv::Scalar crossingColor(0,128,0);
+    cv::Scalar centerColor(0,0,192);
+    cv::Scalar fiducialColor(128,0,0);
+    cv::Scalar textColor(0,0,0);
 #endif
-					
-#if DISPLAY
-    cv::Mat list[] = {frame,frame,frame};
-    cv::namedWindow("Solar Solution", CV_WINDOW_AUTOSIZE);
-#endif
-					
-    startTime = time(NULL);
-    while ( time(NULL) < startTime + duration)
+
+    cv::Point2f center, error, IDCenter;
+
+    CoordList fiducials, crossings;
+    IndexList IDs;
+    std::vector<float> mapping;
+    mapping.resize(4);
+    std::cout << "fullDemo: Connecting to camera" << std::endl;
+    if (camera.Connect() != 0)
     {
-	camera.Snap(frame);
-
-	chordCenter(frame.data, height, width, 
-		    CHORDS, THRESHOLD, center);
-						
-#if DEBUG
-	std::cout << "Chord Center: " << center[0] << "+/-"<< center[4] << " (" << center[2] << "), " 
-		  << center[1] << "+/-" << center[5] << " (" << center[3] << ")\n";
-#endif
-						
-	if (center[0] > 0 && center[1] > 0 &&
-	    center[0] < width && center[1] < height)
-	{
-							
-	    rowRange.end = (((int) center[1]) + SOLAR_RADIUS < height-1) ? (((int) center[1]) + SOLAR_RADIUS) : (height-1);
-	    rowRange.start = (((int) center[1]) - SOLAR_RADIUS > 0) ? (((int) center[1]) - SOLAR_RADIUS) : 0;
-	    colRange.end = (((int) center[0]) + SOLAR_RADIUS < width) ? (((int) center[0]) + SOLAR_RADIUS) : (width-1);
-	    colRange.start = (((int) center[0]) - SOLAR_RADIUS > 0) ? (((int) center[0]) - SOLAR_RADIUS) : 0;
-	    subImage = frame(rowRange, colRange);
-							
-#if FIDTYPE == 0
-	    fidLocs = morphFindFiducials(subImage, rowParams, colParams, FID_LENGTH, locs, numLocs);
-#else
-	    fidLocs = matchFindFiducials(subImage, kernel, FID_MATCH_THRESH, locs, numLocs);
-#endif
-							
-#if DEBUG
-	    std::cout << "Found " << fidLocs << " fiducials\n";
-#endif
-							
-#if DISPLAY
-	    cv::merge(list,3,image);
-	    for (int k = 0; k < fidLocs; k++)
-	    {
-#if FIDTYPE == 0
-		cv::circle(image, cv::Point(locs[k]+colRange.start, locs[numLocs + k]+rowRange.start), 10, color2, 2, CV_AA, 0);
-#else
-		cv::circle(image, cv::Point(locs[k].x+colRange.start, locs[k].y+rowRange.start), 10, color2, 2, CV_AA, 0);	
-#endif
-	    }
-#endif	
-	}
-	else
-	{
-#if DEBUG
-	    std::cout << "No center found. Skipping frame\n";
-#endif
-	    cv::merge(list,3,image);
-	    imshow("Solar Solution", image );
-	    cv::waitKey(10);
-	    continue;   
-	}
-	
-#if DISPLAY		
-	pt.x = center[0]; pt.y = center[1];
-	//cv::circle(image, pt, 1, color, 1, CV_AA, 0);
-	//cv::circle(image, pt, 10, color, 1, CV_AA, 0);
-	
-	//Symbol is sub-pixel rendered to 1/128 of a pixel
-	pt1.x = pt.x-5;
-	pt1.y = pt.y;
-	pt2.x = pt.x+5;
-	pt2.y = pt.y;
-	cv::line(image, pt1*128, pt2*128, color, 1, CV_AA, 7);
-				
-	pt1.x = pt.x;
-	pt1.y = pt.y-5;
-	pt2.x = pt.x;
-	pt2.y = pt.y+5;
-	cv::line(image, pt1*128, pt2*128, color, 1, CV_AA, 7);
-	
-	pt1.x = pt.x-15;
-	pt1.y = pt.y-15;
-	pt2.x = pt.x- 5;
-	pt2.y = pt.y- 5;
-	cv::line(image, pt1*128, pt2*128, color, 5, CV_AA, 7);
-	
-	pt1.x = pt.x+ 5;
-	pt1.y = pt.y+ 5;
-	pt2.x = pt.x+15;
-	pt2.y = pt.y+15;
-	cv::line(image, pt1*128, pt2*128, color, 5, CV_AA, 7);
-		
-	pt1.x = pt.x-15;
-	pt1.y = pt.y+15;
-	pt2.x = pt.x- 5;
-	pt2.y = pt.y+ 5;
-	cv::line(image, pt1*128, pt2*128, color, 5, CV_AA, 7);
-		
-	pt1.x = pt.x+ 5;
-	pt1.y = pt.y- 5;
-	pt2.x = pt.x+15;
-	pt2.y = pt.y-15;
-	cv::line(image, pt1*128, pt2*128, color, 5, CV_AA, 7);
-
-	//1-sigma error ellipse
-	if (center[2] > 1 && center[3] > 1) 
-	{
-	    cv::Size axes(center[4],center[5]);
-	    cv::ellipse(image, pt*128, axes*128, 0, 0, 360, color2, 1, CV_AA, 7);
-	}
-
-	imshow("Solar Solution", image);
-	cv::waitKey(10);
-#endif
-						
-#if SAVE					
-	sprintf(number, "%d", framesCapped);
-												
-	savefile = "./frames/frame";
-	savefile += number;
-	savefile += "_rate";
-	sprintf(number, "%d", RATE);
-	savefile += number;
-	savefile += ".png";
-	
-	cv::imwrite(savefile, frame, pngstuff);
-#endif
-	framesCapped++;
+        std::cout << "fullDemo: Error connecting to camera!\n"; 
+        return -1;
     }
-    endTime = time(NULL);
-    std::cout << "Frame rate was: " << ((float) framesCapped/(endTime-startTime)) << "\n";
-    std::cout << "CameraSnap loop Done. Running CameraStop\n";
-    camera.Stop();
-    camera.Disconnect();
-    return 0;
+    else
+    {
+        std::cout << "Set exposure (us): ";
+        std::cin >> exposure;
+        std::cout << "fullDemo: Configuring camera" << std::endl;
+        camera.ConfigureSnap();
+//      camera.SetROISize(960,960);
+//      camera.SetROIOffset(165,0);
+        camera.SetExposure(exposure);
+        
+        width = camera.GetROIWidth();
+        height = camera.GetROIHeight();
+        if ( height == 0 || width == 0)
+        {
+            std::cout << "fullDemo: Attempting to allocate frame of size 0\n";
+            return -1;
+        }
+        
+        std::cout << "fullDemo: Allocating frame" << std::endl;
+        frame.create(height, width, CV_8UC1);
+        
+        std::cout << "fullDemo: Initializing camera" << std::endl;
+        if(camera.Initialize() != 0)
+        {
+            std::cout << "fullDemo: Error initializing camera!\n";
+            return -1;
+        }
+        std::cout << "CameraStart Done. Running CameraSnap loop\n";
+        std::cout << "Run for how many seconds: ";
+        std::cin >> duration;
+        std::cout << std::endl;
+                                        
+
+        cv::Mat list[] = {frame,frame,frame};
+                        
+        std::cout << "\n\n";
+        std::cout.flush();
+        startTime = time(NULL);
+        while ( time(NULL) < startTime + duration)
+        {
+            //std::cout << "fullDemo: Snap Frame" << std::endl;
+            camera.Snap(frame);
+
+            cv::merge(list,3,image);
+            cv::imshow("Solar Solution", image);
+            cv::waitKey(1);
+
+            //std::cout << "fullDemo: Load Frame" << std::endl;
+            aspect.LoadFrame(frame);
+
+            //std::cout << "fullDemo: Run Aspect" << std::endl;
+            aspect.Run();
+
+            //std::cout << "fullDemo: Get Crossings" << std::endl;
+            aspect.GetPixelCrossings(crossings);
+            for (int k = 0; k < crossings.size(); k++)
+                DrawCross(image, crossings[k], crossingColor, 10, 1);
+            cv::imshow("Solar Solution", image);
+            cv::waitKey(1);
+
+            //std::cout << "fullDemo: Get Center" << std::endl;
+            aspect.GetPixelCenter(center);
+            //std::cout << "fullDemo: Center: " << center.x << " " << center.y << std::endl;
+            DrawCross(image, center, centerColor, 20, 1);
+            cv::imshow("Solar Solution", image);
+            cv::waitKey(1);
+            
+            //std::cout << "fullDemo: Get Error" << std::endl;
+            aspect.GetPixelError(error);
+            //std::cout << "fullDemo: Error:  " << error.x << " " << error.y << std::endl;
+            
+            //std::cout << "fullDemo: Get Fiducials" << std::endl;
+            aspect.GetPixelFiducials(fiducials);
+            for (int k = 0; k < fiducials.size(); k++)
+                DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+            cv::imshow("Solar Solution", image);
+            cv::waitKey(1);
+
+            //std::cout << "fullDemo: Get IDs" << std::endl;
+            aspect.GetFiducialIDs(IDs);
+            for (int k = 0; k < IDs.size(); k++)
+            {
+                label = "";
+                sprintf(number, "%d", (int) IDs[k].x);
+                label += number;
+                label += ",";
+                sprintf(number, "%d", (int) IDs[k].y);
+                label += number;
+                DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+                cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
+            }
+            cv::imshow("Solar Solution", image);
+            cv::waitKey(1);
+
+            /*      std::cout << "fullDemo: Get Screen Center" << std::endl;
+                    aspect.GetScreenCenter(IDCenter);
+
+                    std::cout << "fullDemo: Get Mapping" << std::endl;
+                    aspect.GetMapping(mapping);
+                    std::cout << "Mapping: " << std::endl;
+                    for (int d = 0; d < 2; d++)
+                    {
+                    for (int o = 0; o < 2; o++)
+                    std::cout << mapping[2*d+o] << " ";
+                    std::cout << endl;
+                    }*/
+            
+
+            std::cout.flush();
+
+            std::cout << "Screen center: " << IDCenter << std::endl;
+            imshow("Solar Solution", image);
+            cv::waitKey(10);
+                                                
+#if SAVE                                        
+            sprintf(number, "%03d", framesCapped);
+            
+            savefile = "./frames/frame";
+            savefile += number;
+//          savefile += ".fits";
+            savefile += ".png";
+            writePNGImage(frame, savefile);
+            
+//          writeFITSImage(frame, savefile);
+#endif
+            framesCapped++;
+        }
+        std::cout << "Frame rate was: " << ((float) framesCapped/(duration)) << "\n";
+        std::cout << "CameraSnap loop Done. Running CameraStop\n";
+        camera.Stop();
+        camera.Disconnect();
+        return 0;
+    }
 }

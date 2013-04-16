@@ -8,30 +8,60 @@
 #include <PvStreamRaw.h>
 
 #include <string>
-#include <utilities.hpp>
 #include <opencv.hpp>
 
 class ImperxStream
 {
 public:
-	ImperxStream();
-	int Connect();
-	int Connect(const std::string &IP);
-	//get/set parameters(name, value);
-	void Initialize();
-	void ConfigureSnap(int &width, int &height);
-	void Stream(unsigned char *frame, Semaphore &frame_semaphore, Flag &stream_flag);
-	void Snap(cv::Mat &frame);
-	void Stop();
-	void Disconnect();
-	long long int getTemperature( void );
+    ImperxStream();
+    ~ImperxStream();
+    int Connect();
+    int Connect(const std::string &IP);
+    //get/set parameters(name, value);
+    int Initialize();
+    void ConfigureSnap();
+    int Snap(cv::Mat &frame, int timeout);
+    int Snap(cv::Mat &frame);
+    void Stop();
+    void Disconnect();
+    
+    /* Set-functions for camera values
+       returns 0 for a successful set,
+       returns -1 otherwise
+    */
+    int SetExposure(int exposureTime);
+    int SetROISize(cv::Size size);
+    int SetROISize(int width, int height);
+    int SetROIOffset(cv::Point offset);
+    int SetROIOffset(int x, int y);
+    int SetROIOffsetX(int x);
+    int SetROIOffsetY(int y);
+    int SetROIHeight(int height);
+    int SetROIWidth(int width);
+    int SetAnalogGain(int gain);
+    int SetBlackLevel(int black);
+    int SetPreAmpGain(int gain);
+    
+    int GetExposure();
+    cv::Size GetROISize();
+    cv::Point GetROIOffset();
+    int GetROIHeight();
+    int GetROIWidth();
+    int GetROIOffsetX();
+    int GetROIOffsetY();
+    int GetAnalogGain();
+    int GetBlackLevel();
+    int GetPreAmpGain();
+
+    float getTemperature( void );
 
 private:
-	PvDevice lDevice;
-	PvDeviceInfo *lDeviceInfo;
-	PvGenParameterArray *lDeviceParams;
-	PvStream lStream;
-	PvGenParameterArray *lStreamParams;
-	PvPipeline lPipeline;
+    PvSystem lSystem;
+    PvDevice lDevice;
+    PvDeviceInfo *lDeviceInfo;
+    PvGenParameterArray *lDeviceParams;
+    PvStream lStream;
+    PvGenParameterArray *lStreamParams;
+    PvPipeline lPipeline;
 };
 
