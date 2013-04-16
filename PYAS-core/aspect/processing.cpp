@@ -121,7 +121,7 @@ const char * GetMessage(const AspectCode& code)
         return "Generic error with pixel center";
         
     case CENTER_ERROR_LARGE:
-        return "Pixel centers have too large a variance";
+        return "Radius off by 10%";
         
     case CENTER_OUT_OF_BOUNDS:
         return "Pixel center is out of bounds";
@@ -163,7 +163,7 @@ Aspect::Aspect()
     initialNumChords = 20;
     chordsPerAxis = 20;
     chordThreshold = .25;
-    solarRadius = 105;
+    solarRadius = 90;
     limbWidth = 2;
     fiducialLength = 15;
     fiducialWidth = 2; 
@@ -301,12 +301,12 @@ AspectCode Aspect::Run()
             return state;
         }
 /*        else if (pixelError.x > 1.5*solarRadius || pixelError.x < .5*solarRadius|| 
-                 std::isnan(pixelError.x))
+          std::isnan(pixelError.x))
 */
-        else if (pixelError.x > 50 || pixelError.y > 50 || 
+        else if (pixelError.x > solarRadius*1.2 || pixelError.x < solarRadius*.8 || 
                  std::isnan(pixelError.x) || std::isnan(pixelError.y))
         {
-            //std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
+            //std::cout << "Aspect: Radius off from expected by 10%" << pixelError << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
             state = CENTER_ERROR_LARGE;
             return state;
@@ -314,8 +314,8 @@ AspectCode Aspect::Run()
         
         //Find solar subImage
         //std::cout << "Aspect: Finding solar subimage" << std::endl;
-        rowRange = SafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
-        colRange = SafeRange(pixelCenter.x-solarRadius, pixelCenter.x+solarRadius, frameSize.width);
+        rowRange = SafeRange(pixelCenter.y-solarRadius*1.2, pixelCenter.y+solarRadius*1.2, frameSize.height);
+        colRange = SafeRange(pixelCenter.x-solarRadius*1.2, pixelCenter.x+solarRadius*1.2, frameSize.width);
         solarImage = frame(rowRange, colRange);
         if (solarImage.empty())
         {
@@ -729,9 +729,9 @@ void Aspect::FindPixelCenter()
 {
     std::vector<int> rows, cols;
     std::vector<float> crossings, midpoints;
-    int rowStart, colStart, rowStep, colStep, limit, K, M;
+    int rowStart, colStart, rowStep, colStep, limit, K;
     cv::Range rowRange, colRange;
-    float mean, std;
+    Circle sun;
 
     rows.clear();
     cols.clear();
@@ -793,7 +793,6 @@ void Aspect::FindPixelCenter()
         if (dim) K =  rows.size();
         else K =  cols.size();
 
-        //Find the midpoints of the chords.
         //For each chord
         midpoints.clear();
         for (int k = 0; k < K; k++)
@@ -813,40 +812,13 @@ void Aspect::FindPixelCenter()
                     if (dim) limbCrossings.add(crossings[l], rows[k]);
                     else limbCrossings.add(cols[k], crossings[l]);
                 }
-                //Compute and store the midpoint
-                midpoints.push_back((crossings[0] + crossings[1])/2);
             }
         }
-
-        //Determine the mean of the midpoints for this dimension
-        mean = 0;
-        M =  midpoints.size();
-        for (int m = 0; m < M; m++)
-            mean += midpoints[m];
-        mean = (float)mean/M;
-        
-        //Determine the std dev of the midpoints
-        std = 0;
-        for (int m = 0; m < M; m++)
-        {
-            std += pow(midpoints[m]-mean,2);
-        }
-        std = sqrt(std/M);
-
-        //Store the Center and RMS Error for this dimension
-        //std::cout << "Aspect: Setting Center and Error for this dimension." << std::endl;
-        if (dim)
-        {
-            pixelCenter.x = mean;
-            pixelError.x = std;
-        }
-        else
-        {
-            pixelCenter.y = mean;
-            pixelError.y = std;
-        }       
     }
-    //std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
+    CoopeCircleFit(limbCrossings, sun);
+    pixelCenter = sun.center();
+    pixelError = cv::Point2f(sun.r(), sun.r());
+    return;
 }
 
 void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
@@ -1072,7 +1044,7 @@ void Aspect::FindFiducialIDs()
         {
             fiducialIDs[k].x = modes[0];
         }
-       else
+        else
         {
             fiducialIDs[k].x = -100;
         }
@@ -1336,7 +1308,6 @@ void BullockCircleFit(const CoordList& inPoints, Circle& fit)
 
     cv::solve((A.t()*A), (A.t()*B), X, cv::DECOMP_CHOLESKY);
     
-
     center.x = X.at<float>(0);
     center.y = X.at<float>(1);
     radius = sqrt(pow(center.x,2) + pow(center.y,2) + (Sxx + Syy)/(float) points.size());
@@ -1396,43 +1367,35 @@ void CoopeCircleFit(const CoordList& points, Circle& fit)
     center.y = Y.at<float>(1)/2;
     radius = sqrt(Y.at<float>(2) + pow(center.x,2) + pow(center.y,2));
 
-    H = B*((B.t()*B).inv())*B.t();
-    for (unsigned int k = 0; k < points.size(); k++)
-    {
-        residual.push_back(pow(Euclidian(points[k] - center),2));
-        CookDistance[k] = residual[k] * H.at<float>(k,k) / 
-            pow(1 - H.at<float>(k,k), 2);
-    }
-    MSE = Mean(residual); 
-    CookPoints = points;
-    for (unsigned int k = 0; k < CookPoints.size(); k++)
-    {
-        if (CookDistance[k] > MSE)
-        {
-            CookDistance.erase(CookDistance.begin() + k);
-            CookPoints.erase(CookPoints.begin() + k);
-            k--;
-        }
-    }
+/*    H = B*((B.t()*B).inv())*B.t();
+      for (unsigned int k = 0; k < points.size(); k++)
+      {
+      residual.push_back(pow(Euclidian(points[k] - center),2));
+      CookDistance[k] = residual[k] * H.at<float>(k,k) / 
+      pow(1 - H.at<float>(k,k), 2);
+      }
+      MSE = Mean(residual); 
+      CookPoints = points;
+      for (unsigned int k = 0; k < CookPoints.size(); k++)
+      {
+      if (CookDistance[k] > MSE)
+      {
+      CookDistance.erase(CookDistance.begin() + k);
+      CookPoints.erase(CookPoints.begin() + k);
+      k--;
+      }
+      }
 
-    if (CookPoints.size() < points.size() && CookPoints.size() > 4)
-    {
-        std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
-        CoopeCircleFit(CookPoints, fit);
-    }
+      if (CookPoints.size() < points.size() && CookPoints.size() > 4)
+      {
+      std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
+      CoopeCircleFit(CookPoints, fit);
+      }
+*/
+    fit[0] = center.x;
+    fit[1] = center.y;
+    fit[2] = radius;
 
-    if (CookPoints.size() <= 4)
-    {
-        fit[0] = -1;
-        fit[1] = -1;
-        fit[2] = -1;
-    }
-    else
-    {
-        fit[0] = center.x;
-        fit[1] = center.y;
-        fit[2] = radius;
-    }
     return;
 }
 
