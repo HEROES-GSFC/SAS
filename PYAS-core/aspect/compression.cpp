@@ -135,8 +135,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     //pFits->pHDU().addKey("TIME", 0 , "Time of observation in seconds within a day");
     
     pFits->pHDU().addKey("DAY AND TIME", timeKey , "Frame Capture Time (UTC)");
-    timeKey = nanoString((keys.captureTime).tv_nsec);
-    pFits->pHDU().addKey("TIME-FRACTION", timeKey, "Frame capture fractional seconds");
+    pFits->pHDU().addKey("TIME-FRACTION", (long)(keys.captureTime).tv_nsec, "Frame capture fractional seconds");
     pFits->pHDU().addKey("EXPOSURE", (long)keys.exposure,"Exposure time in msec"); 
     pFits->pHDU().addKey("SUN-CENTER1", (float)keys.sunCenter[0], "Calculated sun center in x-pixel"); 
     pFits->pHDU().addKey("SUN-CENTER2", (float)keys.sunCenter[1], "Calculated sun center in y-pixel"); 
@@ -213,40 +212,40 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("LIMBX9", (float)keys.limbX[9], "");
 
 	// Limb Y
-	pFits->pHDU().addKey("LIMBX0", (float)keys.limbY[0], "");
-    pFits->pHDU().addKey("LIMBX1", (float)keys.limbY[1], "");
-    pFits->pHDU().addKey("LIMBX2", (float)keys.limbY[2], "");
-    pFits->pHDU().addKey("LIMBX3", (float)keys.limbY[3], "");    
-	pFits->pHDU().addKey("LIMBX4", (float)keys.limbY[4], "");
-    pFits->pHDU().addKey("LIMBX5", (float)keys.limbY[5], "");
-    pFits->pHDU().addKey("LIMBX6", (float)keys.limbY[6], "");
-    pFits->pHDU().addKey("LIMBX7", (float)keys.limbY[7], "");    
-	pFits->pHDU().addKey("LIMBX8", (float)keys.limbY[8], "");
-    pFits->pHDU().addKey("LIMBX9", (float)keys.limbY[9], "");
+	pFits->pHDU().addKey("LIMBY0", (float)keys.limbY[0], "");
+    pFits->pHDU().addKey("LIMBY1", (float)keys.limbY[1], "");
+    pFits->pHDU().addKey("LIMBY2", (float)keys.limbY[2], "");
+    pFits->pHDU().addKey("LIMBY3", (float)keys.limbY[3], "");    
+	pFits->pHDU().addKey("LIMBY4", (float)keys.limbY[4], "");
+    pFits->pHDU().addKey("LIMBY5", (float)keys.limbY[5], "");
+    pFits->pHDU().addKey("LIMBY6", (float)keys.limbY[6], "");
+    pFits->pHDU().addKey("LIMBY7", (float)keys.limbY[7], "");    
+	pFits->pHDU().addKey("LIMBY8", (float)keys.limbY[8], "");
+    pFits->pHDU().addKey("LIMBY9", (float)keys.limbY[9], "");
 
 	// Limb X Error
-	pFits->pHDU().addKey("LIMBX0error", (float)keys.limbXerror[0], "");
-    pFits->pHDU().addKey("LIMBX1error", (float)keys.limbXerror[1], "");
-    pFits->pHDU().addKey("LIMBX2error", (float)keys.limbXerror[2], "");
-    pFits->pHDU().addKey("LIMBX3error", (float)keys.limbXerror[3], "");    
-	pFits->pHDU().addKey("LIMBX4error", (float)keys.limbXerror[4], "");
-    pFits->pHDU().addKey("LIMBX5error", (float)keys.limbXerror[5], "");
-    pFits->pHDU().addKey("LIMBX6error", (float)keys.limbXerror[6], "");
-    pFits->pHDU().addKey("LIMBX7error", (float)keys.limbXerror[7], "");    
-	pFits->pHDU().addKey("LIMBX8error", (float)keys.limbXerror[8], "");
-    pFits->pHDU().addKey("LIMBX9error", (float)keys.limbXerror[9], "");
-    
-	// Limb Y Error
-	pFits->pHDU().addKey("LIMBY0error", (float)keys.limbYerror[0], "");
-    pFits->pHDU().addKey("LIMBY1error", (float)keys.limbYerror[1], "");
-    pFits->pHDU().addKey("LIMBY2error", (float)keys.limbYerror[2], "");
-    pFits->pHDU().addKey("LIMBY3error", (float)keys.limbYerror[3], "");    
-	pFits->pHDU().addKey("LIMBY4error", (float)keys.limbYerror[4], "");
-    pFits->pHDU().addKey("LIMBY5error", (float)keys.limbYerror[5], "");
-    pFits->pHDU().addKey("LIMBY6error", (float)keys.limbYerror[6], "");
-    pFits->pHDU().addKey("LIMBY7error", (float)keys.limbYerror[7], "");    
-	pFits->pHDU().addKey("LIMBY8error", (float)keys.limbYerror[8], "");
-    pFits->pHDU().addKey("LIMBY9error", (float)keys.limbYerror[9], "");
+	// pFits->pHDU().addKey("LIMBX0error", (float)keys.limbXerror[0], "");
+//     pFits->pHDU().addKey("LIMBX1error", (float)keys.limbXerror[1], "");
+//     pFits->pHDU().addKey("LIMBX2error", (float)keys.limbXerror[2], "");
+//     pFits->pHDU().addKey("LIMBX3error", (float)keys.limbXerror[3], "");    
+// 	pFits->pHDU().addKey("LIMBX4error", (float)keys.limbXerror[4], "");
+//     pFits->pHDU().addKey("LIMBX5error", (float)keys.limbXerror[5], "");
+//     pFits->pHDU().addKey("LIMBX6error", (float)keys.limbXerror[6], "");
+//     pFits->pHDU().addKey("LIMBX7error", (float)keys.limbXerror[7], "");    
+// 	pFits->pHDU().addKey("LIMBX8error", (float)keys.limbXerror[8], "");
+//     pFits->pHDU().addKey("LIMBX9error", (float)keys.limbXerror[9], "");
+//     
+// 	// Limb Y Error
+// 	pFits->pHDU().addKey("LIMBY0error", (float)keys.limbYerror[0], "");
+//     pFits->pHDU().addKey("LIMBY1error", (float)keys.limbYerror[1], "");
+//     pFits->pHDU().addKey("LIMBY2error", (float)keys.limbYerror[2], "");
+//     pFits->pHDU().addKey("LIMBY3error", (float)keys.limbYerror[3], "");    
+// 	pFits->pHDU().addKey("LIMBY4error", (float)keys.limbYerror[4], "");
+//     pFits->pHDU().addKey("LIMBY5error", (float)keys.limbYerror[5], "");
+//     pFits->pHDU().addKey("LIMBY6error", (float)keys.limbYerror[6], "");
+//     pFits->pHDU().addKey("LIMBY7error", (float)keys.limbYerror[7], "");    
+// 	pFits->pHDU().addKey("LIMBY8error", (float)keys.limbYerror[8], "");
+//     pFits->pHDU().addKey("LIMBY9error", (float)keys.limbYerror[9], "");
 	
 	// voltages
 	pFits->pHDU().addKey("SBC_VOLT105", (float)keys.cpuVoltage[0], "");

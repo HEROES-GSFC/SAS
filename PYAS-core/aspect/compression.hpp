@@ -25,12 +25,13 @@ struct HeaderData
     float fiducialY[10];
     float limbX[10];
     float limbY[10];
-    float limbXerror[10];
-    float limbYerror[10];
+    //float limbXerror[10];
+    //float limbYerror[10];
     int fiducialIDX[10];
     int fiducialIDY[10];
     float cpuVoltage[5];
     int isTracking;
+    float offset[2];
 };
 
 int writePNGImage(cv::InputArray _image, const std::string fileName);
