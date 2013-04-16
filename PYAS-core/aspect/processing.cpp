@@ -1314,7 +1314,7 @@ void BullockCircleFit(const CoordList& inPoints, Circle& fit)
     
     Sxx = Sxy = Syy = Sxxx = Sxxy = Sxyy = Syyy = 0;
     
-    for (unsigned int k = 0; k < inPoints.size(); k++)
+    for (unsigned int k = 0; k < points.size(); k++)
     {
         xx = std::pow(points[k].x,2);
         xy = points[k].x*points[k].y;
@@ -1342,15 +1342,22 @@ void BullockCircleFit(const CoordList& inPoints, Circle& fit)
     radius = sqrt(pow(center.x,2) + pow(center.y,2) + (Sxx + Syy)/(float) points.size());
     center = center + offset;
     //Adjust for bias from unbalanced points
-    for (unsigned int k = 0; k < inPoints.size(); k++)
+    
+    do
     {
-        biasVector = center - inPoints[k];
-        bias = Euclidian(biasVector);
-        biasVectors.push_back((bias > radius ? (bias - radius)/bias : (radius - bias)/radius) * biasVector);
+        biasVectors.clear();
+        for (unsigned int k = 0; k < inPoints.size(); k++)
+        {
+            biasVector = center - inPoints[k];
+            bias = Euclidian(biasVector);
+            biasVectors.push_back((1-radius/bias)*biasVector);
+            
+        }
+        center = center - Mean(biasVectors);
+        bias = Euclidian(Mean(biasVectors));
+        std::cout << "Bias was: " << bias << std::endl;
+    } while(bias > 1);
         
-    }
-    center = center - Mean(biasVectors);
-
     fit[0] = center.x;
     fit[1] = center.y;
     fit[2] = radius;
