@@ -4,7 +4,7 @@
 #include <valarray>
 #include <vector>
 
-#define ARCSEC_IN_MILS 2.62
+#define ARCSEC_PER_MIL 1.72
 
 using namespace CCfits;
 
@@ -121,12 +121,12 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("CUNIT2", std::string("arcsec"), "Coordinate Units");
     pFits->pHDU().addKey("CRVAL1", (double)0.0, "Coordinate value of the reference pixel");
     pFits->pHDU().addKey("CRVAL2", (double)0.0, "Coordinate value of the reference pixel");
-    pFits->pHDU().addKey("CDELT1", (double)keys.XYinterceptslope[2]/ARCSEC_IN_MILS, "Plate scale");
-    pFits->pHDU().addKey("CDELT2", (double)keys.XYinterceptslope[3]/ARCSEC_IN_MILS, "Plate scale");
+    pFits->pHDU().addKey("CDELT1", (double)keys.XYinterceptslope[2] * ARCSEC_PER_MIL, "Plate scale");
+    pFits->pHDU().addKey("CDELT2", (double)keys.XYinterceptslope[3] * ARCSEC_PER_MIL, "Plate scale");
     pFits->pHDU().addKey("CRPIX1", (double)keys.sunCenter[0]+1, "Reference pixel");
     pFits->pHDU().addKey("CRPIX2", (double)keys.sunCenter[1]+1, "Reference pixel");
     
-    pFits->pHDU().addKey("EXPTIME", (long)keys.exposure * 1000, "Exposure time in seconds"); 
+    pFits->pHDU().addKey("EXPTIME", (float)keys.exposure/1e6, "Exposure time in seconds"); 
     pFits->pHDU().addKey("DATE_OBS", timeKey , "Date and time when observation of this image started (UTC)");
     pFits->pHDU().addKey("TEMPCCD", keys.cameraTemperature, "Temperature of camera in celsius");
     pFits->pHDU().addKey("TEMPCPU", keys.cpuTemperature, "Temperature of cpu in celsius"); 
