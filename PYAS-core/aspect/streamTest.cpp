@@ -299,7 +299,7 @@ void *CameraStreamThread( void * threadargs)
             //Not sure if this is the best way to handle this.
             clock_gettime(CLOCK_MONOTONIC, &preExposure);
             clock_gettime(CLOCK_REALTIME, &localCaptureTime);
-
+	    std::cout << "Snap at: " << preExposure.tv_sec << "::" << preExposure.tv_nsec << std::endl;
             //Request an image from camera
             if(!camera.Snap(localFrame,frameRate))
             {
@@ -379,7 +379,7 @@ void *ImageProcessThread(void *threadargs)
     uint8_t localMin, localMax;
     std::vector<float> localMapping;
     cv::Point2f localPixelCenter, localScreenCenter, localError;
-    timespec waittime;
+    timespec waittime, proctime;
 
     waittime.tv_sec = frameRate.tv_sec/10;
     waittime.tv_nsec = frameRate.tv_nsec/10;
@@ -414,6 +414,8 @@ void *ImageProcessThread(void *threadargs)
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
                 {
+                    clock_gettime(CLOCK_MONOTONIC, &proctime);
+		    std::cout << "Proc at: " << proctime.tv_sec << "::" << proctime.tv_nsec << std::endl;
                     aspect.LoadFrame(frame);
 
                     pthread_mutex_unlock(&mutexImage);
@@ -511,7 +513,7 @@ void *SaveImageThread(void *threadargs)
     long int localFrameCount;
     std::string fitsfile;
     timespec waittime = {1,0};
-    //timespec thetimenow;
+    timespec thetimenow;
     while(1)
     {
         if (stop_message[tid] == 1)
@@ -541,6 +543,8 @@ void *SaveImageThread(void *threadargs)
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
                 {
+	            clock_gettime(CLOCK_MONOTONIC, &thetimenow);
+		    std::cout << "Save at: " << thetimenow.tv_sec << "::" << thetimenow.tv_nsec << std::endl;
                     localFrameCount = frameCount;
                     frame.copyTo(localFrame);
                     keys.captureTimeFixed = captureTimeFixed;
@@ -559,10 +563,10 @@ void *SaveImageThread(void *threadargs)
                     time(&ltime);
                     times = localtime(&ltime);
                     strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-
+		    
                     sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
 
-                    printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
+                    //printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
                     writeFITSImage(localFrame, keys, obsfilespec);
 
                     sleep(SLEEP_SAVE);
@@ -600,8 +604,8 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
 
 void start_all_workers( void ){
     start_thread(CameraStreamThread, NULL);
-    start_thread(ImageProcessThread, NULL);
-    start_thread(SaveImageThread, NULL);
+//    start_thread(ImageProcessThread, NULL);
+//    start_thread(SaveImageThread, NULL);
 }
 
 int main(void)
