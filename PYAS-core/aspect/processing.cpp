@@ -160,16 +160,16 @@ Aspect::Aspect()
     frameMin = 255;
     frameMax = 0;
     
-    initialNumChords = 20;
-    chordsPerAxis = 20;
+    initialNumChords = 30;
+    chordsPerAxis = 10;
     chordThreshold = .25;
-    solarRadius = 90;
+    solarRadius = 30;
     limbWidth = 2;
     fiducialLength = 15;
     fiducialWidth = 2; 
     fiducialThreshold = 5;
     fiducialNeighborhood = 2;
-    numFiducials = 10;
+    numFiducials = 12;
 
     fiducialSpacing = 15.5;
     fiducialSpacingTol = 1.5;
@@ -1312,26 +1312,29 @@ void BullockCircleFit(const CoordList& inPoints, Circle& fit)
     center.y = X.at<float>(1);
     radius = sqrt(pow(center.x,2) + pow(center.y,2) + (Sxx + Syy)/(float) points.size());
     center = center + offset;
+
+//UNTESTED
+/*
+  
     //Adjust for bias from unbalanced points
+    fit[0] = center.x;
+    fit[1] = center.y;
+    fit[2] = radius;
     
     do
     {
-        biasVectors.clear();
-        for (unsigned int k = 0; k < inPoints.size(); k++)
-        {
-            biasVector = center - inPoints[k];
-            bias = Euclidian(biasVector);
-            biasVectors.push_back((1-radius/bias)*biasVector);
-            
-        }
+        VectorToCircle(fit, inPoints, biasVectors);
         center = center - Mean(biasVectors);
         bias = Euclidian(Mean(biasVectors));
         std::cout << "Bias was: " << bias << std::endl;
     } while(bias > 1);
+*/
+
         
     fit[0] = center.x;
     fit[1] = center.y;
     fit[2] = radius;
+
     return;
 }
 
@@ -1367,7 +1370,7 @@ void CoopeCircleFit(const CoordList& points, Circle& fit)
     center.y = Y.at<float>(1)/2;
     radius = sqrt(Y.at<float>(2) + pow(center.x,2) + pow(center.y,2));
 
-/*    H = B*((B.t()*B).inv())*B.t();
+    H = B*((B.t()*B).inv())*B.t();
       for (unsigned int k = 0; k < points.size(); k++)
       {
       residual.push_back(pow(Euclidian(points[k] - center),2));
@@ -1391,12 +1394,29 @@ void CoopeCircleFit(const CoordList& points, Circle& fit)
       std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
       CoopeCircleFit(CookPoints, fit);
       }
-*/
+
     fit[0] = center.x;
     fit[1] = center.y;
     fit[2] = radius;
 
     return;
+}
+
+cv::Point2f VectorToCircle(Circle circle, cv::Point2f point)
+{
+    cv::Point2f biasVector;
+    float bias;
+
+    biasVector = circle.center() - point;
+    bias = Euclidian(biasVector);
+    return (1-circle.r()/bias)*biasVector;    
+}
+
+void VectorToCircle(Circle circle, const CoordList& points, CoordList& vectors)
+{
+    vectors.clear();
+    for (unsigned int k = 0; k < points.size(); k++)
+        vectors.push_back(VectorToCircle(circle, points[k]));
 }
 
 cv::Point2f Mean(const CoordList& points)
