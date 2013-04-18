@@ -169,7 +169,7 @@ timespec frameRate = {0,100000000L};
 int cameraReady = 0;
 
 
-timespec captureTimeNTP, captureTimeFixed;
+timespec captureTimeNTP, captureTimeMono;
 long int frameCount = 0;
 
 float camera_temperature;
@@ -338,7 +338,7 @@ void *CameraStreamThread( void * threadargs)
                 //printf("CameraStreamThread: got lock, copying over\n");
                 localFrame.copyTo(frame);
                 captureTimeNTP = localCaptureTime;
-                captureTimeFixed = preExposure;
+                captureTimeMono = preExposure;
                 //printf("%d\n", frame.at<uint8_t>(0,0));
                 frameCount++;
                 pthread_mutex_unlock(&mutexImage);
@@ -671,12 +671,72 @@ void *SaveImageThread(void *threadargs)
                 {
                     localFrameCount = frameCount;
                     frame.copyTo(localFrame);
-                    keys.captureTimeFixed = captureTimeFixed;
+                    keys.captureTimeMono = captureTimeMono;
                     keys.captureTimeNTP = captureTimeNTP;
                     keys.frameCount = frameCount;
-                    pthread_mutex_unlock(&mutexImage);
+                    keys.exposure = exposure;
+                    keys.preampGain = preampGain;
+                    keys.analogGain = analogGain;
+                    keys.sunCenter[0] = pixelCenter.x;
+                    keys.sunCenter[1] = pixelCenter.y;
+                    keys.cameraTemperature = camera_temperature;
+                    keys.cpuTemperature = sbc_temperature;
+                    keys.cameraID = 1;
 
-                    keys.exposureTime = exposure;
+					keys.cpuVoltage[0] = sbc_v105;
+					keys.cpuVoltage[1] = sbc_v25;
+					keys.cpuVoltage[2] = sbc_v33;
+					keys.cpuVoltage[3] = sbc_v50;
+					keys.cpuVoltage[4] = sbc_v120;
+
+                    // this should not have to be recaculated, should be a global
+                    Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
+                    keys.CTLsolution[0] = ctl.x();
+                    keys.CTLsolution[0] = ctl.y();
+
+                    keys.screenCenter[0] = screenCenter.x; 
+                    keys.screenCenter[1] = screenCenter.y;
+                    keys.screenCenterError[0] = error.x;
+                    keys.screenCenterError[1] = error.y;
+                    keys.imageMinMax[0] = frameMin;
+                    keys.imageMinMax[1] = frameMax;
+                    
+                    if(mapping.size() == 4){
+                        keys.XYinterceptslope[0] = mapping[0];
+                        keys.XYinterceptslope[1] = mapping[2];
+                        keys.XYinterceptslope[2] = mapping[1];
+                        keys.XYinterceptslope[3] = mapping[3];
+                    }
+                    keys.isTracking = isTracking;
+                    
+                    for(uint8_t j = 0; j < 8; j++) {
+                        if (j < limbs.size()) {
+                                keys.limbX[j] = limbs[j].x,
+                                keys.limbY[j] = limbs[j].y;
+                            } else {
+                                keys.limbX[j] = 0,
+                                keys.limbY[j] = 0;
+                            }
+                    }
+                    for(uint8_t j = 0; j < 8; j++) {
+                        if (j < ids.size()) {
+                            keys.fiducialIDX[j] = ids[j].x,
+                            keys.fiducialIDY[j] = ids[j].y;
+                        } else {
+                            keys.fiducialIDX[j] = 0,
+                            keys.fiducialIDY[j] = 0;
+                        }
+                        if (j < pixelFiducials.size()){
+                            keys.fiducialX[j] = pixelFiducials[j].x;
+                            keys.fiducialY[j] = pixelFiducials[j].y;
+                        } else {
+                            keys.fiducialX[j] = 0;
+                            keys.fiducialY[j] = 0;
+                        }
+                    }
+                    
+
+                    pthread_mutex_unlock(&mutexImage);
 
                     char stringtemp[80];
                     char obsfilespec[128];
@@ -900,7 +960,6 @@ void *CommandSenderThread( void *threadargs )
             pthread_exit( NULL );
         }
     }
-  
 }
 
 void *CommandPackagerThread( void *threadargs )
@@ -1013,7 +1072,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             delete array;
 
             //Add FITS header tags
-            uint32_t temp = localKeys.exposureTime;
+            uint32_t temp = localKeys.exposure;
             im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time (msec)");
 
             //Make sure to synchronize all the timestamps
