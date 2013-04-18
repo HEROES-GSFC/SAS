@@ -1,9 +1,15 @@
 #define MAX_THREADS 20
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
-#define DEFAULT_EXPOSURE 15000 // microseconds, was 4500 microseconds in first Sun test
-#define DEFAULT_ANALOGGAIN 1 // ???
-#define DEFAULT_PREAMPGAIN 1 // ???
 #define REPORT_FOCUS false
+
+//Default camera settings
+#define CAMERA_EXPOSURE 15000 // microseconds, was 4500 microseconds in first Sun test
+#define CAMERA_ANALOGGAIN 400 // camera defaults to 143, but we are changing it
+#define CAMERA_PREAMPGAIN -3 // camera defaults to +6, but we are changing it
+#define CAMERA_XSIZE 1296 // full frame is 1296
+#define CAMERA_YSIZE 966 //full frame is 966
+#define CAMERA_XOFFSET 0
+#define CAMERA_YOFFSET 0
 
 //Sleep settings (seconds)
 #define SLEEP_SOLUTION         1 // period for providing solutions to CTL
@@ -155,9 +161,9 @@ HeaderData keys;
 bool staleFrame;
 Flag procReady, saveReady;
 int runtime = 10;
-uint16_t exposure = DEFAULT_EXPOSURE;
-uint16_t analogGain = DEFAULT_ANALOGGAIN;
-uint16_t preampGain = DEFAULT_PREAMPGAIN;
+uint16_t exposure = CAMERA_EXPOSURE;
+uint16_t analogGain = CAMERA_ANALOGGAIN;
+int16_t preampGain = CAMERA_PREAMPGAIN;
 
 timespec frameRate = {0,100000000L};
 int cameraReady = 0;
@@ -264,7 +270,7 @@ void *CameraStreamThread( void * threadargs)
     int failcount = 0;
 
     uint16_t localExposure = exposure;
-    uint16_t localPreampGain = preampGain;
+    int16_t localPreampGain = preampGain;
     uint16_t localAnalogGain = analogGain;
 
     cameraReady = 0;
@@ -290,11 +296,11 @@ void *CameraStreamThread( void * threadargs)
             else
             {
                 camera.ConfigureSnap();
-                //camera.SetROISize(960,960);
-                //camera.SetROIOffset(165,0);
-                camera.SetExposure(exposure);
-                //camera.SetAnalogGain(analogGain);
-                //camera.SetPreAmpGain(localPreampGain);
+                camera.SetROISize(CAMERA_XSIZE,CAMERA_YSIZE);
+                camera.SetROIOffset(CAMERA_XOFFSET,CAMERA_YOFFSET);
+                camera.SetExposure(localExposure);
+                camera.SetAnalogGain(localAnalogGain);
+                camera.SetPreAmpGain(localPreampGain);
 
                 width = camera.GetROIWidth();
                 height = camera.GetROIHeight();
@@ -616,8 +622,6 @@ void *SaveImageThread(void *threadargs)
     long int localFrameCount;
     std::string fitsfile;
     timespec waittime = {1,0};
-    CoordList localLimbs, localPixelFiducials, localScreenFiducials;
-
     //timespec thetimenow;
     while(1)
     {
@@ -728,7 +732,7 @@ void *SaveImageThread(void *threadargs)
 
                     sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
 
-                    printf("Saving image %s with exposure %d microseconds\n", obsfilespec, exposure);
+                    printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
                     writeFITSImage(localFrame, keys, obsfilespec);
 
                     sleep(SLEEP_SAVE);
@@ -1093,16 +1097,16 @@ void *commandHandlerThread(void *threadargs)
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case SKEY_SET_PREAMPGAIN:    // set exposure time
+        case SKEY_SET_PREAMPGAIN:    // set preamp gain
             {
-                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) preampGain = my_data->command_vars[0];
+                if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
                 std::cout << "Requested preamp gain is: " << preampGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case SKEY_SET_ANALOGGAIN:    // set exposure time
+        case SKEY_SET_ANALOGGAIN:    // set analog gain
             {
-                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) analogGain = my_data->command_vars[0];
+                if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
                 std::cout << "Requested analog gain is: " << analogGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
