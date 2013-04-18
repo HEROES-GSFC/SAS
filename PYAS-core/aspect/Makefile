@@ -58,9 +58,6 @@ networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.
 sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
-streamTest: streamTest.cpp processing.o utilities.o ImperxStream.o compression.o lib_crc.o
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
-
 tcpDemo: tcpDemo.cpp TCPReceiver.o Packet.o lib_crc.o TCPSender.o
 	$(CC) $(CFLAGS) $^ -o $@
 

@@ -93,6 +93,15 @@ const std::string nanoString(long tv_nsec)
     return output;
 }
 
+const std::string printMonoTime()
+{
+    timespec thetime;
+    std::stringstream result;
+    clock_gettime(CLOCK_MONOTONIC, &thetime);
+    result << thetime.tv_sec << "." << thetime.tv_nsec;
+    return result.str();
+}
+
 void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness, int resolution)
 {
     cv::Point2f pt1, pt2;
