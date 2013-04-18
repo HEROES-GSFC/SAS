@@ -1171,10 +1171,16 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
 
     stop_message[i] = 0;
 
-    int rc = pthread_create(&threads[i], NULL, routine, &thread_data[i]);
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    int rc = pthread_create(&threads[i], &attr, routine, &thread_data[i]);
     if (rc != 0) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     } else started[i] = true;
+
+    pthread_attr_destroy(&attr);
 
     return;
 }
