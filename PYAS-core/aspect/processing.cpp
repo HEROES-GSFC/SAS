@@ -161,9 +161,9 @@ Aspect::Aspect()
     
     initialNumChords = 20;
     chordsPerAxis = 5;
-    chordThreshold = .01; //.25;
+    chordThreshold = .25;
     solarRadius = 98;
-    radiusTol = 100;
+    radiusTol = 1.1;
     limbWidth = 2;
     fiducialLength = 15;
     fiducialWidth = 2; 
@@ -272,7 +272,7 @@ AspectCode Aspect::Run()
             state = DYNAMIC_RANGE_LOW;
             return state;
         }
-/*
+
         //std::cout << "Aspect: Finding Center" << std::endl;
         FindPixelCenter();
         if (limbCrossings.size() == 0)
@@ -305,8 +305,7 @@ AspectCode Aspect::Run()
             state = CENTER_ERROR_LARGE;
             return state;
         }
-*/
-        pixelCenter = cv::Point2f(600, 450);
+
         //Find solar subImage
         //std::cout << "Aspect: Finding solar subimage" << std::endl;
         int subimageSize = solarRadius*radiusTol;
