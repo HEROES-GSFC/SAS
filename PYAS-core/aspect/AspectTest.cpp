@@ -129,9 +129,12 @@ int main(int argc, char* argv[])
                     sprintf(number, "%d", (int) IDs[k].y);
                     label += number;
                     DrawCross(image, fiducials[k], fiducialColor, 15, 1, 8);
-                    cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
+
+ cv::putText(image, label, fiducials[k] - offset, cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
+                    std::cout << label << " ";
+
                 }
-                
+                std::cout << std::endl;
             case ID_ERROR:
                 //std::cout << "AspectTest: Get Fiducials" << std::endl;
                 for (int k = 0; k < fiducials.size(); k++)
@@ -171,6 +174,7 @@ int main(int argc, char* argv[])
             message = GetMessage(runResult);
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             cv::imshow("Solution", image);
+
             cv::waitKey(0);
 
         }

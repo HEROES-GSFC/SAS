@@ -124,8 +124,16 @@ HeaderData keys;
 bool staleFrame;
 Flag procReady, saveReady;
 int runtime = 10;
+<<<<<<< Updated upstream
 uint16_t exposure = 4500;
 timespec frameRate = {0,100000000L};
+=======
+uint16_t exposure = CAMERA_EXPOSURE;
+uint16_t analogGain = CAMERA_ANALOGGAIN;
+int16_t preampGain = CAMERA_PREAMPGAIN;
+
+timespec frameRate = {0,50000000L};
+>>>>>>> Stashed changes
 int cameraReady = 0;
 
 
@@ -1075,6 +1083,7 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
     } else printf("Not the intended SAS for this command\n");
 }
 
+<<<<<<< Updated upstream
 void start_all_threads( void ){
     int rc;
     long t;
@@ -1132,6 +1141,20 @@ void start_all_threads( void ){
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     }
     //Thread #10 is for the commandHandler
+=======
+void start_all_workers( void ){
+/*    start_thread(TelemetryPackagerThread, NULL);
+      start_thread(CommandPackagerThread, NULL);
+      start_thread(TelemetrySenderThread, NULL);
+      start_thread(CommandSenderThread, NULL);
+*/
+    start_thread(CameraStreamThread, NULL);
+    start_thread(ImageProcessThread, NULL);
+/*    start_thread(SaveImageThread, NULL);
+    start_thread(SaveTemperaturesThread, NULL);
+      start_thread(SBCInfoThread, NULL);
+*/
+>>>>>>> Stashed changes
 }
 
 int main(void)

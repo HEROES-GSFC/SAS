@@ -87,6 +87,7 @@ public:
     AspectCode GetPixelCenter(cv::Point2f& center);
     AspectCode GetPixelError(cv::Point2f& error);
     AspectCode GetPixelFiducials(CoordList& fiducials);
+    AspectCode GetFiducialPairs(IndexList& rowPairs, IndexList& colPairs);
     AspectCode GetFiducialIDs(IndexList& fiducialIDs);
     AspectCode GetMapping(std::vector<float>& map);
     AspectCode GetScreenCenter(cv::Point2f& center);
@@ -107,6 +108,7 @@ private:
     int limbWidth;
 
     int solarRadius;
+    float radiusTol;
 
     int fiducialLength;
     int fiducialWidth;
@@ -144,6 +146,7 @@ private:
     
     CoordList pixelFiducials;
 
+    IndexList rowPairs, colPairs;
     IndexList fiducialIDs;
 
     std::vector<float> conditionNumbers;
