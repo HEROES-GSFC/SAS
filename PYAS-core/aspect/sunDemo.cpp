@@ -156,7 +156,7 @@ CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 std::vector<float> mapping;
 
-HeaderData keys;
+HeaderData fits_keys;
 
 bool staleFrame;
 Flag procReady, saveReady;
@@ -353,6 +353,15 @@ void *CameraStreamThread( void * threadargs)
 
                 //printf("camera temp is %lld\n", camera.getTemperature());
                 camera_temperature = camera.getTemperature();
+                
+                // save data into the fits_header
+                fits_keys.captureTime = frameTime;
+                fits_keys.frameCount = frameCount;
+                fits_keys.exposure = exposure;
+				fits_keys.preampGain = preampGain;
+				fits_keys.analogGain = analogGain;
+				fits_keys.cameraTemperature = camera_temperature;
+
             }
             else
             {
@@ -485,6 +494,55 @@ void *ImageProcessThread(void *threadargs)
                             break;
                         default:
                             break;
+                    }
+                    
+                    fits_keys.sunCenter[0] = pixelCenter.x;
+                    fits_keys.sunCenter[1] = pixelCenter.y;
+                    // this should not have to be recaculated, should be a global
+                  
+                    Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
+                    fits_keys.CTLsolution[0] = ctl.x();
+                    fits_keys.CTLsolution[0] = ctl.y();
+
+                    fits_keys.screenCenter[0] = screenCenter.x; 
+                    fits_keys.screenCenter[1] = screenCenter.y;
+                    fits_keys.screenCenterError[0] = error.x;
+                    fits_keys.screenCenterError[1] = error.y;
+					fits_keys.imageMinMax[0] = frameMin;
+                    fits_keys.imageMinMax[1] = frameMax;
+
+                    if(mapping.size() == 4){
+                        fits_keys.XYinterceptslope[0] = mapping[0];
+                        fits_keys.XYinterceptslope[1] = mapping[2];
+                        fits_keys.XYinterceptslope[2] = mapping[1];
+                        fits_keys.XYinterceptslope[3] = mapping[3];
+                    }
+                    fits_keys.isTracking = isTracking;
+                    
+                    for(uint8_t j = 0; j < 8; j++) {
+                        if (j < limbs.size()) {
+                                fits_keys.limbX[j] = limbs[j].x,
+                                fits_keys.limbY[j] = limbs[j].y;
+                            } else {
+                                fits_keys.limbX[j] = 0,
+                                fits_keys.limbY[j] = 0;
+                            }
+                    }
+                    for(uint8_t j = 0; j < 8; j++) {
+                        if (j < ids.size()) {
+                            fits_keys.fiducialIDX[j] = ids[j].x,
+                            fits_keys.fiducialIDY[j] = ids[j].y;
+                        } else {
+                            fits_keys.fiducialIDX[j] = 0,
+                            fits_keys.fiducialIDY[j] = 0;
+                        }
+                        if (j < pixelFiducials.size()){
+                            fits_keys.fiducialX[j] = pixelFiducials[j].x;
+                            fits_keys.fiducialY[j] = pixelFiducials[j].y;
+                        } else {
+                            fits_keys.fiducialX[j] = 0;
+                            fits_keys.fiducialY[j] = 0;
+                        }
                     }
                     pthread_mutex_unlock(&mutexProcess);
                 }
@@ -652,72 +710,15 @@ void *SaveImageThread(void *threadargs)
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
                 {
-                    localFrameCount = frameCount;
-                    frame.copyTo(localFrame);
-                    keys.captureTime = frameTime;
-                    keys.frameCount = frameCount;
-                    keys.exposure = exposure;
-                    keys.preampGain = preampGain;
-                    keys.analogGain = analogGain;
-                    keys.sunCenter[0] = pixelCenter.x;
-                    keys.sunCenter[1] = pixelCenter.y;
-                    keys.cameraTemperature = camera_temperature;
-                    keys.cpuTemperature = sbc_temperature;
-                    keys.cameraID = 1;
+                    fits_keys.cpuTemperature = sbc_temperature;
+                    fits_keys.cameraID = sas_id;
 
-					keys.cpuVoltage[0] = sbc_v105;
-					keys.cpuVoltage[1] = sbc_v25;
-					keys.cpuVoltage[2] = sbc_v33;
-					keys.cpuVoltage[3] = sbc_v50;
-					keys.cpuVoltage[4] = sbc_v120;
-
-                    // this should not have to be recaculated, should be a global
-                    Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
-                    keys.CTLsolution[0] = ctl.x();
-                    keys.CTLsolution[0] = ctl.y();
-
-                    keys.screenCenter[0] = screenCenter.x; 
-                    keys.screenCenter[1] = screenCenter.y;
-                    keys.screenCenterError[0] = error.x;
-                    keys.screenCenterError[1] = error.y;
-                    keys.imageMinMax[0] = frameMin;
-                    keys.imageMinMax[1] = frameMax;
+					fits_keys.cpuVoltage[0] = sbc_v105;
+					fits_keys.cpuVoltage[1] = sbc_v25;
+					fits_keys.cpuVoltage[2] = sbc_v33;
+					fits_keys.cpuVoltage[3] = sbc_v50;
+					fits_keys.cpuVoltage[4] = sbc_v120;
                     
-                    if(mapping.size() == 4){
-                        keys.XYinterceptslope[0] = mapping[0];
-                        keys.XYinterceptslope[1] = mapping[2];
-                        keys.XYinterceptslope[2] = mapping[1];
-                        keys.XYinterceptslope[3] = mapping[3];
-                    }
-                    keys.isTracking = isTracking;
-                    
-                    for(uint8_t j = 0; j < 8; j++) {
-                        if (j < limbs.size()) {
-                                keys.limbX[j] = limbs[j].x,
-                                keys.limbY[j] = limbs[j].y;
-                            } else {
-                                keys.limbX[j] = 0,
-                                keys.limbY[j] = 0;
-                            }
-                    }
-                    for(uint8_t j = 0; j < 8; j++) {
-                        if (j < ids.size()) {
-                            keys.fiducialIDX[j] = ids[j].x,
-                            keys.fiducialIDY[j] = ids[j].y;
-                        } else {
-                            keys.fiducialIDX[j] = 0,
-                            keys.fiducialIDY[j] = 0;
-                        }
-                        if (j < pixelFiducials.size()){
-                            keys.fiducialX[j] = pixelFiducials[j].x;
-                            keys.fiducialY[j] = pixelFiducials[j].y;
-                        } else {
-                            keys.fiducialX[j] = 0;
-                            keys.fiducialY[j] = 0;
-                        }
-                    }
-                    
-
                     pthread_mutex_unlock(&mutexImage);
 
                     char stringtemp[80];
@@ -730,10 +731,10 @@ void *SaveImageThread(void *threadargs)
                     times = localtime(&ltime);
                     strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
 
-                    sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
+                    sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)fits_keys.frameCount);
 
                     printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
-                    writeFITSImage(localFrame, keys, obsfilespec);
+                    writeFITSImage(localFrame, fits_keys, obsfilespec);
 
                     sleep(SLEEP_SAVE);
                 }
@@ -1027,7 +1028,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         if (pthread_mutex_trylock(&mutexImage) == 0){
             if( !frame.empty() ){
                 frame.copyTo(localFrame);
-                localKeys = keys;
+                localKeys = fits_keys;
             }
             pthread_mutex_unlock(&mutexImage);
         }
