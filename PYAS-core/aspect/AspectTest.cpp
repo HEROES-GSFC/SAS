@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
     char number[4] = "000";
     cv::Mat frame;
     cv::Mat image;
-    cv::Point2f center,error, IDCenter;
+    cv::Point2f center,error, offset, IDCenter;
 
     cv::Scalar crossingColor(0,255,0);
     cv::Scalar centerColor(0,0,255);
@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
     cv::Scalar textColor(0,165,255);
 
     CoordList crossings, fiducials;
-    IndexList IDs;
+    IndexList IDs, rowPairs, colPairs;
     std::vector<float> mapping;
         
     Aspect aspect;
@@ -91,6 +91,7 @@ int main(int argc, char* argv[])
             case MAPPING_ERROR:
                 //std::cout << "AspectTest: Get IDs" << std::endl;
                 aspect.GetFiducialIDs(IDs);
+                aspect.GetFiducialPairs(rowPairs, colPairs);
                 
             case ID_ERROR:
                 //std::cout << "AspectTest: Get Fiducials" << std::endl;
@@ -114,6 +115,8 @@ int main(int argc, char* argv[])
             diffTime = TimespecDiff(startTime, stopTime);
             std::cout << "Runtime : " << diffTime.tv_sec << nanoString(diffTime.tv_nsec) << std::endl;
 
+            offset = cv::Point(0,0);
+
             //Generate summary image with accurate data products marked.
             switch(GeneralizeError(runResult))
             {
@@ -130,11 +133,39 @@ int main(int argc, char* argv[])
                     label += number;
                     DrawCross(image, fiducials[k], fiducialColor, 15, 1, 8);
 
- cv::putText(image, label, fiducials[k] - offset, cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
-                    std::cout << label << " ";
-
+                    cv::putText(image, label, fiducials[k] - offset, cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
+                    std::cout << "[" << label << "] ";
                 }
                 std::cout << std::endl;
+
+
+                float rowDiff, colDiff;
+                std::cout << "Pair distances: \n";
+                for (int k = 0; k < rowPairs.size(); k++)
+                {
+                    std::cout << fiducials[rowPairs[k].x] << " ";
+                    std::cout << fiducials[rowPairs[k].y] << " ";
+                    std::cout << IDs[rowPairs[k].x] << " ";
+                    std::cout << IDs[rowPairs[k].y] << " ";
+                    rowDiff = fiducials[rowPairs[k].y].y - 
+                        fiducials[rowPairs[k].x].y;
+                    colDiff = fiducials[rowPairs[k].y].x - 
+                        fiducials[rowPairs[k].x].x;
+                    std::cout << " | " << rowDiff << " " << colDiff << std::endl;
+                }
+
+                for (int k = 0; k < colPairs.size(); k++)
+                {
+                    std::cout << fiducials[colPairs[k].x] << " ";
+                    std::cout << fiducials[colPairs[k].y] << " ";
+                    std::cout << IDs[colPairs[k].x] << " ";
+                    std::cout << IDs[colPairs[k].y] << " ";
+                    rowDiff = fiducials[colPairs[k].y].y - 
+                        fiducials[colPairs[k].x].y;
+                    colDiff = fiducials[colPairs[k].y].x - 
+                        fiducials[colPairs[k].x].x;
+                    std::cout << " | " << rowDiff << " " << colDiff << std::endl;
+                }
             case ID_ERROR:
                 //std::cout << "AspectTest: Get Fiducials" << std::endl;
                 for (int k = 0; k < fiducials.size(); k++)

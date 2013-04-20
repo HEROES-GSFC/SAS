@@ -168,16 +168,15 @@ Aspect::Aspect()
     fiducialLength = 15;
     fiducialWidth = 2; 
     fiducialThreshold = 5;
-    fiducialNeighborhood = 2;
-    numFiducials = 225;
+    fiducialNeighborhood = 3;
+    numFiducials = 15;
 
-    fiducialSpacing = 15.7;
+    fiducialSpacing = 15.5; //15.7
     fiducialSpacingTol = 1.5;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
     
-    matchKernel(kernel);
-    kernelSize = kernel.size();
+    GenerateKernel();
 
     mDistances.clear();
     nDistances.clear();
@@ -617,6 +616,46 @@ Aspect Private processing functions
 
 ***********************************************************/
 
+void Aspect::GenerateKernel()
+{
+    cv::namedWindow("Solution", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
+    int edge = 1;
+    cv::Mat distanceField, subField, bar;
+    cv::Range crossLength, crossWidth;
+    
+    kernel = cv::Mat::ones(2*(fiducialLength/2 + edge) + 1, 
+                            2*(fiducialLength/2 + edge) + 1, CV_32FC1);
+    cv::imshow("Solution", kernel);
+    cv::waitKey(0);
+
+    kernel = cv::Mat::zeros(2*(fiducialLength/2 + edge) + 1, 
+                            2*(fiducialLength/2 + edge) + 1, CV_32FC1);
+    cv::imshow("Solution", kernel);
+    cv::waitKey(0);
+    distanceField = (kernel.rows*2 + 1, kernel.cols*2+1, CV_32FC1);
+    crossLength = SafeRange(edge, kernel.rows-edge, kernel.rows);
+    crossWidth = SafeRange((fiducialLength/2) + 1 - (fiducialWidth/2),
+                           (fiducialLength/2) + 1 + (fiducialWidth/2) + 1,
+                           kernel.rows);
+
+    std::cout << kernel.rows << " " << kernel.cols << std::endl;
+    std::cout << crossLength.start << " " << crossLength.end << std::endl;
+    std::cout << crossWidth.start << " " << crossWidth.end << std::endl;
+    bar = kernel(crossLength, crossWidth);
+    bar += cv::Mat::ones(bar.rows, bar.cols, CV_32FC1);
+
+    std::cout << bar.rows << " " << bar.cols << std::endl;
+    bar = kernel(crossWidth, crossLength);
+    bar += cv::Mat::ones(bar.rows, bar.cols, CV_32FC1);
+
+    std::cout << bar.rows << " " << bar.cols << std::endl;
+
+
+    cv::imshow("Solution", kernel);
+    cv::waitKey(0);
+
+}
+
 int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 {
     std::vector<int> edges;
@@ -877,8 +916,8 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
                     redundant = false;
                     for (unsigned int k = 0; k <  pixelFiducials.size(); k++)
                     {
-                        if (abs(pixelFiducials[k].y - m) < fiducialLength &&
-                            abs(pixelFiducials[k].x - n) < fiducialLength)
+                        if (abs(pixelFiducials[k].y - m) < fiducialLength*2 &&
+                            abs(pixelFiducials[k].x - n) < fiducialLength*2)
                         {
                             redundant = true;
                             thatValue = correlation.at<float>((int) pixelFiducials[k].y,
@@ -899,7 +938,7 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
                     }
                     else
                     {
-                        minValue = kernelSize.width*kernelSize.height*256;
+                        minValue = kernel.rows*kernel.cols*256;
                         minIndex = -1;
                         for (int k = 0; k < numFiducials; k++)
                         {
@@ -927,19 +966,19 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
     for (unsigned int k = 0; k <  pixelFiducials.size(); k++)
     {
         //Get safe ranges for for the neighborhood around the fiducial
-        rowRange = SafeRange(((int) pixelFiducials[k].y) - fiducialNeighborhood,
-                             ((int) pixelFiducials[k].y) + fiducialNeighborhood,
+        rowRange = SafeRange(round(pixelFiducials[k].y) - fiducialNeighborhood,
+                             round(pixelFiducials[k].y) + fiducialNeighborhood,
                              imageSize.height);
 
-        colRange = SafeRange(((int) pixelFiducials[k].x) - fiducialNeighborhood,
-                             ((int) pixelFiducials[k].x) + fiducialNeighborhood,
+        colRange = SafeRange(round(pixelFiducials[k].x) - fiducialNeighborhood,
+                             round(pixelFiducials[k].x) + fiducialNeighborhood,
                              imageSize.width);
         //Compute the centroid of the region around the local max
         //in the correlation image
         Cm = 0.0; Cn = 0.0; average = 0.0;
-        for (int m = rowRange.start; m <= rowRange.end; m++)
+        for (int m = rowRange.start; m < rowRange.end; m++)
         {
-            for (int n = colRange.start; n <= colRange.end; n++)
+            for (int n = colRange.start; n < colRange.end; n++)
             {
                 thisValue = correlation.at<float>(m,n);
                 Cm += m*thisValue;
@@ -950,8 +989,8 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 
         //Set the fiducials to the centroid location, plus an offset
         //to convert from the solar subimage to the original frame
-        pixelFiducials[k].y = (float) (Cm/average + (double) offset.y);
-        pixelFiducials[k].x = (float) (Cn/average + (double) offset.x);
+        pixelFiducials[k].y = (float) (Cm/average + ((double) offset.y));
+        pixelFiducials[k].x = (float) (Cn/average + ((double) offset.x));
     }
     return;
 }
@@ -1223,7 +1262,7 @@ cv::Range SafeRange(int start, int stop, int size)
 {
     cv::Range range;
     range.start = (start > 0) ? (start) : 0;
-    range.end = (stop < size - 1) ? (stop) : (size - 1);
+    range.end = (stop < size) ? (stop) : (size);
     return range;
 }
 
@@ -1264,37 +1303,6 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
     fit.resize(2);
     fit[0] = X.at<float>(1); //intercept
     fit[1] = X.at<float>(0); //slope
-}
-
-void matchKernel(cv::OutputArray _kernel)
-{
-    cv::Mat temp;
-    temp = cv::imread("./Mask.png",0);
-        
-    _kernel.create(temp.size(), CV_32FC1);
-    cv::Mat kernel = _kernel.getMat();
-    cv::Size kerSize = kernel.size();
-    for (int m = 0; m < kerSize.height; m++)
-    {
-        for (int n = 0; n < kerSize.width; n++)
-        {
-            if(temp.at<unsigned char>(cv::Point(n,m)) == 0x80)
-            {
-                kernel.at<float>(cv::Point(n,m)) = 0.0;
-            }
-            else
-            {
-                if(temp.at<unsigned char>(cv::Point(n,m)) > 0x80)
-                {
-                    kernel.at<float>(cv::Point(n,m)) = 1.0;
-                }
-                else
-                {
-                    kernel.at<float>(cv::Point(n,m)) = -1.0;
-                }
-            }
-        }       
-    }
 }
 
 template <class T>

@@ -10,22 +10,7 @@
 #include "ImperxStream.hpp"
 #include "processing.hpp"
 #include "compression.hpp"
- 
-void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
-{
-    cv::Point2f pt1, pt2;
-    length = (length+1)/2;
-    pt1.x = point.x-length;
-    pt1.y = point.y-length;
-    pt2.x = point.x+length;
-    pt2.y = point.y+length;
-    cv::line(image, pt1*128, pt2*128, color, thickness, CV_AA, 7);
-    pt1.x = point.x+length;
-    pt1.y = point.y-length;
-    pt2.x = point.x-length;
-    pt2.y = point.y+length;
-    cv::line(image, pt1*128, pt2*128, color, thickness, CV_AA, 7);
-}
+#include "utilities.hpp"
 
 int main(int argc, char* agrv[])
 {
