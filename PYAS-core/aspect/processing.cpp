@@ -623,35 +623,32 @@ void Aspect::GenerateKernel()
     cv::Mat distanceField, subField, bar;
     cv::Range crossLength, crossWidth;
     
-    kernel = cv::Mat::ones(2*(fiducialLength/2 + edge) + 1, 
-                            2*(fiducialLength/2 + edge) + 1, CV_32FC1);
-    cv::imshow("Solution", kernel);
-    cv::waitKey(0);
-
     kernel = cv::Mat::zeros(2*(fiducialLength/2 + edge) + 1, 
                             2*(fiducialLength/2 + edge) + 1, CV_32FC1);
-    cv::imshow("Solution", kernel);
-    cv::waitKey(0);
+ 
     distanceField = (kernel.rows*2 + 1, kernel.cols*2+1, CV_32FC1);
     crossLength = SafeRange(edge, kernel.rows-edge, kernel.rows);
     crossWidth = SafeRange((fiducialLength/2) + 1 - (fiducialWidth/2),
                            (fiducialLength/2) + 1 + (fiducialWidth/2) + 1,
                            kernel.rows);
 
-    std::cout << kernel.rows << " " << kernel.cols << std::endl;
-    std::cout << crossLength.start << " " << crossLength.end << std::endl;
-    std::cout << crossWidth.start << " " << crossWidth.end << std::endl;
     bar = kernel(crossLength, crossWidth);
     bar += cv::Mat::ones(bar.rows, bar.cols, CV_32FC1);
 
-    std::cout << bar.rows << " " << bar.cols << std::endl;
     bar = kernel(crossWidth, crossLength);
     bar += cv::Mat::ones(bar.rows, bar.cols, CV_32FC1);
 
-    std::cout << bar.rows << " " << bar.cols << std::endl;
+    distanceField = cv::Mat::zeros(2*kernel.rows + 1, 2*kernel.cols + 1, CV_32FC1);
+    for (int m = 0; m < distanceField.rows; m++)
+    {
+        for (int n = 0; n < distanceField.cols; n++)
+        {
+            distanceField.at<float>(m,n) = Euclidian(cv::Point2f(kernel.rows + 1 - m,
+                                                                 kernel.cols + 1 - n));
+        }
+    }
 
-
-    cv::imshow("Solution", kernel);
+    cv::imshow("Solution", distanceField);
     cv::waitKey(0);
 
 }
