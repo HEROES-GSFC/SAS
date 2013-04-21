@@ -180,7 +180,8 @@ Aspect::Aspect()
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
     
-    GenerateKernel();
+    //GenerateKernel();
+    matchKernel(kernel);
 
     mDistances.clear();
     nDistances.clear();
@@ -645,39 +646,57 @@ Aspect Private processing functions
 
 void Aspect::GenerateKernel()
 {
-    cv::namedWindow("Solution", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
-    int edge = 1;
-    cv::Mat distanceField, subField, bar;
+    int edge = 1, d = 100;
+    cv::Mat distanceField, subField, bar, mask, shape;
     cv::Range crossLength, crossWidth;
-    
-    kernel = cv::Mat::zeros(2*(fiducialLength/2 + edge) + 1, 
-                            2*(fiducialLength/2 + edge) + 1, CV_32FC1);
+    double minVal;
+    kernel = cv::Mat(2*(fiducialLength/2 + edge) + 1, 
+                     2*(fiducialLength/2 + edge) + 1,
+                     CV_32FC1);
+    shape = cv::Mat::zeros(kernel.size(), CV_32FC1);
  
-    distanceField = (kernel.rows*2 + 1, kernel.cols*2+1, CV_32FC1);
-    crossLength = SafeRange(edge, kernel.rows-edge, kernel.rows);
+    distanceField = (shape.rows*2 + 1, shape.cols*2+1, CV_32FC1);
+    crossLength = SafeRange(edge, shape.rows-edge, shape.rows);
     crossWidth = SafeRange((fiducialLength/2) + 1 - (fiducialWidth/2),
                            (fiducialLength/2) + 1 + (fiducialWidth/2) + 1,
-                           kernel.rows);
+                           shape.rows);
+    mask = cv::Mat(shape.rows, shape.cols, CV_8UC1);
 
-    bar = kernel(crossLength, crossWidth);
+    bar = shape(crossLength, crossWidth);
     bar += cv::Mat::ones(bar.rows, bar.cols, CV_32FC1);
 
-    bar = kernel(crossWidth, crossLength);
+    bar = shape(crossWidth, crossLength);
     bar += cv::Mat::ones(bar.rows, bar.cols, CV_32FC1);
 
-    distanceField = cv::Mat::zeros(2*kernel.rows + 1, 2*kernel.cols + 1, CV_32FC1);
+    distanceField = cv::Mat::zeros(2*shape.rows + 1, 2*shape.cols + 1, CV_32FC1);
     for (int m = 0; m < distanceField.rows; m++)
     {
         for (int n = 0; n < distanceField.cols; n++)
         {
-            distanceField.at<float>(m,n) = Euclidian(cv::Point2f(kernel.rows + 1 - m,
-                                                                 kernel.cols + 1 - n));
+            distanceField.at<float>(m,n) = Euclidian(cv::Point2f(shape.rows - m,
+                                                                 shape.cols - n));
         }
     }
 
-    cv::imshow("Solution", distanceField);
-    cv::waitKey(0);
+    for (int m = 0; m < shape.rows; m++)
+    {
+        for (int n = 0; n < shape.cols; n++)
+        {
+            subField = distanceField(cv::Range(shape.rows - m, 2*shape.rows - m),
+                                     cv::Range(shape.cols - n, 2*shape.cols - n));
+            
+            if (shape.at<float>(m,n) > 0)
+                compare(shape, 0, mask, cv::CMP_EQ);
+            else
+                compare(shape, 0, mask, cv::CMP_GT);
 
+            cv::minMaxIdx(subField, &minVal, NULL, NULL, NULL, mask);
+            kernel.at<float>(m,n) = ((shape.at<float>(m,n) > 0) ? -1 : 1) * (-pow(d,2)/2)*exp(-d*((float) minVal));
+            std::cout << kernel.at<float>(m,n) << " ";
+        }
+        std::cout << std::endl;
+    }
+    kernel = kernel/(sum(kernel)[0]);
 }
 
 int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
@@ -892,9 +911,11 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
     pixelFiducials.clear();
     imageSize = image.size();
 
+    cv::namedWindow("Correlation", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
     cv::filter2D(image, correlation, CV_32FC1, kernel, cv::Point(-1,-1));
     cv::normalize(correlation,correlation,0,1,cv::NORM_MINMAX);
-        
+    cv::imshow("Correlation", correlation);
+    cv::waitKey(0);
     cv::meanStdDev(correlation, mean, stddev);
 
     threshold = mean[0] + fiducialThreshold*stddev[0];
