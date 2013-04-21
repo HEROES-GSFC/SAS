@@ -36,6 +36,8 @@ int writePNGImage(cv::InputArray _image, const std::string fileName)
 
 int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fileName)
 {
+    try {
+
     cv::Mat image = _image.getMat();
     cv::Size size = image.size();
     std::string timeKey;
@@ -262,6 +264,12 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
         return -1;
     }
     return 0;
+
+    } catch (FitsError fe) {
+        std::cout << "Exception somewhere else in writeFITSImage()\n";
+        std::cout << fe.message() << std::endl;
+        throw fe;
+    }
 }
 
 int readFITSImage(const std::string fileName, cv::OutputArray _image)
