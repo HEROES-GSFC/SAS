@@ -67,7 +67,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     extAx.push_back(size.height);
     string newName ("Raw Frame");
    
-    pFits->setCompressionType(RICE_1);
+//    pFits->setCompressionType(RICE_1);
 
     ExtHDU* imageExt;
     try{
