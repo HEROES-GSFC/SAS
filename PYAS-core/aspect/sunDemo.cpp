@@ -13,12 +13,13 @@
 
 //Sleep settings (seconds)
 #define SLEEP_SOLUTION         1 // period for providing solutions to CTL
-#define SLEEP_SAVE             5 // period for saving full images locally
+#define SLEEP_SAVE             0 // period for saving full images locally (set USLEEP_SAVE to 0 if used)
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 #define SLEEP_KILL             2 // waits when killing all threads
 
 //Sleep settings (microseconds)
+#define USLEEP_SAVE       250000 // period for saving full images locally (set SLEEP_SAVE to 0 if used)
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
 #define USLEEP_TM_GENERIC 250000 // period for adding generic telemetry packets to queue
@@ -737,6 +738,7 @@ void *SaveImageThread(void *threadargs)
                     writeFITSImage(localFrame, fits_keys, obsfilespec);
 
                     sleep(SLEEP_SAVE);
+                    usleep(USLEEP_SAVE);
                 }
                 else
                 {
