@@ -303,8 +303,8 @@ AspectCode Aspect::Run()
 /*        else if (pixelError.x > 1.5*solarRadius || pixelError.x < .5*solarRadius|| 
           std::isnan(pixelError.x))
 */
-//        else if (pixelError.x > solarRadius*1.5 || pixelError.x < solarRadius*.5 || 
-        else if( std::isnan(pixelError.x) || std::isnan(pixelError.y))
+        else if (pixelError.x > solarRadius*1.5 || pixelError.x < solarRadius*.5 || 
+                 std::isnan(pixelError.x) || std::isnan(pixelError.y))
         {
             //std::cout << "Aspect: Radius off from expected by 10%" << pixelError << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
@@ -815,9 +815,12 @@ void Aspect::FindPixelCenter()
             }
         }
     }
-    CoopeCircleFit(limbCrossings, sun, solarRadius);
-    pixelCenter = sun.center();
-    pixelError = cv::Point2f(sun.r(), sun.r());
+    if (limbCrossings.size() > 4)
+    {
+        CoopeCircleFit(limbCrossings, sun, solarRadius);
+        pixelCenter = sun.center();
+        pixelError = cv::Point2f(sun.r(), sun.r());
+    }
     return;
 }
 
