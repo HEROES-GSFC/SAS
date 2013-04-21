@@ -184,6 +184,7 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
 void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int method, Circle &fit);
 void CircleFit(const CoordList &points, int method, Circle &fit);
 void BullockCircleFit(const CoordList &points, Circle &fit);
+void CoopeCircleFit(const CoordList &points, Circle &fit, int targetRadius);
 void CoopeCircleFit(const CoordList &points, Circle &fit);
 
 cv::Point2f VectorToCircle(Circle circle, cv::Point2f point);
