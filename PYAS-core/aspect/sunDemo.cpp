@@ -503,7 +503,7 @@ void *ImageProcessThread(void *threadargs)
                   
                     Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
                     fits_keys.CTLsolution[0] = ctl.x();
-                    fits_keys.CTLsolution[0] = ctl.y();
+                    fits_keys.CTLsolution[1] = ctl.y();
 
                     fits_keys.screenCenter[0] = screenCenter.x; 
                     fits_keys.screenCenter[1] = screenCenter.y;
