@@ -678,7 +678,6 @@ void *SaveImageThread(void *threadargs)
     printf("SaveImage thread #%ld!\n", tid);
 
     cv::Mat localFrame;
-    long int localFrameCount;
     std::string fitsfile;
     timespec waittime = {1,0};
     //timespec thetimenow;
@@ -711,6 +710,7 @@ void *SaveImageThread(void *threadargs)
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
                 {
+                    frame.copyTo(localFrame);
                     fits_keys.cpuTemperature = sbc_temperature;
                     fits_keys.cameraID = sas_id;
 
