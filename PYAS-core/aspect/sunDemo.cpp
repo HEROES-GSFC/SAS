@@ -813,7 +813,8 @@ void *TelemetryPackagerThread(void *threadargs)
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
             if (j < localLimbs.size()) {
-                tp << Pair3B(localLimbs[j].x, localLimbs[j].y);
+                uint8_t jp = (j+tm_frame_sequence_number) % localLimbs.size();
+                tp << Pair3B(localLimbs[jp].x, localLimbs[jp].y);
             } else {
                 tp << Pair3B(0, 0);
             }
@@ -825,7 +826,8 @@ void *TelemetryPackagerThread(void *threadargs)
         //Fiduicals (currently 6)
         for(uint8_t k = 0; k < 6; k++) {
             if (k < localFiducials.size()) {
-                tp << Pair3B(localFiducials[k].x, localFiducials[k].y);
+                uint8_t kp = (k+tm_frame_sequence_number) % localFiducials.size();
+                tp << Pair3B(localFiducials[kp].x, localFiducials[kp].y);
             } else {
                 tp << Pair3B(0, 0);
             }
