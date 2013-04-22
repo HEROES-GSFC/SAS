@@ -268,7 +268,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     } catch (FitsError fe) {
         std::cout << "Exception somewhere else in writeFITSImage()\n";
         std::cout << fe.message() << std::endl;
-        throw fe;
+        //throw fe;
     }
 }
 
