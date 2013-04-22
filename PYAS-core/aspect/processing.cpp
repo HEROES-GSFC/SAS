@@ -171,7 +171,7 @@ Aspect::Aspect()
     fiducialNeighborhood = 2;
     numFiducials = 10;
 
-    fiducialSpacing = 15.5;
+    fiducialSpacing = 15.7;
     fiducialSpacingTol = 1.5;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);

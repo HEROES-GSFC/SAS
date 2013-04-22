@@ -13,12 +13,13 @@
 
 //Sleep settings (seconds)
 #define SLEEP_SOLUTION         1 // period for providing solutions to CTL
-#define SLEEP_SAVE             5 // period for saving full images locally
+#define SLEEP_SAVE             0 // period for saving full images locally (set USLEEP_SAVE to 0 if used)
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 #define SLEEP_KILL             2 // waits when killing all threads
 
 //Sleep settings (microseconds)
+#define USLEEP_SAVE       250000 // period for saving full images locally (set SLEEP_SAVE to 0 if used)
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
 #define USLEEP_TM_GENERIC 250000 // period for adding generic telemetry packets to queue
@@ -502,7 +503,7 @@ void *ImageProcessThread(void *threadargs)
                   
                     Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
                     fits_keys.CTLsolution[0] = ctl.x();
-                    fits_keys.CTLsolution[0] = ctl.y();
+                    fits_keys.CTLsolution[1] = ctl.y();
 
                     fits_keys.screenCenter[0] = screenCenter.x; 
                     fits_keys.screenCenter[1] = screenCenter.y;
@@ -677,7 +678,6 @@ void *SaveImageThread(void *threadargs)
     printf("SaveImage thread #%ld!\n", tid);
 
     cv::Mat localFrame;
-    long int localFrameCount;
     std::string fitsfile;
     timespec waittime = {1,0};
     //timespec thetimenow;
@@ -710,6 +710,7 @@ void *SaveImageThread(void *threadargs)
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
                 {
+                    frame.copyTo(localFrame);
                     fits_keys.cpuTemperature = sbc_temperature;
                     fits_keys.cameraID = sas_id;
 
@@ -737,6 +738,7 @@ void *SaveImageThread(void *threadargs)
                     writeFITSImage(localFrame, fits_keys, obsfilespec);
 
                     sleep(SLEEP_SAVE);
+                    usleep(USLEEP_SAVE);
                 }
                 else
                 {
@@ -811,7 +813,8 @@ void *TelemetryPackagerThread(void *threadargs)
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
             if (j < localLimbs.size()) {
-                tp << Pair3B(localLimbs[j].x, localLimbs[j].y);
+                uint8_t jp = (j+tm_frame_sequence_number) % localLimbs.size();
+                tp << Pair3B(localLimbs[jp].x, localLimbs[jp].y);
             } else {
                 tp << Pair3B(0, 0);
             }
@@ -823,7 +826,8 @@ void *TelemetryPackagerThread(void *threadargs)
         //Fiduicals (currently 6)
         for(uint8_t k = 0; k < 6; k++) {
             if (k < localFiducials.size()) {
-                tp << Pair3B(localFiducials[k].x, localFiducials[k].y);
+                uint8_t kp = (k+tm_frame_sequence_number) % localFiducials.size();
+                tp << Pair3B(localFiducials[kp].x, localFiducials[kp].y);
             } else {
                 tp << Pair3B(0, 0);
             }
