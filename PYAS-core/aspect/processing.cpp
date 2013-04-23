@@ -1397,10 +1397,10 @@ void CoopeCircleFit(const CoordList& points, Circle& fit, int targetRadius)
     }
     MSE = Mean(residual); 
     CookPoints = points;
-    std::cout << "MSE: " << MSE << std::endl;
+//    std::cout << "MSE: " << MSE << std::endl;
     for (unsigned int k = 0; k < CookPoints.size(); k++)
     {
-        std::cout << CookDistance[k] << " ";
+//        std::cout << CookDistance[k] << " ";
         if (CookDistance[k] > MSE)
         {
             CookDistance.erase(CookDistance.begin() + k);
@@ -1408,11 +1408,11 @@ void CoopeCircleFit(const CoordList& points, Circle& fit, int targetRadius)
             k--;
         }
     }
-    std::cout << std::endl;
+//    std::cout << std::endl;
 
     if (CookPoints.size() < points.size() && CookPoints.size() > 4)
     {
-        std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
+//        std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
         CoopeCircleFit(CookPoints, fit);
     }
 

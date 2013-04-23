@@ -172,10 +172,9 @@ int main(int argc, char* argv[])
             //Print data to screen.
 
             if(GeneralizeError(runResult) < CENTER_ERROR)
-                std::cout << "Centers: " << center << " " << 
-                    circle[0].center() << " " << circle[1].center() << std::endl;
+                std::cout << "Center: " << center << " " << std::endl;
             else
-                std::cout << "Center (pixels): " << "Not valid" << std::endl;
+                std::cout << "Center: " << "[ -1 -1 ]" << std::endl;
 /*
             if(GeneralizeError(runResult) < MAPPING_ERROR)
                 std::cout << "Center (screen): " << IDCenter << std::endl;

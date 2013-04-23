@@ -20,12 +20,21 @@ class Circle : public cv::Vec3f
 {
 public:
     Circle() : cv::Vec3f(){};
+    Circle(cv::Point2f c, float r) : cv::Vec3f(c.x,c.y,r){};
     Circle(float x, float y, float r) : cv::Vec3f(x,y,r){};
+
     cv::Point2f center() {return cv::Point2f(cv::Vec3f::operator[](0), 
                                              cv::Vec3f::operator[](1)); }
     float x() {return cv::Vec3f::operator[](0); }
     float y() {return cv::Vec3f::operator[](1); }
     float r() {return cv::Vec3f::operator[](2); }
+    
+    
+    void center(cv::Point2f c) {cv::Vec3f::operator[](0) = c.x;
+        cv::Vec3f::operator[](1) = c.y; }
+    void x(float x) {cv::Vec3f::operator[](0) = x; }
+    void y(float y) {cv::Vec3f::operator[](1) = y; }
+    void r(float r) {cv::Vec3f::operator[](2) = r; }
 };
 
 class CircleList : public std::vector<Circle>
