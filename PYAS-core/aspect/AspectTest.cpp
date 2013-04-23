@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
                 {
                     CircleFit(crossings, k, circle[k]);
                     DrawCross(image, circle[k].center() - offset, cv::Scalar(0,50+k*100,255) , 20, 1, 8);
-                    std::cout << circle[k].r() << std::endl;
+//                    std::cout << circle[k].r() << std::endl;
                     if (circle[k].r() > 0)
                         cv::circle(image, (circle[k].center() - offset)*pow(2,8), circle[k].r()*pow(2,8), cv::Scalar(0,50+k*100,255), 1, CV_AA, 8);
                 }
@@ -177,10 +177,9 @@ int main(int argc, char* argv[])
             //Print data to screen.
 
             if(GeneralizeError(runResult) < CENTER_ERROR)
-                std::cout << "Centers: " << center << " " << 
-                    circle[0].center() << " " << circle[1].center() << std::endl;
+                std::cout << "Center: " << center << std::endl;
             else
-                std::cout << "Center (pixels): " << "Not valid" << std::endl;
+                std::cout << "Center: " << "[-1 -1]" << std::endl;
 /*
             if(GeneralizeError(runResult) < MAPPING_ERROR)
                 std::cout << "Center (screen): " << IDCenter << std::endl;
