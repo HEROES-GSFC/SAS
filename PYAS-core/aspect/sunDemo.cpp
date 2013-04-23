@@ -13,12 +13,13 @@
 
 //Sleep settings (seconds)
 #define SLEEP_SOLUTION         1 // period for providing solutions to CTL
-#define SLEEP_SAVE             5 // period for saving full images locally
+#define SLEEP_SAVE             0 // period for saving full images locally (set USLEEP_SAVE to 0 if used)
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 #define SLEEP_KILL             2 // waits when killing all threads
 
 //Sleep settings (microseconds)
+#define USLEEP_SAVE       250000 // period for saving full images locally (set SLEEP_SAVE to 0 if used)
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
 #define USLEEP_TM_GENERIC 250000 // period for adding generic telemetry packets to queue
@@ -156,7 +157,7 @@ CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 std::vector<float> mapping;
 
-HeaderData keys;
+HeaderData fits_keys;
 
 bool staleFrame;
 Flag procReady, saveReady;
@@ -346,6 +347,15 @@ void *CameraStreamThread( void * threadargs)
 
                 //printf("camera temp is %lld\n", camera.getTemperature());
                 camera_temperature = camera.getTemperature();
+                
+                // save data into the fits_header
+                fits_keys.captureTime = frameTime;
+                fits_keys.frameCount = frameCount;
+                fits_keys.exposure = exposure;
+				fits_keys.preampGain = preampGain;
+				fits_keys.analogGain = analogGain;
+				fits_keys.cameraTemperature = camera_temperature;
+
             }
             else
             {
@@ -504,6 +514,55 @@ void *ImageProcessThread(void *threadargs)
                     default:
                         break;
                     }
+                    
+                    fits_keys.sunCenter[0] = pixelCenter.x;
+                    fits_keys.sunCenter[1] = pixelCenter.y;
+                    // this should not have to be recaculated, should be a global
+                  
+                    Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
+                    fits_keys.CTLsolution[0] = ctl.x();
+                    fits_keys.CTLsolution[1] = ctl.y();
+
+                    fits_keys.screenCenter[0] = screenCenter.x; 
+                    fits_keys.screenCenter[1] = screenCenter.y;
+                    fits_keys.screenCenterError[0] = error.x;
+                    fits_keys.screenCenterError[1] = error.y;
+					fits_keys.imageMinMax[0] = frameMin;
+                    fits_keys.imageMinMax[1] = frameMax;
+
+                    if(mapping.size() == 4){
+                        fits_keys.XYinterceptslope[0] = mapping[0];
+                        fits_keys.XYinterceptslope[1] = mapping[2];
+                        fits_keys.XYinterceptslope[2] = mapping[1];
+                        fits_keys.XYinterceptslope[3] = mapping[3];
+                    }
+                    fits_keys.isTracking = isTracking;
+                    
+                    for(uint8_t j = 0; j < 8; j++) {
+                        if (j < limbs.size()) {
+                                fits_keys.limbX[j] = limbs[j].x,
+                                fits_keys.limbY[j] = limbs[j].y;
+                            } else {
+                                fits_keys.limbX[j] = 0,
+                                fits_keys.limbY[j] = 0;
+                            }
+                    }
+                    for(uint8_t j = 0; j < 8; j++) {
+                        if (j < ids.size()) {
+                            fits_keys.fiducialIDX[j] = ids[j].x,
+                            fits_keys.fiducialIDY[j] = ids[j].y;
+                        } else {
+                            fits_keys.fiducialIDX[j] = 0,
+                            fits_keys.fiducialIDY[j] = 0;
+                        }
+                        if (j < pixelFiducials.size()){
+                            fits_keys.fiducialX[j] = pixelFiducials[j].x;
+                            fits_keys.fiducialY[j] = pixelFiducials[j].y;
+                        } else {
+                            fits_keys.fiducialX[j] = 0;
+                            fits_keys.fiducialY[j] = 0;
+                        }
+                    }
                     pthread_mutex_unlock(&mutexProcess);
                     std::cout << "Finished proc: " << printMonoTime() << std::endl;
                 }
@@ -638,7 +697,6 @@ void *SaveImageThread(void *threadargs)
     printf("SaveImage thread #%ld!\n", tid);
 
     cv::Mat localFrame;
-    long int localFrameCount;
     std::string fitsfile;
     timespec waittime = {1,0};
     //timespec thetimenow;
@@ -738,7 +796,6 @@ void *SaveImageThread(void *threadargs)
                         }
                     }
                     
-
                     pthread_mutex_unlock(&mutexImage);
 
                     char stringtemp[80];
@@ -751,13 +808,14 @@ void *SaveImageThread(void *threadargs)
                     times = localtime(&ltime);
                     strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
 
-                    sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
+                    sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)fits_keys.frameCount);
+//                  printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
 
-//                    printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
 
                     writeFITSImage(localFrame, keys, obsfilespec);
                     std::cout << "Finished save: " << printMonoTime() << std::endl;
                     sleep(SLEEP_SAVE);
+                    usleep(USLEEP_SAVE);
                 }
                 else
                 {
@@ -832,7 +890,8 @@ void *TelemetryPackagerThread(void *threadargs)
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
             if (j < localLimbs.size()) {
-                tp << Pair3B(localLimbs[j].x, localLimbs[j].y);
+                uint8_t jp = (j+tm_frame_sequence_number) % localLimbs.size();
+                tp << Pair3B(localLimbs[jp].x, localLimbs[jp].y);
             } else {
                 tp << Pair3B(0, 0);
             }
@@ -844,7 +903,8 @@ void *TelemetryPackagerThread(void *threadargs)
         //Fiduicals (currently 6)
         for(uint8_t k = 0; k < 6; k++) {
             if (k < localFiducials.size()) {
-                tp << Pair3B(localFiducials[k].x, localFiducials[k].y);
+                uint8_t kp = (k+tm_frame_sequence_number) % localFiducials.size();
+                tp << Pair3B(localFiducials[kp].x, localFiducials[kp].y);
             } else {
                 tp << Pair3B(0, 0);
             }
@@ -1049,7 +1109,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         if (pthread_mutex_trylock(&mutexImage) == 0){
             if( !frame.empty() ){
                 frame.copyTo(localFrame);
-                localKeys = keys;
+                localKeys = fits_keys;
             }
             pthread_mutex_unlock(&mutexImage);
         }
@@ -1193,10 +1253,16 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
 
     stop_message[i] = 0;
 
-    int rc = pthread_create(&threads[i], NULL, routine, &thread_data[i]);
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    int rc = pthread_create(&threads[i], &attr, routine, &thread_data[i]);
     if (rc != 0) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     } else started[i] = true;
+
+    pthread_attr_destroy(&attr);
 
     return;
 }
