@@ -338,6 +338,17 @@ void *CameraStreamThread( void * threadargs)
 
             if(!camera.Snap(localFrame))
             {
+                // camera has gotten frame so send time predict to CTL
+                CommandPacket cp(TARGET_ID_CTL, solution_sequence_number);
+                preExposure.tv_sec + preExposure.tv_nsec
+                cp << (uint16_t)HKEY_SAS_TIMESTAMP;
+                cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS) 
+                cp << (double)(preExposure.tv_sec + preExposure.tv_nsec);  // timestamp 
+                //Add packet to the queue if any commands have been inserted to the packet
+                if(cp.remainingBytes() > 0) {
+                    cm_packet_queue << cp;
+                }
+                
                 failcount = 0;
                 procReady.raise();
                 saveReady.raise();
