@@ -13,12 +13,13 @@
 
 //Sleep settings (seconds)
 #define SLEEP_SOLUTION         1 // period for providing solutions to CTL
-#define SLEEP_SAVE             5 // period for saving full images locally
+#define SLEEP_SAVE             0 // period for saving full images locally (set USLEEP_SAVE to 0 if used)
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 #define SLEEP_KILL             2 // waits when killing all threads
 
 //Sleep settings (microseconds)
+#define USLEEP_SAVE       250000 // period for saving full images locally (set SLEEP_SAVE to 0 if used)
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
 #define USLEEP_TM_GENERIC 250000 // period for adding generic telemetry packets to queue
@@ -156,7 +157,7 @@ CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 std::vector<float> mapping;
 
-HeaderData keys;
+HeaderData fits_keys;
 
 bool staleFrame;
 Flag procReady, saveReady;
@@ -168,8 +169,7 @@ int16_t preampGain = CAMERA_PREAMPGAIN;
 timespec frameRate = {0,100000000L};
 int cameraReady = 0;
 
-
-timespec captureTimeNTP, captureTimeMono;
+timespec frameTime;
 long int frameCount = 0;
 
 float camera_temperature;
@@ -266,7 +266,7 @@ void *CameraStreamThread( void * threadargs)
     ImperxStream camera;
 
     cv::Mat localFrame;
-    timespec localCaptureTime, preExposure, postExposure, timeElapsed, timeToWait;
+    timespec preExposure, postExposure, timeElapsed, duration;
     int width, height;
     int failcount = 0;
 
@@ -297,7 +297,6 @@ void *CameraStreamThread( void * threadargs)
             else
             {
                 camera.ConfigureSnap();
-
                 camera.SetROISize(CAMERA_XSIZE,CAMERA_YSIZE);
                 camera.SetROIOffset(CAMERA_XOFFSET,CAMERA_YOFFSET);
                 camera.SetExposure(localExposure);
@@ -320,49 +319,6 @@ void *CameraStreamThread( void * threadargs)
         }
         else
         {
-            //Record start time of this exposure. Nothing should happen before recording preExposure.
-            //For either of these times to be accurate, as little as possible should happen between them and ImpxerStream::Snap
-            //Not sure if this is the best way to handle this.
-            clock_gettime(CLOCK_MONOTONIC, &preExposure);
-            clock_gettime(CLOCK_REALTIME, &localCaptureTime);
-
-            //Request an image from camera
-            if(!camera.Snap(localFrame,frameRate))
-            {
-                failcount = 0;
-                procReady.raise();
-                saveReady.raise();
-
-                //printf("CameraStreamThread: trying to lock\n");
-                pthread_mutex_lock(&mutexImage);
-                //printf("CameraStreamThread: got lock, copying over\n");
-                localFrame.copyTo(frame);
-                captureTimeNTP = localCaptureTime;
-                captureTimeMono = preExposure;
-                //printf("%d\n", frame.at<uint8_t>(0,0));
-                frameCount++;
-                pthread_mutex_unlock(&mutexImage);
-                staleFrame = false;
-
-                //printf("camera temp is %lld\n", camera.getTemperature());
-                camera_temperature = camera.getTemperature();
-            }
-            else
-            {
-                failcount++;
-                std::cout << "Frame failure count = " << failcount << std::endl;
-                if (failcount >= 10)
-                {
-                    camera.Stop();
-                    camera.Disconnect();
-                    cameraReady = false;
-                    staleFrame = true;
-                    std::cout << "*********************** RESETTING CAMERA ***********************************" << std::endl;
-                    continue;
-                }
-            }
-
-            //Make any changes to camera settings that happened since last exposure.
             if (localExposure != exposure) {
                 localExposure = exposure;
                 camera.SetExposure(localExposure);
@@ -378,19 +334,56 @@ void *CameraStreamThread( void * threadargs)
                 camera.SetAnalogGain(analogGain);
             }
 
-            //Record time that camera exposure finished. As little as possible should happen between this call and the call to nanosleep()
-            clock_gettime(CLOCK_MONOTONIC, &postExposure);
+            clock_gettime(CLOCK_REALTIME, &preExposure);
 
-            //Determine time spent on camera exposure
+            if(!camera.Snap(localFrame))
+            {
+                failcount = 0;
+                procReady.raise();
+                saveReady.raise();
+
+                //printf("CameraStreamThread: trying to lock\n");
+                pthread_mutex_lock(&mutexImage);
+                //printf("CameraStreamThread: got lock, copying over\n");
+                localFrame.copyTo(frame);
+                frameTime = preExposure;
+                //printf("%d\n", frame.at<uint8_t>(0,0));
+                frameCount++;
+                pthread_mutex_unlock(&mutexImage);
+                staleFrame = false;
+
+                //printf("camera temp is %lld\n", camera.getTemperature());
+                camera_temperature = camera.getTemperature();
+                
+                // save data into the fits_header
+                fits_keys.captureTime = frameTime;
+                fits_keys.frameCount = frameCount;
+                fits_keys.exposure = exposure;
+                fits_keys.preampGain = preampGain;
+                fits_keys.analogGain = analogGain;
+                fits_keys.cameraTemperature = camera_temperature;
+
+            }
+            else
+            {
+                failcount++;
+                std::cout << "Frame failure count = " << failcount << std::endl;
+                if (failcount >= 10)
+                {
+                    camera.Stop();
+                    camera.Disconnect();
+                    cameraReady = false;
+                    staleFrame = true;
+                    std::cout << "*********************** RESETTING CAMERA ***********************************" << std::endl;
+                    continue;
+                }
+            }
+            clock_gettime(CLOCK_REALTIME, &postExposure);
             timeElapsed = TimespecDiff(preExposure, postExposure);
-
-            //Calculate the time to wait for next exposure
-            timeToWait.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
-            timeToWait.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
+            duration.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
+            duration.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
 //            std::cout << timeElapsed.tv_sec << " " << timeElapsed.tv_nsec << "\n";
-
-            //Wait till next exposure time
-            nanosleep(&timeToWait, NULL);
+            nanosleep(&duration, NULL);
         }
     }
 }
@@ -443,65 +436,114 @@ void *ImageProcessThread(void *threadargs)
                     aspect.LoadFrame(frame);
 
                     pthread_mutex_unlock(&mutexImage);
-                    
+
                     runResult = aspect.Run();
                     
                     switch(GeneralizeError(runResult))
                     {
-                        case NO_ERROR:
-                            aspect.GetScreenFiducials(localScreenFiducials);
-                            aspect.GetScreenCenter(localScreenCenter);
-                            aspect.GetMapping(localMapping);
+                    case NO_ERROR:
+                        aspect.GetScreenFiducials(localScreenFiducials);
+                        aspect.GetScreenCenter(localScreenCenter);
+                        aspect.GetMapping(localMapping);
 
-                        case MAPPING_ERROR:
-                            aspect.GetFiducialIDs(localIds);
+                    case MAPPING_ERROR:
+                        aspect.GetFiducialIDs(localIds);
 
-                        case ID_ERROR:
-                            aspect.GetPixelFiducials(localPixelFiducials);
+                    case ID_ERROR:
+                        aspect.GetPixelFiducials(localPixelFiducials);
 
-                        case FIDUCIAL_ERROR:
-                            aspect.GetPixelCenter(localPixelCenter);
-                            aspect.GetPixelError(localError);
+                    case FIDUCIAL_ERROR:
+                        aspect.GetPixelCenter(localPixelCenter);
+                        aspect.GetPixelError(localError);
 
-                        case CENTER_ERROR:
-                            aspect.GetPixelCrossings(localLimbs);
-                            if (REPORT_FOCUS) aspect.ReportFocus();
+                    case CENTER_ERROR:
+                        aspect.GetPixelCrossings(localLimbs);
+                        if (REPORT_FOCUS) aspect.ReportFocus();
 
-                        case LIMB_ERROR:
-                        case RANGE_ERROR:
-                            aspect.GetPixelMinMax(localMin, localMax);
-                            break;
-                        default:
-                            std::cout << "Nothing worked\n";
+                    case LIMB_ERROR:
+                    case RANGE_ERROR:
+                        aspect.GetPixelMinMax(localMin, localMax);
+                        break;
+                    default:
+                        std::cout << "Nothing worked\n";
                     }
 
                     pthread_mutex_lock(&mutexProcess);
                     switch(GeneralizeError(runResult))
                     {
-                        case NO_ERROR:
-                            screenFiducials = localScreenFiducials;
-                            screenCenter = localScreenCenter;
-                            mapping = localMapping;
-                        case MAPPING_ERROR:
-                            ids = localIds;
+                    case NO_ERROR:
+                        screenFiducials = localScreenFiducials;
+                        screenCenter = localScreenCenter;
+                        mapping = localMapping;
+                    case MAPPING_ERROR:
+                        ids = localIds;
 
-                        case ID_ERROR:
-                            pixelFiducials = localPixelFiducials;
+                    case ID_ERROR:
+                        pixelFiducials = localPixelFiducials;
 
-                        case FIDUCIAL_ERROR:
-                            pixelCenter = localPixelCenter;  
-                            error = localError;
+                    case FIDUCIAL_ERROR:
+                        pixelCenter = localPixelCenter;  
+                        error = localError;
 
-                        case CENTER_ERROR:
-                            limbs = localLimbs;
+                    case CENTER_ERROR:
+                        limbs = localLimbs;
 
-                        case LIMB_ERROR:
-                        case RANGE_ERROR:
-                            frameMin = localMin;
-                            frameMax = localMax;
-                            break;
-                        default:
-                            break;
+                    case LIMB_ERROR:
+                    case RANGE_ERROR:
+                        frameMin = localMin;
+                        frameMax = localMax;
+                        break;
+                    default:
+                        break;
+                    }
+                    
+                    fits_keys.sunCenter[0] = pixelCenter.x;
+                    fits_keys.sunCenter[1] = pixelCenter.y;
+                    // this should not have to be recaculated, should be a global
+                  
+                    Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
+                    fits_keys.CTLsolution[0] = ctl.x();
+                    fits_keys.CTLsolution[1] = ctl.y();
+
+                    fits_keys.screenCenter[0] = screenCenter.x; 
+                    fits_keys.screenCenter[1] = screenCenter.y;
+                    fits_keys.screenCenterError[0] = error.x;
+                    fits_keys.screenCenterError[1] = error.y;
+                    fits_keys.imageMinMax[0] = frameMin;
+                    fits_keys.imageMinMax[1] = frameMax;
+
+                    if(mapping.size() == 4){
+                        fits_keys.XYinterceptslope[0] = mapping[0];
+                        fits_keys.XYinterceptslope[1] = mapping[2];
+                        fits_keys.XYinterceptslope[2] = mapping[1];
+                        fits_keys.XYinterceptslope[3] = mapping[3];
+                    }
+                    fits_keys.isTracking = isTracking;
+                    
+                    for(uint8_t j = 0; j < 8; j++) {
+                        if (j < limbs.size()) {
+                            fits_keys.limbX[j] = limbs[j].x,
+                                fits_keys.limbY[j] = limbs[j].y;
+                        } else {
+                            fits_keys.limbX[j] = 0,
+                                fits_keys.limbY[j] = 0;
+                        }
+                    }
+                    for(uint8_t j = 0; j < 8; j++) {
+                        if (j < ids.size()) {
+                            fits_keys.fiducialIDX[j] = ids[j].x,
+                                fits_keys.fiducialIDY[j] = ids[j].y;
+                        } else {
+                            fits_keys.fiducialIDX[j] = 0,
+                                fits_keys.fiducialIDY[j] = 0;
+                        }
+                        if (j < pixelFiducials.size()){
+                            fits_keys.fiducialX[j] = pixelFiducials[j].x;
+                            fits_keys.fiducialY[j] = pixelFiducials[j].y;
+                        } else {
+                            fits_keys.fiducialX[j] = 0;
+                            fits_keys.fiducialY[j] = 0;
+                        }
                     }
                     pthread_mutex_unlock(&mutexProcess);
                 }
@@ -636,7 +678,6 @@ void *SaveImageThread(void *threadargs)
     printf("SaveImage thread #%ld!\n", tid);
 
     cv::Mat localFrame;
-    long int localFrameCount;
     std::string fitsfile;
     timespec waittime = {1,0};
     //timespec thetimenow;
@@ -669,73 +710,16 @@ void *SaveImageThread(void *threadargs)
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame.empty())
                 {
-                    localFrameCount = frameCount;
                     frame.copyTo(localFrame);
-                    keys.captureTimeMono = captureTimeMono;
-                    keys.captureTimeNTP = captureTimeNTP;
-                    keys.frameCount = frameCount;
-                    keys.exposure = exposure;
-                    keys.preampGain = preampGain;
-                    keys.analogGain = analogGain;
-                    keys.sunCenter[0] = pixelCenter.x;
-                    keys.sunCenter[1] = pixelCenter.y;
-                    keys.cameraTemperature = camera_temperature;
-                    keys.cpuTemperature = sbc_temperature;
-                    keys.cameraID = 1;
+                    fits_keys.cpuTemperature = sbc_temperature;
+                    fits_keys.cameraID = sas_id;
 
-					keys.cpuVoltage[0] = sbc_v105;
-					keys.cpuVoltage[1] = sbc_v25;
-					keys.cpuVoltage[2] = sbc_v33;
-					keys.cpuVoltage[3] = sbc_v50;
-					keys.cpuVoltage[4] = sbc_v120;
-
-                    // this should not have to be recaculated, should be a global
-                    Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
-                    keys.CTLsolution[0] = ctl.x();
-                    keys.CTLsolution[0] = ctl.y();
-
-                    keys.screenCenter[0] = screenCenter.x; 
-                    keys.screenCenter[1] = screenCenter.y;
-                    keys.screenCenterError[0] = error.x;
-                    keys.screenCenterError[1] = error.y;
-                    keys.imageMinMax[0] = frameMin;
-                    keys.imageMinMax[1] = frameMax;
+                    fits_keys.cpuVoltage[0] = sbc_v105;
+                    fits_keys.cpuVoltage[1] = sbc_v25;
+                    fits_keys.cpuVoltage[2] = sbc_v33;
+                    fits_keys.cpuVoltage[3] = sbc_v50;
+                    fits_keys.cpuVoltage[4] = sbc_v120;
                     
-                    if(mapping.size() == 4){
-                        keys.XYinterceptslope[0] = mapping[0];
-                        keys.XYinterceptslope[1] = mapping[2];
-                        keys.XYinterceptslope[2] = mapping[1];
-                        keys.XYinterceptslope[3] = mapping[3];
-                    }
-                    keys.isTracking = isTracking;
-                    
-                    for(uint8_t j = 0; j < 8; j++) {
-                        if (j < limbs.size()) {
-                                keys.limbX[j] = limbs[j].x,
-                                keys.limbY[j] = limbs[j].y;
-                            } else {
-                                keys.limbX[j] = 0,
-                                keys.limbY[j] = 0;
-                            }
-                    }
-                    for(uint8_t j = 0; j < 8; j++) {
-                        if (j < ids.size()) {
-                            keys.fiducialIDX[j] = ids[j].x,
-                            keys.fiducialIDY[j] = ids[j].y;
-                        } else {
-                            keys.fiducialIDX[j] = 0,
-                            keys.fiducialIDY[j] = 0;
-                        }
-                        if (j < pixelFiducials.size()){
-                            keys.fiducialX[j] = pixelFiducials[j].x;
-                            keys.fiducialY[j] = pixelFiducials[j].y;
-                        } else {
-                            keys.fiducialX[j] = 0;
-                            keys.fiducialY[j] = 0;
-                        }
-                    }
-                    
-
                     pthread_mutex_unlock(&mutexImage);
 
                     char stringtemp[80];
@@ -748,12 +732,13 @@ void *SaveImageThread(void *threadargs)
                     times = localtime(&ltime);
                     strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
 
-                    sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)localFrameCount);
+                    sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)fits_keys.frameCount);
 
                     printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
-                    writeFITSImage(localFrame, keys, obsfilespec);
+                    writeFITSImage(localFrame, fits_keys, obsfilespec);
 
                     sleep(SLEEP_SAVE);
+                    usleep(USLEEP_SAVE);
                 }
                 else
                 {
@@ -828,7 +813,8 @@ void *TelemetryPackagerThread(void *threadargs)
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
             if (j < localLimbs.size()) {
-                tp << Pair3B(localLimbs[j].x, localLimbs[j].y);
+                uint8_t jp = (j+tm_frame_sequence_number) % localLimbs.size();
+                tp << Pair3B(localLimbs[jp].x, localLimbs[jp].y);
             } else {
                 tp << Pair3B(0, 0);
             }
@@ -840,7 +826,8 @@ void *TelemetryPackagerThread(void *threadargs)
         //Fiduicals (currently 6)
         for(uint8_t k = 0; k < 6; k++) {
             if (k < localFiducials.size()) {
-                tp << Pair3B(localFiducials[k].x, localFiducials[k].y);
+                uint8_t kp = (k+tm_frame_sequence_number) % localFiducials.size();
+                tp << Pair3B(localFiducials[kp].x, localFiducials[kp].y);
             } else {
                 tp << Pair3B(0, 0);
             }
@@ -1045,7 +1032,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         if (pthread_mutex_trylock(&mutexImage) == 0){
             if( !frame.empty() ){
                 frame.copyTo(localFrame);
-                localKeys = keys;
+                localKeys = fits_keys;
             }
             pthread_mutex_unlock(&mutexImage);
         }
@@ -1102,51 +1089,51 @@ void *commandHandlerThread(void *threadargs)
 
     switch( my_data->command_key & 0x0FFF)
     {
-        case SKEY_REQUEST_IMAGE:
-            {
-                error_code = cmd_send_image_to_ground( 0 );
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_EXPOSURE:    // set exposure time
-            {
-                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
-                std::cout << "Requested exposure time is: " << exposure << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_PREAMPGAIN:    // set preamp gain
-            {
-                if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
-                std::cout << "Requested preamp gain is: " << preampGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_ANALOGGAIN:    // set analog gain
-            {
-                if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
-                std::cout << "Requested analog gain is: " << analogGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_TARGET:    // set new solar target
-            solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
-            break;
-        case SKEY_START_OUTPUTTING:
-            {
-                isOutputting = true;
-            }
-            break;
-        case SKEY_STOP_OUTPUTTING:
-            {
-                isOutputting = false;
-            }
-            break;
-        default:
-            {
-                error_code = 0xffff;            // unknown command!
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+    case SKEY_REQUEST_IMAGE:
+    {
+        error_code = cmd_send_image_to_ground( 0 );
+        queue_cmd_proc_ack_tmpacket( error_code );
+    }
+    break;
+    case SKEY_SET_EXPOSURE:    // set exposure time
+    {
+        if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
+        std::cout << "Requested exposure time is: " << exposure << std::endl;
+        queue_cmd_proc_ack_tmpacket( error_code );
+    }
+    break;
+    case SKEY_SET_PREAMPGAIN:    // set preamp gain
+    {
+        if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
+        std::cout << "Requested preamp gain is: " << preampGain << std::endl;
+        queue_cmd_proc_ack_tmpacket( error_code );
+    }
+    break;
+    case SKEY_SET_ANALOGGAIN:    // set analog gain
+    {
+        if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
+        std::cout << "Requested analog gain is: " << analogGain << std::endl;
+        queue_cmd_proc_ack_tmpacket( error_code );
+    }
+    break;
+    case SKEY_SET_TARGET:    // set new solar target
+        solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
+        break;
+    case SKEY_START_OUTPUTTING:
+    {
+        isOutputting = true;
+    }
+    break;
+    case SKEY_STOP_OUTPUTTING:
+    {
+        isOutputting = false;
+    }
+    break;
+    default:
+    {
+        error_code = 0xffff;            // unknown command!
+        queue_cmd_proc_ack_tmpacket( error_code );
+    }
     }
 
     started[tid] = false;
@@ -1157,20 +1144,20 @@ void cmd_process_heroes_command(uint16_t heroes_command)
 {
     if ((heroes_command & 0xFF00) == 0x1000) {
         switch(heroes_command) {
-            case HKEY_CTL_START_TRACKING: // start tracking
-                isTracking = true;
-                acknowledgedCTL = false;
-                // need to send 0x1100 command packet
-                break;
-            case HKEY_CTL_STOP_TRACKING: // stop tracking
-                isTracking = false;
-                acknowledgedCTL = false;
-                // need to send 0x1101 command packet
-                break;
-            case HKEY_FDR_SAS_CMD: // SAS command, so do nothing here
-                break;
-            default:
-                printf("Unknown HEROES command\n");
+        case HKEY_CTL_START_TRACKING: // start tracking
+            isTracking = true;
+            acknowledgedCTL = false;
+            // need to send 0x1100 command packet
+            break;
+        case HKEY_CTL_STOP_TRACKING: // stop tracking
+            isTracking = false;
+            acknowledgedCTL = false;
+            // need to send 0x1101 command packet
+            break;
+        case HKEY_FDR_SAS_CMD: // SAS command, so do nothing here
+            break;
+        default:
+            printf("Unknown HEROES command\n");
         }
     } else printf("Not a HEROES-to-SAS command\n");
 }
@@ -1189,10 +1176,16 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
 
     stop_message[i] = 0;
 
-    int rc = pthread_create(&threads[i], NULL, routine, &thread_data[i]);
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    int rc = pthread_create(&threads[i], &attr, routine, &thread_data[i]);
     if (rc != 0) {
         printf("ERROR; return code from pthread_create() is %d\n", rc);
     } else started[i] = true;
+
+    pthread_attr_destroy(&attr);
 
     return;
 }
@@ -1207,35 +1200,35 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
 
         for(int i = 0; i < tdata.command_num_vars; i++){
             try {
-              command >> tdata.command_vars[i];
+                command >> tdata.command_vars[i];
             } catch (std::exception& e) {
-               std::cerr << e.what() << std::endl;
+                std::cerr << e.what() << std::endl;
             }
         }
 
         switch( sas_command & 0x0FFF){
-            case SKEY_OP_DUMMY:     // test, do nothing
-                queue_cmd_proc_ack_tmpacket( 1 );
-                break;
-            case SKEY_KILL_WORKERS:    // kill all worker threads
-                {
-                    kill_all_workers();
-                    queue_cmd_proc_ack_tmpacket( 1 );
-                }
-                break;
-            case SKEY_RESTART_THREADS:    // (re)start all worker threads
-                {
-                    kill_all_threads();
+        case SKEY_OP_DUMMY:     // test, do nothing
+            queue_cmd_proc_ack_tmpacket( 1 );
+            break;
+        case SKEY_KILL_WORKERS:    // kill all worker threads
+        {
+            kill_all_workers();
+            queue_cmd_proc_ack_tmpacket( 1 );
+        }
+        break;
+        case SKEY_RESTART_THREADS:    // (re)start all worker threads
+        {
+            kill_all_threads();
 
-                    start_thread(listenForCommandsThread, NULL);
-                    start_all_workers();
-                    queue_cmd_proc_ack_tmpacket( 1 );
-                }
-                break;
-            default:
-                {
-                    start_thread(commandHandlerThread, &tdata);
-                }
+            start_thread(listenForCommandsThread, NULL);
+            start_all_workers();
+            queue_cmd_proc_ack_tmpacket( 1 );
+        }
+        break;
+        default:
+        {
+            start_thread(commandHandlerThread, &tdata);
+        }
         } //switch
     } else printf("Not the intended SAS for this command\n");
 }
