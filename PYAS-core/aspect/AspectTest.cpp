@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
             
             cv::Mat list[] = {frame, frame, frame};
             cv::merge(list,3,image);
-            if(GeneralizeError(runResult) < CENTER_ERROR)
+/*            if(GeneralizeError(runResult) < CENTER_ERROR)
             {
                 rowRange = SafeRange(center.y-120, center.y+120, image.rows);
                 colRange = SafeRange(center.x-120, center.x+120, image.cols);
@@ -123,7 +123,8 @@ int main(int argc, char* argv[])
                 offset = cv::Point(colRange.start, rowRange.start);
             }
             else offset = cv::Point(0,0);
-
+*/
+            offset = cv::Point(0,0);
 
             //Generate summary image with accurate data products marked.
             switch(GeneralizeError(runResult))
@@ -151,6 +152,8 @@ int main(int argc, char* argv[])
             case FIDUCIAL_ERROR:
                 //std::cout << "AspectTest: Get Center" << std::endl;
                 DrawCross(image, center - offset, centerColor , 20, 1, 8);
+                cv::circle(image, (center - offset)*pow(2,8), error.x*pow(2,8), centerColor, 1, CV_AA, 8);
+                
                 //std::cout << "AspectTest: Get Error" << std::endl;
                 //std::cout << "AspectTest: Error:  " << error.x << " " << error.y << std::endl;
                 for (int k = 1; k < 2; k++)
@@ -161,6 +164,7 @@ int main(int argc, char* argv[])
                     if (circle[k].r() > 0)
                         cv::circle(image, (circle[k].center() - offset)*pow(2,8), circle[k].r()*pow(2,8), cv::Scalar(0,50+k*100,255), 1, CV_AA, 8);
                 }
+
 
             case CENTER_ERROR:
                 //std::cout << "AspectTest: Get Crossings" << std::endl;;
@@ -177,9 +181,11 @@ int main(int argc, char* argv[])
             //Print data to screen.
 
             if(GeneralizeError(runResult) < CENTER_ERROR)
-                std::cout << "Center: " << center << std::endl;
+
+                std::cout << "Center: " << center << " " << std::endl;
             else
-                std::cout << "Center: " << "[-1 -1]" << std::endl;
+                std::cout << "Center: " << "[ -1, -1 ]" << std::endl;
+
 /*
             if(GeneralizeError(runResult) < MAPPING_ERROR)
                 std::cout << "Center (screen): " << IDCenter << std::endl;
@@ -192,8 +198,8 @@ int main(int argc, char* argv[])
             
             cv::imshow("Solution", image);
             
-            
             cv::waitKey(1);
+
 
         }
     }

@@ -121,7 +121,7 @@ const char * GetMessage(const AspectCode& code)
         return "Generic error with pixel center";
         
     case CENTER_ERROR_LARGE:
-        return "Pixel centers have too large a variance";
+        return "Radius off by 10%";
         
     case CENTER_OUT_OF_BOUNDS:
         return "Pixel center is out of bounds";
@@ -163,13 +163,13 @@ Aspect::Aspect()
     initialNumChords = 30;
     chordsPerAxis = 10;
     chordThreshold = .25;
-    solarRadius = 105;
+    solarRadius = 98;
     limbWidth = 2;
     fiducialLength = 15;
     fiducialWidth = 2; 
     fiducialThreshold = 5;
     fiducialNeighborhood = 2;
-    numFiducials = 10;
+    numFiducials = 12;
 
     fiducialSpacing = 15.7;
     fiducialSpacingTol = 1.5;
@@ -301,12 +301,12 @@ AspectCode Aspect::Run()
             return state;
         }
 /*        else if (pixelError.x > 1.5*solarRadius || pixelError.x < .5*solarRadius|| 
-                 std::isnan(pixelError.x))
+          std::isnan(pixelError.x))
 */
-        else if (pixelError.x > 50 || pixelError.y > 50 || 
+        else if (pixelError.x > solarRadius*1.5 || pixelError.x < solarRadius*.5 || 
                  std::isnan(pixelError.x) || std::isnan(pixelError.y))
         {
-            //std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
+            //std::cout << "Aspect: Radius off from expected by 10%" << pixelError << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
             state = CENTER_ERROR_LARGE;
             return state;
@@ -314,8 +314,8 @@ AspectCode Aspect::Run()
         
         //Find solar subImage
         //std::cout << "Aspect: Finding solar subimage" << std::endl;
-        rowRange = SafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
-        colRange = SafeRange(pixelCenter.x-solarRadius, pixelCenter.x+solarRadius, frameSize.width);
+        rowRange = SafeRange(pixelCenter.y-solarRadius*1.2, pixelCenter.y+solarRadius*1.2, frameSize.height);
+        colRange = SafeRange(pixelCenter.x-solarRadius*1.2, pixelCenter.x+solarRadius*1.2, frameSize.width);
         solarImage = frame(rowRange, colRange);
         if (solarImage.empty())
         {
@@ -729,9 +729,9 @@ void Aspect::FindPixelCenter()
 {
     std::vector<int> rows, cols;
     std::vector<float> crossings, midpoints;
-    int rowStart, colStart, rowStep, colStep, limit, K, M;
+    int rowStart, colStart, rowStep, colStep, limit, K;
     cv::Range rowRange, colRange;
-    float mean, std;
+    Circle sun;
 
     rows.clear();
     cols.clear();
@@ -793,7 +793,6 @@ void Aspect::FindPixelCenter()
         if (dim) K =  rows.size();
         else K =  cols.size();
 
-        //Find the midpoints of the chords.
         //For each chord
         midpoints.clear();
         for (int k = 0; k < K; k++)
@@ -813,40 +812,16 @@ void Aspect::FindPixelCenter()
                     if (dim) limbCrossings.add(crossings[l], rows[k]);
                     else limbCrossings.add(cols[k], crossings[l]);
                 }
-                //Compute and store the midpoint
-                midpoints.push_back((crossings[0] + crossings[1])/2);
             }
         }
-
-        //Determine the mean of the midpoints for this dimension
-        mean = 0;
-        M =  midpoints.size();
-        for (int m = 0; m < M; m++)
-            mean += midpoints[m];
-        mean = (float)mean/M;
-        
-        //Determine the std dev of the midpoints
-        std = 0;
-        for (int m = 0; m < M; m++)
-        {
-            std += pow(midpoints[m]-mean,2);
-        }
-        std = sqrt(std/M);
-
-        //Store the Center and RMS Error for this dimension
-        //std::cout << "Aspect: Setting Center and Error for this dimension." << std::endl;
-        if (dim)
-        {
-            pixelCenter.x = mean;
-            pixelError.x = std;
-        }
-        else
-        {
-            pixelCenter.y = mean;
-            pixelError.y = std;
-        }       
     }
-    //std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
+    if (limbCrossings.size() > 4)
+    {
+        CoopeCircleFit(limbCrossings, sun, solarRadius);
+        pixelCenter = sun.center();
+        pixelError = cv::Point2f(sun.r(), sun.r());
+    }
+    return;
 }
 
 void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
@@ -1072,7 +1047,7 @@ void Aspect::FindFiducialIDs()
         {
             fiducialIDs[k].x = modes[0];
         }
-       else
+        else
         {
             fiducialIDs[k].x = -100;
         }
@@ -1336,35 +1311,42 @@ void BullockCircleFit(const CoordList& inPoints, Circle& fit)
 
     cv::solve((A.t()*A), (A.t()*B), X, cv::DECOMP_CHOLESKY);
     
-
     center.x = X.at<float>(0);
     center.y = X.at<float>(1);
     radius = sqrt(pow(center.x,2) + pow(center.y,2) + (Sxx + Syy)/(float) points.size());
     center = center + offset;
-    //Adjust for bias from unbalanced points
+
+//UNTESTED
+/*
+  
+//Adjust for bias from unbalanced points
+fit[0] = center.x;
+fit[1] = center.y;
+fit[2] = radius;
     
-    do
-    {
-        biasVectors.clear();
-        for (unsigned int k = 0; k < inPoints.size(); k++)
-        {
-            biasVector = center - inPoints[k];
-            bias = Euclidian(biasVector);
-            biasVectors.push_back((1-radius/bias)*biasVector);
-            
-        }
-        center = center - Mean(biasVectors);
-        bias = Euclidian(Mean(biasVectors));
-        std::cout << "Bias was: " << bias << std::endl;
-    } while(bias > 1);
+do
+{
+VectorToCircle(fit, inPoints, biasVectors);
+center = center - Mean(biasVectors);
+bias = Euclidian(Mean(biasVectors));
+std::cout << "Bias was: " << bias << std::endl;
+} while(bias > 1);
+*/
+
         
     fit[0] = center.x;
     fit[1] = center.y;
     fit[2] = radius;
+
     return;
 }
 
 void CoopeCircleFit(const CoordList& points, Circle& fit)
+{
+    return CoopeCircleFit(points, fit, 0);
+}
+
+void CoopeCircleFit(const CoordList& points, Circle& fit, int targetRadius)
 {
     cv::Mat B, D, Y;
     float x, y;
@@ -1372,6 +1354,7 @@ void CoopeCircleFit(const CoordList& points, Circle& fit)
     cv::Point2f center;
     float radius, MSE;
     std::vector<float> residual, CookDistance;
+    Circle targetCircle;
     CoordList CookPoints;
     cv::Mat H;
 
@@ -1396,17 +1379,28 @@ void CoopeCircleFit(const CoordList& points, Circle& fit)
     center.y = Y.at<float>(1)/2;
     radius = sqrt(Y.at<float>(2) + pow(center.x,2) + pow(center.y,2));
 
+    fit[0] = center.x;
+    fit[1] = center.y;
+    fit[2] = radius;
+
+    targetCircle[0] = center.x;
+    targetCircle[1] = center.y;
+    targetCircle[2] = targetRadius;
+
     H = B*((B.t()*B).inv())*B.t();
     for (unsigned int k = 0; k < points.size(); k++)
     {
-        residual.push_back(pow(Euclidian(points[k] - center),2));
+
+        residual.push_back(pow(Euclidian(VectorToCircle(fit, points[k])),2));
         CookDistance[k] = residual[k] * H.at<float>(k,k) / 
             pow(1 - H.at<float>(k,k), 2);
     }
     MSE = Mean(residual); 
     CookPoints = points;
+//    std::cout << "MSE: " << MSE << std::endl;
     for (unsigned int k = 0; k < CookPoints.size(); k++)
     {
+//        std::cout << CookDistance[k] << " ";
         if (CookDistance[k] > MSE)
         {
             CookDistance.erase(CookDistance.begin() + k);
@@ -1414,26 +1408,32 @@ void CoopeCircleFit(const CoordList& points, Circle& fit)
             k--;
         }
     }
+//    std::cout << std::endl;
 
     if (CookPoints.size() < points.size() && CookPoints.size() > 4)
     {
-        std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
+//        std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
         CoopeCircleFit(CookPoints, fit);
     }
 
-    if (CookPoints.size() <= 4)
-    {
-        fit[0] = -1;
-        fit[1] = -1;
-        fit[2] = -1;
-    }
-    else
-    {
-        fit[0] = center.x;
-        fit[1] = center.y;
-        fit[2] = radius;
-    }
     return;
+}
+
+cv::Point2f VectorToCircle(Circle circle, cv::Point2f point)
+{
+    cv::Point2f biasVector;
+    float bias;
+
+    biasVector = circle.center() - point;
+    bias = Euclidian(biasVector);
+    return (1-circle.r()/bias)*biasVector;    
+}
+
+void VectorToCircle(Circle circle, const CoordList& points, CoordList& vectors)
+{
+    vectors.clear();
+    for (unsigned int k = 0; k < points.size(); k++)
+        vectors.push_back(VectorToCircle(circle, points[k]));
 }
 
 cv::Point2f Mean(const CoordList& points)

@@ -69,12 +69,12 @@ int main(int argc, char* argv[])
                 }
             }
                     
-            
-            aspect.LoadFrame(frame);
+             
+//            aspect.LoadFrame(frame);
         
             cv::Mat list[] = {frame, frame, frame};
             cv::merge(list,3,image);
-
+/*
             //std::cout << "AspectTest: Load Frame" << std::endl;
             aspect.LoadFrame(frame);
 
@@ -149,11 +149,11 @@ int main(int argc, char* argv[])
             default:
                 break;
             }
-           
+*/         
             
             cv::putText(image, filename, cv::Point(0,(frame.size()).height-20), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
-            message = GetMessage(runResult);
-            cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
+//            message = GetMessage(runResult);
+//            cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             if (!videoReady)
             {
                 summary.open(argv[2], CV_FOURCC('F','F','V','1'), 10, frame.size(), true);
