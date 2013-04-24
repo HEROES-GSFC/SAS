@@ -174,7 +174,7 @@ int main(int argc, char* argv[])
             if(GeneralizeError(runResult) < CENTER_ERROR)
                 std::cout << "Center: " << center << " " << std::endl;
             else
-                std::cout << "Center: " << "[ -1 -1 ]" << std::endl;
+                std::cout << "Center: " << "[ -1, -1 ]" << std::endl;
 /*
             if(GeneralizeError(runResult) < MAPPING_ERROR)
                 std::cout << "Center (screen): " << IDCenter << std::endl;
@@ -188,7 +188,7 @@ int main(int argc, char* argv[])
             cv::imshow("Solution", image);
             
             
-            cv::waitKey(0);
+            cv::waitKey(01);
 
         }
     }
