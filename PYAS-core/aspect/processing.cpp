@@ -121,7 +121,7 @@ const char * GetMessage(const AspectCode& code)
         return "Generic error with pixel center";
         
     case CENTER_ERROR_LARGE:
-        return "Pixel centers have too large a variance";
+        return "Radius off by 10%";
         
     case CENTER_OUT_OF_BOUNDS:
         return "Pixel center is out of bounds";
@@ -160,16 +160,16 @@ Aspect::Aspect()
     frameMin = 255;
     frameMax = 0;
     
-    initialNumChords = 20;
-    chordsPerAxis = 5;
+    initialNumChords = 30;
+    chordsPerAxis = 10;
     chordThreshold = .25;
-    solarRadius = 105;
+    solarRadius = 98;
     limbWidth = 2;
     fiducialLength = 15;
     fiducialWidth = 2; 
     fiducialThreshold = 5;
     fiducialNeighborhood = 2;
-    numFiducials = 10;
+    numFiducials = 12;
 
     fiducialSpacing = 15.7;
     fiducialSpacingTol = 1.5;
@@ -205,7 +205,7 @@ Aspect::~Aspect()
 
 AspectCode Aspect::LoadFrame(cv::Mat inputFrame)
 {
-    frameProcessed = false;
+
     //std::cout << "Aspect: Loading Frame" << std::endl;
     if(inputFrame.empty())
     {
@@ -227,7 +227,6 @@ AspectCode Aspect::LoadFrame(cv::Mat inputFrame)
             inputFrame.copyTo(frame);
             frameSize = frame.size();
 
-            frameValid = true;
             state = NO_ERROR;
             return state;
         }
@@ -281,12 +280,14 @@ AspectCode Aspect::Run()
         {
             //std::cout << "Aspect: No Limb Crossings." << std::endl;
             state = NO_LIMB_CROSSINGS;
+            pixelCenter = cv::Point2f(-1,-1);
             return state;
         }
         else if (limbCrossings.size() < 4)
         {
             //std::cout << "Aspect: Too Few Limb Crossings." << std::endl;
             state = FEW_LIMB_CROSSINGS;
+            pixelCenter = cv::Point2f(-1,-1);
             return state;
         }
 
@@ -299,10 +300,13 @@ AspectCode Aspect::Run()
             state = CENTER_OUT_OF_BOUNDS;
             return state;
         }
-        else if (pixelError.x > 50 || pixelError.y > 50 ||
+/*        else if (pixelError.x > 1.5*solarRadius || pixelError.x < .5*solarRadius|| 
+          std::isnan(pixelError.x))
+*/
+        else if (pixelError.x > solarRadius*1.5 || pixelError.x < solarRadius*.5 || 
                  std::isnan(pixelError.x) || std::isnan(pixelError.y))
         {
-            //std::cout << "Aspect: Center Error greater than 50 pixels: " << pixelError << std::endl;
+            //std::cout << "Aspect: Radius off from expected by 10%" << pixelError << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
             state = CENTER_ERROR_LARGE;
             return state;
@@ -310,8 +314,8 @@ AspectCode Aspect::Run()
         
         //Find solar subImage
         //std::cout << "Aspect: Finding solar subimage" << std::endl;
-        rowRange = SafeRange(pixelCenter.y-solarRadius, pixelCenter.y+solarRadius, frameSize.height);
-        colRange = SafeRange(pixelCenter.x-solarRadius, pixelCenter.x+solarRadius, frameSize.width);
+        rowRange = SafeRange(pixelCenter.y-solarRadius*1.2, pixelCenter.y+solarRadius*1.2, frameSize.height);
+        colRange = SafeRange(pixelCenter.x-solarRadius*1.2, pixelCenter.x+solarRadius*1.2, frameSize.width);
         solarImage = frame(rowRange, colRange);
         if (solarImage.empty())
         {
@@ -725,9 +729,9 @@ void Aspect::FindPixelCenter()
 {
     std::vector<int> rows, cols;
     std::vector<float> crossings, midpoints;
-    int rowStart, colStart, rowStep, colStep, limit, K, M;
+    int rowStart, colStart, rowStep, colStep, limit, K;
     cv::Range rowRange, colRange;
-    float mean, std;
+    Circle sun;
 
     rows.clear();
     cols.clear();
@@ -789,7 +793,6 @@ void Aspect::FindPixelCenter()
         if (dim) K =  rows.size();
         else K =  cols.size();
 
-        //Find the midpoints of the chords.
         //For each chord
         midpoints.clear();
         for (int k = 0; k < K; k++)
@@ -809,40 +812,16 @@ void Aspect::FindPixelCenter()
                     if (dim) limbCrossings.add(crossings[l], rows[k]);
                     else limbCrossings.add(cols[k], crossings[l]);
                 }
-                //Compute and store the midpoint
-                midpoints.push_back((crossings[0] + crossings[1])/2);
             }
         }
-
-        //Determine the mean of the midpoints for this dimension
-        mean = 0;
-        M =  midpoints.size();
-        for (int m = 0; m < M; m++)
-            mean += midpoints[m];
-        mean = (float)mean/M;
-        
-        //Determine the std dev of the midpoints
-        std = 0;
-        for (int m = 0; m < M; m++)
-        {
-            std += pow(midpoints[m]-mean,2);
-        }
-        std = sqrt(std/M);
-
-        //Store the Center and RMS Error for this dimension
-        //std::cout << "Aspect: Setting Center and Error for this dimension." << std::endl;
-        if (dim)
-        {
-            pixelCenter.x = mean;
-            pixelError.x = std;
-        }
-        else
-        {
-            pixelCenter.y = mean;
-            pixelError.y = std;
-        }       
     }
-    //std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
+    if (limbCrossings.size() > 4)
+    {
+        CoopeCircleFit(limbCrossings, sun, solarRadius);
+        pixelCenter = sun.center();
+        pixelError = cv::Point2f(sun.r(), sun.r());
+    }
+    return;
 }
 
 void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
@@ -966,13 +945,16 @@ void Aspect::FindFiducialIDs()
     float rowDiff, colDiff;
     IndexList rowPairs, colPairs;
     CoordList trash;
+    
     K = pixelFiducials.size();
     fiducialIDs.clear();
-    fiducialIDs.resize(K, cv::Point2i(-100,-100));
+    fiducialIDs.resize(K);
+    
+    std::vector<std::vector<int> > rowVotes, colVotes;
+    rowVotes.resize(K); colVotes.resize(K);
+    
+    std::vector<int> modes;
 
-
-    rowPairs.clear();
-    colPairs.clear();
     //Find fiducial pairs that are spaced correctly
     //std::cout << "Aspect: Find valid fiducial pairs" << std::endl;
     //std::cout << "Aspect: Searching through " << K << " Fiducials" << std::endl;
@@ -1004,13 +986,13 @@ void Aspect::FindFiducialIDs()
             {
                 if (rowDiff > 0) 
                 {
-                    fiducialIDs[rowPairs[k].x].y = d-7;
-                    fiducialIDs[rowPairs[k].y].y = d+1-7;
+                    rowVotes[rowPairs[k].x].push_back(d-7);
+                    rowVotes[rowPairs[k].y].push_back(d+1-7);
                 }
                 else
                 {
-                    fiducialIDs[rowPairs[k].x].y = d+1-7;
-                    fiducialIDs[rowPairs[k].y].y = d-7;
+                    rowVotes[rowPairs[k].x].push_back(d+1-7);
+                    rowVotes[rowPairs[k].y].push_back(d-7);
                 }
             }
         }
@@ -1027,18 +1009,141 @@ void Aspect::FindFiducialIDs()
             {
                 if (colDiff > 0) 
                 {
-                    fiducialIDs[colPairs[k].x].x = d-7;
-                    fiducialIDs[colPairs[k].y].x = d+1-7;
+                    colVotes[colPairs[k].x].push_back(d-7);
+                    colVotes[colPairs[k].y].push_back(d+1-7);
                 }
                 else
                 {
-                    fiducialIDs[colPairs[k].x].x = d+1-7;
-                    fiducialIDs[colPairs[k].y].x = d-7;
+                    colVotes[colPairs[k].x].push_back(d+1-7);
+                    colVotes[colPairs[k].y].push_back(d-7);
                 }
             }
         }
     }
-    fiducialIDsValid = true;
+    
+    // Accumulate results of first pass
+    for (k = 0; k < K; k++)
+    {
+        modes = Mode(rowVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].y = -200;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].y = modes[0];
+        }
+        else
+        {
+            fiducialIDs[k].y = -100;
+        }
+
+        modes = Mode(colVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].x = -200;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].x = modes[0];
+        }
+        else
+        {
+            fiducialIDs[k].x = -100;
+        }
+    }
+
+    // Start second pass
+    rowVotes.clear(); rowVotes.resize(K);
+    colVotes.clear(); colVotes.resize(K);
+    //std::cout << "Aspect: Compute intra-pair distances for row pairs." << std::endl;
+    for (k = 0; k <  rowPairs.size(); k++)
+    {
+        rowDiff = pixelFiducials[rowPairs[k].y].y 
+            - pixelFiducials[rowPairs[k].x].y;
+
+        //If part of a row pair has an unidentified column index, it should match its partner
+        if (fiducialIDs[rowPairs[k].x].x == -100 && fiducialIDs[rowPairs[k].y].x != -100)
+        {
+            colVotes[rowPairs[k].x].push_back(fiducialIDs[rowPairs[k].y].x);
+        }
+        else if (fiducialIDs[rowPairs[k].x].x != -100 && fiducialIDs[rowPairs[k].y].x == -100)
+        {
+            colVotes[rowPairs[k].y].push_back(fiducialIDs[rowPairs[k].x].x);
+        }
+    
+        //If part of a row pair has an unidentified row index, it should be incremented from its partner
+        if (fiducialIDs[rowPairs[k].x].y == -100 && fiducialIDs[rowPairs[k].y].y != -100)
+        {
+            if (rowDiff >= 0)
+                rowVotes[rowPairs[k].x].push_back(fiducialIDs[rowPairs[k].y].y - 1);
+            else 
+                rowVotes[rowPairs[k].x].push_back(fiducialIDs[rowPairs[k].y].y + 1);
+        }
+        else if (fiducialIDs[rowPairs[k].x].y != -100 && fiducialIDs[rowPairs[k].y].y == -100)
+        {
+            if (rowDiff >= 0)
+                rowVotes[rowPairs[k].y].push_back(fiducialIDs[rowPairs[k].x].y + 1);
+            else 
+                rowVotes[rowPairs[k].y].push_back(fiducialIDs[rowPairs[k].x].y - 1);
+        }
+    }
+
+    for (k = 0; k <  colPairs.size(); k++)
+    {
+        colDiff = pixelFiducials[colPairs[k].x].x 
+            - pixelFiducials[colPairs[k].y].x;
+
+        //For columns, pairs should match in row
+        if (fiducialIDs[colPairs[k].x].y == -100 && fiducialIDs[colPairs[k].y].y != -100)
+        {
+            rowVotes[colPairs[k].x].push_back(fiducialIDs[colPairs[k].y].y);
+        }
+        else if (fiducialIDs[colPairs[k].x].y != -100 && fiducialIDs[colPairs[k].y].y == -100)
+        {
+            rowVotes[colPairs[k].y].push_back(fiducialIDs[colPairs[k].x].y);
+        }
+
+        //For columns, pairs should increment in column.
+        if (fiducialIDs[colPairs[k].x].x == -100 && fiducialIDs[colPairs[k].y].x != -100)
+        {
+            if (colDiff >= 0)
+                colVotes[colPairs[k].x].push_back(fiducialIDs[colPairs[k].y].x - 1);
+            else 
+                colVotes[colPairs[k].x].push_back(fiducialIDs[colPairs[k].y].x + 1);
+        }
+        else if (fiducialIDs[colPairs[k].x].x != -100 && fiducialIDs[colPairs[k].y].x == -100)
+        {
+            if (colDiff >= 0)
+                colVotes[colPairs[k].y].push_back(fiducialIDs[colPairs[k].x].x + 1);
+            else 
+                colVotes[colPairs[k].y].push_back(fiducialIDs[colPairs[k].x].x - 1);
+        }
+    }
+    
+    //Vote on second pass
+    for (k = 0; k < K; k++)
+    {
+        modes = Mode(rowVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].y = -200;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].y = modes[0];
+        }
+
+        modes = Mode(colVotes[k]);
+        if (modes.size() > 1)
+        {
+            fiducialIDs[k].x = -200;
+        }
+        else if (modes.size() == 1)
+        {
+            fiducialIDs[k].x = modes[0];
+        }
+    }
 }       
 
 void Aspect::FindMapping()
@@ -1072,7 +1177,6 @@ void Aspect::FindMapping()
         mapping[2*dim + 0] = fit[0];
         mapping[2*dim + 1] = fit[1];
     }
-    mappingValid = true;
 }
 
 cv::Point2f Aspect::PixelToScreen(cv::Point2f pixelPoint)
@@ -1139,6 +1243,240 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
     fit[1] = X.at<float>(0); //slope
 }
 
+void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int method, Circle& fit)
+{
+    if (x.size() != y.size())
+    {
+        std::cout << "CircleFit: Vector lengths don't match." << std::endl;
+        return;
+    }
+    CoordList points;
+    for (unsigned int k = 0; k < x.size(); k++)
+        points.add(x[k], y[k]);
+    return CircleFit(points, method, fit);
+}
+
+void CircleFit(const CoordList& points, int method, Circle& fit)
+{
+    switch(method)
+    {
+    case 0:
+        return BullockCircleFit(points, fit);
+    case 1:
+        return CoopeCircleFit(points, fit);
+    default:
+        std::cout << "Unrecognized circle fitting method" << std::endl;
+        return;
+    }
+}
+
+void BullockCircleFit(const CoordList& inPoints, Circle& fit)
+{
+    CoordList points;
+    cv::Point2f offset = Mean(inPoints);
+    for (unsigned int k = 0; k < inPoints.size(); k++)
+        points.push_back((inPoints[k] - offset));
+
+    float Sxx, Sxy, Syy, Sxxx, Sxxy, Sxyy, Syyy;
+    float xx, xy, yy;
+    cv::Mat A, B, X;
+    cv::Point2f center;
+    float radius;
+
+    CoordList biasVectors;
+    cv::Point biasVector;
+    float bias;
+    
+    Sxx = Sxy = Syy = Sxxx = Sxxy = Sxyy = Syyy = 0;
+    
+    for (unsigned int k = 0; k < points.size(); k++)
+    {
+        xx = std::pow(points[k].x,2);
+        xy = points[k].x*points[k].y;
+        yy = std::pow(points[k].y,2);
+        
+        Sxx += xx;
+        Sxy += xy;
+        Syy += yy;
+
+        Sxxx += xx*points[k].x;
+        Sxxy += xx*points[k].y;
+        Sxyy += yy*points[k].x;
+        Syyy += yy*points[k].y;
+    }
+    float a[2][2] = {{Sxx, Sxy}, {Sxy, Syy}};
+    float b[2][1] = {{-(Sxxx + Sxyy)/2}, {-(Sxxy + Syyy)/2}};
+    A = cv::Mat(2, 2, CV_32F, a);
+    B = cv::Mat(2, 1, CV_32F, b);
+
+    cv::solve((A.t()*A), (A.t()*B), X, cv::DECOMP_CHOLESKY);
+    
+    center.x = X.at<float>(0);
+    center.y = X.at<float>(1);
+    radius = sqrt(pow(center.x,2) + pow(center.y,2) + (Sxx + Syy)/(float) points.size());
+    center = center + offset;
+
+//UNTESTED
+/*
+  
+//Adjust for bias from unbalanced points
+fit[0] = center.x;
+fit[1] = center.y;
+fit[2] = radius;
+    
+do
+{
+VectorToCircle(fit, inPoints, biasVectors);
+center = center - Mean(biasVectors);
+bias = Euclidian(Mean(biasVectors));
+std::cout << "Bias was: " << bias << std::endl;
+} while(bias > 1);
+*/
+
+        
+    fit[0] = center.x;
+    fit[1] = center.y;
+    fit[2] = radius;
+
+    return;
+}
+
+void CoopeCircleFit(const CoordList& points, Circle& fit)
+{
+    return CoopeCircleFit(points, fit, 0);
+}
+
+void CoopeCircleFit(const CoordList& points, Circle& fit, int targetRadius)
+{
+    cv::Mat B, D, Y;
+    float x, y;
+
+    cv::Point2f center;
+    float radius, MSE;
+    std::vector<float> residual, CookDistance;
+    Circle targetCircle;
+    CoordList CookPoints;
+    cv::Mat H;
+
+    B = cv::Mat(points.size(), 3, CV_32F);
+    D = cv::Mat(points.size(), 1, CV_32F);
+    Y = cv::Mat(3,1, CV_32F);
+    H = cv::Mat(points.size(), points.size(), CV_32F);
+    CookDistance = cv::Mat(points.size(), 1, CV_32F);
+
+    for (unsigned int k = 0; k < points.size(); k++)
+    {
+        x = points[k].x;
+        y = points[k].y;
+        B.at<float>(k,0) = x;
+        B.at<float>(k,1) = y;
+        B.at<float>(k,2) = 1;
+        D.at<float>(k) = pow(x,2) + pow(y,2);
+    }
+    
+    cv::solve((B.t()*B), (B.t()*D), Y, cv::DECOMP_CHOLESKY);
+    center.x = Y.at<float>(0)/2;
+    center.y = Y.at<float>(1)/2;
+    radius = sqrt(Y.at<float>(2) + pow(center.x,2) + pow(center.y,2));
+
+    fit[0] = center.x;
+    fit[1] = center.y;
+    fit[2] = radius;
+
+    targetCircle[0] = center.x;
+    targetCircle[1] = center.y;
+    targetCircle[2] = targetRadius;
+
+    H = B*((B.t()*B).inv())*B.t();
+    for (unsigned int k = 0; k < points.size(); k++)
+    {
+
+        residual.push_back(pow(Euclidian(VectorToCircle(fit, points[k])),2));
+        CookDistance[k] = residual[k] * H.at<float>(k,k) / 
+            pow(1 - H.at<float>(k,k), 2);
+    }
+    MSE = Mean(residual); 
+    CookPoints = points;
+//    std::cout << "MSE: " << MSE << std::endl;
+    for (unsigned int k = 0; k < CookPoints.size(); k++)
+    {
+//        std::cout << CookDistance[k] << " ";
+        if (CookDistance[k] > MSE)
+        {
+            CookDistance.erase(CookDistance.begin() + k);
+            CookPoints.erase(CookPoints.begin() + k);
+            k--;
+        }
+    }
+//    std::cout << std::endl;
+
+    if (CookPoints.size() < points.size() && CookPoints.size() > 4)
+    {
+//        std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
+        CoopeCircleFit(CookPoints, fit);
+    }
+
+    return;
+}
+
+cv::Point2f VectorToCircle(Circle circle, cv::Point2f point)
+{
+    cv::Point2f biasVector;
+    float bias;
+
+    biasVector = circle.center() - point;
+    bias = Euclidian(biasVector);
+    return (1-circle.r()/bias)*biasVector;    
+}
+
+void VectorToCircle(Circle circle, const CoordList& points, CoordList& vectors)
+{
+    vectors.clear();
+    for (unsigned int k = 0; k < points.size(); k++)
+        vectors.push_back(VectorToCircle(circle, points[k]));
+}
+
+cv::Point2f Mean(const CoordList& points)
+{
+    std::vector<float> x, y;
+    for (unsigned int k = 0; k < points.size(); k++)
+    {
+        x.push_back(points[k].x);
+        y.push_back(points[k].y);
+    }
+    return cv::Point2f(Mean(x), Mean(y));
+}
+
+float Mean(const std::vector<float>& d)
+{
+    float average = 0;
+    for (unsigned int k = 0; k < d.size(); k++)
+    {
+        average += d[k];
+    }
+    return average/d.size();
+}
+
+std::vector<float> Euclidian(CoordList& vectors)
+{
+    std::vector<float> lengths;
+    for (unsigned int k = 0; k < vectors.size(); k++)
+    {
+        lengths.push_back(Euclidian(vectors[k]));
+    }
+    return lengths;
+}
+
+float Euclidian(cv::Point2f d)
+{
+    return sqrt(pow(d.x, 2) + pow(d.y, 2));
+}
+
+float Euclidian(cv::Point2f p1, cv::Point2f p2)
+{
+    return Euclidian(p1-p2);
+}
+
 void matchKernel(cv::OutputArray _kernel)
 {
     cv::Mat temp;
@@ -1168,4 +1506,29 @@ void matchKernel(cv::OutputArray _kernel)
             }
         }       
     }
+}
+
+template <class T>
+std::vector<T> Mode(std::vector<T> data)
+{
+    std::map<T,unsigned> frequencyCount;
+    for(size_t i = 0; i < data.size(); ++i)
+        frequencyCount[data[i]]++;
+
+    unsigned currentMax = 0;
+    std::vector<T> mode;
+    for(auto it = frequencyCount.cbegin(); it != frequencyCount.cend(); ++it )
+    {
+        if (it->second > currentMax)
+        {
+            mode.clear();
+            mode.push_back(it->first);
+            currentMax = it->second;
+        }
+        else if (it->second == currentMax)
+        {
+            mode.push_back(it->first);
+        }
+    }
+    return mode;
 }

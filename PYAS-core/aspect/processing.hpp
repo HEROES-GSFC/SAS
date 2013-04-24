@@ -16,6 +16,34 @@ public:
     void add(int x, int y) { this->push_back(cv::Point(x, y)); }
 };
 
+class Circle : public cv::Vec3f
+{
+public:
+    Circle() : cv::Vec3f(){};
+    Circle(cv::Point2f c, float r) : cv::Vec3f(c.x,c.y,r){};
+    Circle(float x, float y, float r) : cv::Vec3f(x,y,r){};
+
+    cv::Point2f center() {return cv::Point2f(cv::Vec3f::operator[](0), 
+                                             cv::Vec3f::operator[](1)); }
+    float x() {return cv::Vec3f::operator[](0); }
+    float y() {return cv::Vec3f::operator[](1); }
+    float r() {return cv::Vec3f::operator[](2); }
+    
+    
+    void center(cv::Point2f c) {cv::Vec3f::operator[](0) = c.x;
+        cv::Vec3f::operator[](1) = c.y; }
+    void x(float x) {cv::Vec3f::operator[](0) = x; }
+    void y(float y) {cv::Vec3f::operator[](1) = y; }
+    void r(float r) {cv::Vec3f::operator[](2) = r; }
+};
+
+class CircleList : public std::vector<Circle>
+{
+public:
+    void add(float x, float y, float r) {this->push_back(Circle(x, y, r)); }
+    void add(cv::Point2f c, float r) {this->push_back(Circle(c.x, c.y, r)); }
+};
+
 enum IntParameter
 {
     NUM_CHORDS_SEARCHING = 0,
@@ -131,40 +159,49 @@ private:
     
 //    void LoadKernel();
 
-    bool frameValid;
     cv::Mat frame;
     cv::Size frameSize;
 
-    bool minMaxValid;
     unsigned char frameMax, frameMin;
 
     cv::Mat kernel;
     cv::Size kernelSize;
 
-    bool crossingsValid;
     CoordList limbCrossings;
 
-    bool centerValid;
     cv::Point2f pixelCenter;
     cv::Point2f pixelError;
     
-    bool fiducialsValid;
     CoordList pixelFiducials;
 
-    bool fiducialIDsValid;
     IndexList fiducialIDs;
 
-    bool mappingValid;
     std::vector<float> conditionNumbers;
     std::vector<float> mapping;
-
-    bool frameProcessed;
 
     std::list<float> slopes;
 };
 
 
-cv::Range SafeRange(int start, int stop, int size);
-void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
 int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
 void matchKernel(cv::OutputArray);
+
+cv::Range SafeRange(int start, int stop, int size);
+
+void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
+
+void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int method, Circle &fit);
+void CircleFit(const CoordList &points, int method, Circle &fit);
+void BullockCircleFit(const CoordList &points, Circle &fit);
+void CoopeCircleFit(const CoordList &points, Circle &fit, int targetRadius);
+void CoopeCircleFit(const CoordList &points, Circle &fit);
+
+cv::Point2f VectorToCircle(Circle circle, cv::Point2f point);
+void VectorToCircle(Circle circle, CoordList points, CoordList vectors); 
+
+cv::Point2f Mean(const CoordList &points);
+float Mean(const std::vector<float> &d);
+std::vector<float> Euclidian(CoordList& vectors);
+float Euclidian(cv::Point2f d);
+float Euclidian(cv::Point2f p1, cv::Point2f p2);
+template <class T> std::vector<T> Mode(std::vector<T> data);

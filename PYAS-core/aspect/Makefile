@@ -11,8 +11,6 @@ OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/include/CCfits/
 INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR)
 
-#removed to compile on Mac -schriste
-#CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas -lrt
 CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CFLAGS += -std=gnu++0x
@@ -29,6 +27,9 @@ IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
 CCFITS = -lCCfits
+ifeq "$(GCC_VERSION_GE_43)" "1"
+    CCFITS += -lrt
+endif
 
 EXEC = sunDemo fullDemo packetDemo commandingDemo networkDemo test_command test_sender AspectTest sbc_info
 
@@ -37,14 +38,14 @@ default: sunDemo sbc_info
 all: $(EXEC)
 
 fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS) -pg
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS)
 
 packetDemo: packetDemo.cpp ImperxStream.o utilities.o
 	$(CC) $(CFLAGS) $^ -o $@ $(IMPERX)
 
 CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
-	
+
 CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
@@ -55,6 +56,9 @@ networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) -pg
 
 sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
+
+streamTest: streamTest.cpp processing.o utilities.o ImperxStream.o compression.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
 tcpDemo: tcpDemo.cpp TCPReceiver.o Packet.o lib_crc.o TCPSender.o

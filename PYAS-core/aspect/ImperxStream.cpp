@@ -225,7 +225,11 @@ int ImperxStream::Snap(cv::Mat &frame)
 {
     return Snap(frame, 1000);
 }
-
+int ImperxStream::Snap(cv::Mat &frame, timespec timeout)
+{
+    int timeout_int = (int) (timeout.tv_sec*1000L + timeout.tv_nsec/1000000L);
+    return Snap(frame, timeout_int);
+}
 int ImperxStream::Snap(cv::Mat &frame, int timeout)
 {
 //  std::cout << "ImperxStream::Snap starting" << std::endl;

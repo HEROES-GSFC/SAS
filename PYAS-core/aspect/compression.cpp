@@ -40,12 +40,12 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
 
     cv::Mat image = _image.getMat();
     cv::Size size = image.size();
-    std::string timeKey;
+    std::string NTPTimeKey, MonoTimeKey;
     if (size.width == 0 || size.height == 0)
     {
         std::cout << "Image dimension is 0. Not saving." << std::endl;
         return -1;
-    }    
+                      }    
     // declare auto-pointer to FITS at function scope. Ensures no resources
     // leaked if something fails in dynamic allocation.
     std::auto_ptr<FITS> pFits(0);
@@ -83,8 +83,10 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     std::valarray<unsigned char> array(image.data, nelements);
 
     long  fpixel(1);
-    
-    timeKey = asctime(gmtime(&(keys.captureTime).tv_sec));
+
+    NTPTimeKey = asctime(gmtime(&(keys.captureTimeNTP).tv_sec));
+    MonoTimeKey  = asctime(gmtime(&(keys.captureTimeMono).tv_sec));
+
     //add keys to the primary header
     pFits->pHDU().addKey("TELESCOP",std::string("HEROES/SAS"),"Name of source telescope package");
 //    pFits->pHDU().addKey("SIMPLE",(int)1,"always T for True, if conforming FITS file");
@@ -129,16 +131,19 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("CRPIX2", (double)keys.sunCenter[1]+1, "Reference pixel");
     
     pFits->pHDU().addKey("EXPTIME", (float)keys.exposure/1e6, "Exposure time in seconds"); 
-    pFits->pHDU().addKey("DATE_OBS", timeKey , "Date and time when observation of this image started (UTC)");
+    pFits->pHDU().addKey("DATE_OBS", NTPTimeKey , "Date and time when observation of this image started (UTC)");
     pFits->pHDU().addKey("TEMPCCD", keys.cameraTemperature, "Temperature of camera in celsius");
     pFits->pHDU().addKey("TEMPCPU", keys.cpuTemperature, "Temperature of cpu in celsius"); 
 
     pFits->pHDU().addKey("FILENAME", fileName , "Name of the data file");
     //pFits->pHDU().addKey("TIME", 0 , "Time of observation in seconds within a day");
     
-    pFits->pHDU().addKey("DAY AND TIME", timeKey , "Frame Capture Time (UTC)");
-    pFits->pHDU().addKey("TIME-FRACTION", (long)(keys.captureTime).tv_nsec, "Frame capture fractional seconds");
+    pFits->pHDU().addKey("NTP DAY AND TIME", NTPTimeKey , "Frame Capture Time (UTC)");
+    pFits->pHDU().addKey("NTP TIME-FRACTION", (long)(keys.captureTimeNTP).tv_nsec, "Frame capture fractional seconds");
+    pFits->pHDU().addKey("MONO DAY AND TIME", MonoTimeKey , "Frame Capture Time (UTC)");
+    pFits->pHDU().addKey("MONO TIME-FRACTION", (long)(keys.captureTimeMono).tv_nsec, "Frame capture fractional seconds");
     pFits->pHDU().addKey("EXPOSURE", (long)keys.exposure,"Exposure time in msec"); 
+
     pFits->pHDU().addKey("SUN-CENTER1", (float)keys.sunCenter[0], "Calculated sun center in x-pixel"); 
     pFits->pHDU().addKey("SUN-CENTER2", (float)keys.sunCenter[1], "Calculated sun center in y-pixel"); 
     pFits->pHDU().addKey("FRAMENUM", (float)keys.frameCount, "Frame number"); 
@@ -153,80 +158,80 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("SLOPE1", (float)keys.XYinterceptslope[2], "");
     pFits->pHDU().addKey("SLOPE2", (float)keys.XYinterceptslope[3], "");    
 
-	// fiducials X positiosn
-	pFits->pHDU().addKey("FIDUCIALX0", (float)keys.fiducialX[0], "");
+    // fiducials X positiosn
+    pFits->pHDU().addKey("FIDUCIALX0", (float)keys.fiducialX[0], "");
     pFits->pHDU().addKey("FIDUCIALX1", (float)keys.fiducialX[1], "");
     pFits->pHDU().addKey("FIDUCIALX2", (float)keys.fiducialX[2], "");
     pFits->pHDU().addKey("FIDUCIALX3", (float)keys.fiducialX[3], "");    
-	pFits->pHDU().addKey("FIDUCIALX4", (float)keys.fiducialX[4], "");
+    pFits->pHDU().addKey("FIDUCIALX4", (float)keys.fiducialX[4], "");
     pFits->pHDU().addKey("FIDUCIALX5", (float)keys.fiducialX[5], "");
     pFits->pHDU().addKey("FIDUCIALX6", (float)keys.fiducialX[6], "");
     pFits->pHDU().addKey("FIDUCIALX7", (float)keys.fiducialX[7], "");    
-	pFits->pHDU().addKey("FIDUCIALX8", (float)keys.fiducialX[8], "");
+    pFits->pHDU().addKey("FIDUCIALX8", (float)keys.fiducialX[8], "");
     pFits->pHDU().addKey("FIDUCIALX9", (float)keys.fiducialX[9], "");
 
-	// fiducials Y positions
-	pFits->pHDU().addKey("FIDUCIALY0", (float)keys.fiducialY[0], "");
+    // fiducials Y positions
+    pFits->pHDU().addKey("FIDUCIALY0", (float)keys.fiducialY[0], "");
     pFits->pHDU().addKey("FIDUCIALY1", (float)keys.fiducialY[1], "");
     pFits->pHDU().addKey("FIDUCIALY2", (float)keys.fiducialY[2], "");
     pFits->pHDU().addKey("FIDUCIALY3", (float)keys.fiducialY[3], "");    
-	pFits->pHDU().addKey("FIDUCIALY4", (float)keys.fiducialY[4], "");
+    pFits->pHDU().addKey("FIDUCIALY4", (float)keys.fiducialY[4], "");
     pFits->pHDU().addKey("FIDUCIALY5", (float)keys.fiducialY[5], "");
     pFits->pHDU().addKey("FIDUCIALY6", (float)keys.fiducialY[6], "");
     pFits->pHDU().addKey("FIDUCIALY7", (float)keys.fiducialY[7], "");    
-	pFits->pHDU().addKey("FIDUCIALY8", (float)keys.fiducialY[8], "");
+    pFits->pHDU().addKey("FIDUCIALY8", (float)keys.fiducialY[8], "");
     pFits->pHDU().addKey("FIDUCIALY9", (double)keys.fiducialY[9], "");
 
-	// fiducials X IDs
-	pFits->pHDU().addKey("FIDUCIALX0ID", (int)keys.fiducialIDX[0], "");
+    // fiducials X IDs
+    pFits->pHDU().addKey("FIDUCIALX0ID", (int)keys.fiducialIDX[0], "");
     pFits->pHDU().addKey("FIDUCIALX1ID", (int)keys.fiducialIDX[1], "");
     pFits->pHDU().addKey("FIDUCIALX2ID", (int)keys.fiducialIDX[2], "");
     pFits->pHDU().addKey("FIDUCIALX3ID", (int)keys.fiducialIDX[3], "");    
-	pFits->pHDU().addKey("FIDUCIALX4ID", (int)keys.fiducialIDX[4], "");
+    pFits->pHDU().addKey("FIDUCIALX4ID", (int)keys.fiducialIDX[4], "");
     pFits->pHDU().addKey("FIDUCIALX5ID", (int)keys.fiducialIDX[5], "");
     pFits->pHDU().addKey("FIDUCIALX6ID", (int)keys.fiducialIDX[6], "");
     pFits->pHDU().addKey("FIDUCIALX7ID", (int)keys.fiducialIDX[7], "");    
-	pFits->pHDU().addKey("FIDUCIALX8ID", (int)keys.fiducialIDX[8], "");
+    pFits->pHDU().addKey("FIDUCIALX8ID", (int)keys.fiducialIDX[8], "");
     pFits->pHDU().addKey("FIDUCIALX9ID", (int)keys.fiducialIDX[9], "");
 
-	// fiducials Y IDs
-	pFits->pHDU().addKey("FIDUCIALY0ID", (int)keys.fiducialIDY[0], "");
+    // fiducials Y IDs
+    pFits->pHDU().addKey("FIDUCIALY0ID", (int)keys.fiducialIDY[0], "");
     pFits->pHDU().addKey("FIDUCIALY1ID", (int)keys.fiducialIDY[1], "");
     pFits->pHDU().addKey("FIDUCIALY2ID", (int)keys.fiducialIDY[2], "");
     pFits->pHDU().addKey("FIDUCIALY3ID", (int)keys.fiducialIDY[3], "");    
-	pFits->pHDU().addKey("FIDUCIALY4ID", (int)keys.fiducialIDY[4], "");
+    pFits->pHDU().addKey("FIDUCIALY4ID", (int)keys.fiducialIDY[4], "");
     pFits->pHDU().addKey("FIDUCIALY5ID", (int)keys.fiducialIDY[5], "");
     pFits->pHDU().addKey("FIDUCIALY6ID", (int)keys.fiducialIDY[6], "");
     pFits->pHDU().addKey("FIDUCIALY7ID", (int)keys.fiducialIDY[7], "");    
-	pFits->pHDU().addKey("FIDUCIALY8ID", (int)keys.fiducialIDY[8], "");
+    pFits->pHDU().addKey("FIDUCIALY8ID", (int)keys.fiducialIDY[8], "");
     pFits->pHDU().addKey("FIDUCIALY9ID", (int)keys.fiducialIDY[9], "");
 
-	// Limb X
-	pFits->pHDU().addKey("LIMBX0", (float)keys.limbX[0], "");
+    // Limb X
+    pFits->pHDU().addKey("LIMBX0", (float)keys.limbX[0], "");
     pFits->pHDU().addKey("LIMBX1", (float)keys.limbX[1], "");
     pFits->pHDU().addKey("LIMBX2", (float)keys.limbX[2], "");
     pFits->pHDU().addKey("LIMBX3", (float)keys.limbX[3], "");    
-	pFits->pHDU().addKey("LIMBX4", (float)keys.limbX[4], "");
+    pFits->pHDU().addKey("LIMBX4", (float)keys.limbX[4], "");
     pFits->pHDU().addKey("LIMBX5", (float)keys.limbX[5], "");
     pFits->pHDU().addKey("LIMBX6", (float)keys.limbX[6], "");
     pFits->pHDU().addKey("LIMBX7", (float)keys.limbX[7], "");    
-	pFits->pHDU().addKey("LIMBX8", (float)keys.limbX[8], "");
+    pFits->pHDU().addKey("LIMBX8", (float)keys.limbX[8], "");
     pFits->pHDU().addKey("LIMBX9", (float)keys.limbX[9], "");
 
-	// Limb Y
-	pFits->pHDU().addKey("LIMBY0", (float)keys.limbY[0], "");
+    // Limb Y
+    pFits->pHDU().addKey("LIMBY0", (float)keys.limbY[0], "");
     pFits->pHDU().addKey("LIMBY1", (float)keys.limbY[1], "");
     pFits->pHDU().addKey("LIMBY2", (float)keys.limbY[2], "");
     pFits->pHDU().addKey("LIMBY3", (float)keys.limbY[3], "");    
-	pFits->pHDU().addKey("LIMBY4", (float)keys.limbY[4], "");
+    pFits->pHDU().addKey("LIMBY4", (float)keys.limbY[4], "");
     pFits->pHDU().addKey("LIMBY5", (float)keys.limbY[5], "");
     pFits->pHDU().addKey("LIMBY6", (float)keys.limbY[6], "");
     pFits->pHDU().addKey("LIMBY7", (float)keys.limbY[7], "");    
-	pFits->pHDU().addKey("LIMBY8", (float)keys.limbY[8], "");
+    pFits->pHDU().addKey("LIMBY8", (float)keys.limbY[8], "");
     pFits->pHDU().addKey("LIMBY9", (float)keys.limbY[9], "");
 
-	// Limb X Error
-	// pFits->pHDU().addKey("LIMBX0error", (float)keys.limbXerror[0], "");
+    // Limb X Error
+    // pFits->pHDU().addKey("LIMBX0error", (float)keys.limbXerror[0], "");
 //     pFits->pHDU().addKey("LIMBX1error", (float)keys.limbXerror[1], "");
 //     pFits->pHDU().addKey("LIMBX2error", (float)keys.limbXerror[2], "");
 //     pFits->pHDU().addKey("LIMBX3error", (float)keys.limbXerror[3], "");    
@@ -249,12 +254,12 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
 // 	pFits->pHDU().addKey("LIMBY8error", (float)keys.limbYerror[8], "");
 //     pFits->pHDU().addKey("LIMBY9error", (float)keys.limbYerror[9], "");
 	
-	// voltages
-	pFits->pHDU().addKey("SBC_VOLT105", (float)keys.cpuVoltage[0], "");
+    // voltages
+    pFits->pHDU().addKey("SBC_VOLT105", (float)keys.cpuVoltage[0], "");
     pFits->pHDU().addKey("SBC_VOLT25", (float)keys.cpuVoltage[1], "");
     pFits->pHDU().addKey("SBC_VOLT33", (float)keys.cpuVoltage[2], "");
     pFits->pHDU().addKey("SBC_VOLT50", (float)keys.cpuVoltage[3], "");    
-	pFits->pHDU().addKey("SBC_VOLT120", (float)keys.cpuVoltage[4], "");
+    pFits->pHDU().addKey("SBC_VOLT120", (float)keys.cpuVoltage[4], "");
 
     try{
         imageExt->write(fpixel,nelements,array);
