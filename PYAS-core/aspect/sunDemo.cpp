@@ -116,8 +116,7 @@ uint16_t latest_heroes_command_key = 0x0000;
 uint16_t latest_sas_command_key = 0x0000;
 uint16_t latest_sas_command_vars[15];
 uint32_t tm_frame_sequence_number = 0;
-uint16_t solution_sequence_number = 0;
-uint16_t timestamp_sequence_number = 0;
+uint16_t ctl_sequence_number = 0;
 
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
@@ -343,8 +342,8 @@ void *CameraStreamThread( void * threadargs)
             // Need to send timestamp of the next SAS solution *before* the exposure is taken
             // Conceptually this would be part of CommandPackagerThread, but the timing requirement is strict
             if(isOutputting && isTracking && acknowledgedCTL) {
-                timestamp_sequence_number++;
-                CommandPacket cp(TARGET_ID_CTL, timestamp_sequence_number);
+                ctl_sequence_number++;
+                CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
                 cp << (uint16_t)HKEY_SAS_TIMESTAMP;
                 cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
                 cp << (double)(preExposure.tv_sec + (double)preExposure.tv_nsec/1e9);  // timestamp 
@@ -976,8 +975,8 @@ void *CommandPackagerThread( void *threadargs )
         sleep(SLEEP_SOLUTION);
 
         if (isOutputting) {
-            solution_sequence_number++;
-            CommandPacket cp(TARGET_ID_CTL, solution_sequence_number);
+            ctl_sequence_number++;
+            CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
 
             if (isTracking) {
                 if (!acknowledgedCTL) {
