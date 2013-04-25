@@ -2,8 +2,11 @@
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define REPORT_FOCUS false
 
+//Major settings
+#define FRAME_CADENCE 250000 // microseconds
+
 //Default camera settings
-#define CAMERA_EXPOSURE 15000 // microseconds, was 4500 microseconds in first Sun test
+#define CAMERA_EXPOSURE 15000 // microseconds
 #define CAMERA_ANALOGGAIN 400 // camera defaults to 143, but we are changing it
 #define CAMERA_PREAMPGAIN -3 // camera defaults to +6, but we are changing it
 #define CAMERA_XSIZE 1296 // full frame is 1296
@@ -167,7 +170,7 @@ uint16_t exposure = CAMERA_EXPOSURE;
 uint16_t analogGain = CAMERA_ANALOGGAIN;
 int16_t preampGain = CAMERA_PREAMPGAIN;
 
-timespec frameRate = {0,100000000L};
+timespec frameRate = {0,FRAME_CADENCE*1000};
 int cameraReady = 0;
 
 timespec frameTime;
