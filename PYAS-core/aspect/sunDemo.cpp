@@ -971,9 +971,6 @@ void *CommandPackagerThread( void *threadargs )
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("CommandPackager thread #%ld!\n", tid);
 
-    cv::Point2f localError;
-    Pair localOffset;
-
     while(1)    // run forever
     {
         sleep(SLEEP_SOLUTION);
@@ -989,20 +986,18 @@ void *CommandPackagerThread( void *threadargs )
                 } else {
                     if(pthread_mutex_trylock(&mutexProcess) == 0)
                     {
-                        localError = error;
-                        localOffset = offset;
+                        cp << (uint16_t)HKEY_SAS_SOLUTION;
+                        cp << (double)fits_keys.CTLsolution[0]; // azimuth offset
+                        cp << (double)fits_keys.CTLsolution[1]; // elevation offset
+                        cp << (double)0; // roll offset
+                        cp << (double)0.003; // error
+                        cp << (uint32_t)fits_keys.captureTime.tv_sec; //seconds
+                        cp << (uint16_t)(fits_keys.captureTime.tv_nsec/1000000); //milliseconds
 
                         pthread_mutex_unlock(&mutexProcess);
                     } else {
-                        std::cout << "Using stale information for solution packet" << std::endl;
+                        std::cout << "Could not send a new solution packet\n";
                     }
-
-                    cp << (uint16_t)HKEY_SAS_SOLUTION;
-                    cp << localOffset;
-                    cp << (double)0; // roll offset
-                    cp << (double)0.003; // error
-                    cp << (uint32_t)0; //seconds
-                    cp << (uint16_t)0; //milliseconds
                 }
             } else { // isTracking is false
                 if (!acknowledgedCTL) {
