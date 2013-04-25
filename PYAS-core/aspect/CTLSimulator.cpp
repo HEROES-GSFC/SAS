@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
             if (cp.valid()){
                 std::cout << cp << std::endl;
             }
-            free(packet);
+            delete packet;
         }
     }
     exit(0);

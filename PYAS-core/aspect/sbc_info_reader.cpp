@@ -28,6 +28,7 @@ int main()
         packet >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
 
         printf("CPU temperature: %d deg C    Voltages: %5.3f V | %5.3f V | %5.3f V | %5.3f V | %5.2f V\n", sbc_temperature, sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120);
+        delete array;
     }
 
     return 0;
