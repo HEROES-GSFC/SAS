@@ -159,6 +159,7 @@ cv::Point2f pixelCenter, screenCenter, error;
 CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 std::vector<float> mapping;
+Pair offset;
 
 HeaderData fits_keys;
 
@@ -486,6 +487,9 @@ void *ImageProcessThread(void *threadargs)
                     switch(GeneralizeError(runResult))
                     {
                         case NO_ERROR:
+                            solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
+                            offset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y));
+
                             screenFiducials = localScreenFiducials;
                             screenCenter = localScreenCenter;
                             mapping = localMapping;
@@ -513,11 +517,9 @@ void *ImageProcessThread(void *threadargs)
                     
                     fits_keys.sunCenter[0] = pixelCenter.x;
                     fits_keys.sunCenter[1] = pixelCenter.y;
-                    // this should not have to be recaculated, should be a global
                   
-                    Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
-                    fits_keys.CTLsolution[0] = ctl.x();
-                    fits_keys.CTLsolution[1] = ctl.y();
+                    fits_keys.CTLsolution[0] = offset.x();
+                    fits_keys.CTLsolution[1] = offset.y();
 
                     fits_keys.screenCenter[0] = screenCenter.x; 
                     fits_keys.screenCenter[1] = screenCenter.y;
@@ -772,6 +774,7 @@ void *TelemetryPackagerThread(void *threadargs)
     CoordList localLimbs, localFiducials;
     std::vector<float> localMapping;
     cv::Point2f localCenter, localError;
+    Pair localOffset;
 
     while(1)    // run forever
     {
@@ -793,16 +796,16 @@ void *TelemetryPackagerThread(void *threadargs)
             localError = error;
             localFiducials = pixelFiducials;
             localMapping = mapping;
+            localOffset = offset;
 
             std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
             if(localMapping.size() == 4) {
                 std::cout << ", mapping is";
                 for(uint8_t l = 0; l < 4; l++) std::cout << " " << localMapping[l];
-                solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
             }
             std::cout << std::endl;
 
-            std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
+            std::cout << "Offset: " << localOffset << std::endl;
 
             pthread_mutex_unlock(&mutexProcess);
         } else {
@@ -865,7 +868,7 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << (uint8_t) localMin; //min
 
         //Tacking on the offset numbers intended for CTL
-        tp << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y));
+        tp << localOffset;
 
         //add telemetry packet to the queue
         tm_packet_queue << tp;
@@ -968,7 +971,8 @@ void *CommandPackagerThread( void *threadargs )
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("CommandPackager thread #%ld!\n", tid);
 
-    cv::Point2f localCenter, localError;
+    cv::Point2f localError;
+    Pair localOffset;
 
     while(1)    // run forever
     {
@@ -985,8 +989,8 @@ void *CommandPackagerThread( void *threadargs )
                 } else {
                     if(pthread_mutex_trylock(&mutexProcess) == 0)
                     {
-                        localCenter = pixelCenter;
                         localError = error;
+                        localOffset = offset;
 
                         pthread_mutex_unlock(&mutexProcess);
                     } else {
@@ -994,7 +998,7 @@ void *CommandPackagerThread( void *threadargs )
                     }
 
                     cp << (uint16_t)HKEY_SAS_SOLUTION;
-                    cp << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y));
+                    cp << localOffset;
                     cp << (double)0; // roll offset
                     cp << (double)0.003; // error
                     cp << (uint32_t)0; //seconds
