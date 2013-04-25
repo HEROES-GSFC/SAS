@@ -1,7 +1,7 @@
 #define MAX_THREADS 20
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define REPORT_FOCUS false
-#define LOG_PACKET_QUEUES true
+#define LOG_PACKETS true
 
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
@@ -599,7 +599,7 @@ void *TelemetrySenderThread(void *threadargs)
     struct tm *times;
     std::ofstream log; 
 
-    if (LOG_PACKET_QUEUES) {
+    if (LOG_PACKETS) {
         time(&ltime);
         times = localtime(&ltime);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
@@ -620,12 +620,13 @@ void *TelemetrySenderThread(void *threadargs)
             tm_packet_queue >> tp;
             telSender.send( &tp );
             //std::cout << "TelemetrySender:" << tp << std::endl;
-            if (LOG_PACKET_QUEUES) {
+            if (LOG_PACKETS) {
                 uint8_t length = tp.getLength();
                 uint8_t *payload = new uint8_t[length];
                 tp.outputTo(payload);
                 log.write((char *)payload, length);
                 delete payload;
+                log.flush();
             }
         }
 
@@ -979,7 +980,7 @@ void *CommandSenderThread( void *threadargs )
     struct tm *times;
     std::ofstream log; 
 
-    if (LOG_PACKET_QUEUES) {
+    if (LOG_PACKETS) {
         time(&ltime);
         times = localtime(&ltime);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
@@ -1000,12 +1001,13 @@ void *CommandSenderThread( void *threadargs )
             cm_packet_queue >> cp;
             comSender.send( &cp );
             //std::cout << "CommandSender: " << cp << std::endl;
-            if (LOG_PACKET_QUEUES) {
+            if (LOG_PACKETS) {
                 uint8_t length = cp.getLength();
                 uint8_t *payload = new uint8_t[length];
                 cp.outputTo(payload);
                 log.write((char *)payload, length);
                 delete payload;
+                log.flush();
             }
         }
 
