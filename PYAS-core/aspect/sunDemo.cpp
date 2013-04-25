@@ -1,6 +1,7 @@
 #define MAX_THREADS 20
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define REPORT_FOCUS false
+#define LOG_PACKET_QUEUES true
 
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
@@ -96,6 +97,7 @@
 #include <opencv.hpp>
 #include <iostream>
 #include <string>
+#include <fstream>
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
@@ -591,6 +593,22 @@ void *TelemetrySenderThread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("TelemetrySender thread #%ld!\n", tid);
 
+    char stringtemp[80];
+    char filename[128];
+    time_t ltime;
+    struct tm *times;
+    std::ofstream log; 
+
+    if (LOG_PACKET_QUEUES) {
+        time(&ltime);
+        times = localtime(&ltime);
+        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+        sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION, stringtemp);
+        filename[128 - 1] = '\0';
+        printf("Creating telemetry log file %s \n",filename);
+        log.open(filename, std::ofstream::binary);
+    }
+
     TelemetrySender telSender(IP_FDR, (unsigned short) PORT_TM);
 
     while(1)    // run forever
@@ -602,6 +620,13 @@ void *TelemetrySenderThread(void *threadargs)
             tm_packet_queue >> tp;
             telSender.send( &tp );
             //std::cout << "TelemetrySender:" << tp << std::endl;
+            if (LOG_PACKET_QUEUES) {
+                uint8_t length = tp.getLength();
+                uint8_t *payload = new uint8_t[length];
+                tp.outputTo(payload);
+                log.write((char *)payload, length);
+                delete payload;
+            }
         }
 
         if (stop_message[tid] == 1){
@@ -639,6 +664,7 @@ void *SBCInfoThread(void *threadargs)
 
         Packet packet( array, packet_length );
         packet >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
+        delete array;
     }
 }
 
@@ -928,6 +954,8 @@ void *listenForCommandsThread(void *threadargs)
             printf("listenForCommandsThread: bad command packet\n");
         }
 
+        delete packet;
+
         if (stop_message[tid] == 1){
             printf("listenForCommands thread #%ld exiting\n", tid);
             comReceiver.close_connection();
@@ -945,6 +973,22 @@ void *CommandSenderThread( void *threadargs )
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("CommandSender thread #%ld!\n", tid);
 
+    char stringtemp[80];
+    char filename[128];
+    time_t ltime;
+    struct tm *times;
+    std::ofstream log; 
+
+    if (LOG_PACKET_QUEUES) {
+        time(&ltime);
+        times = localtime(&ltime);
+        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+        sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION, stringtemp);
+        filename[128 - 1] = '\0';
+        printf("Creating command log file %s \n",filename);
+        log.open(filename, std::ofstream::binary);
+    }
+
     CommandSender comSender(IP_CTL, PORT_CMD);
 
     while(1)    // run forever
@@ -956,6 +1000,13 @@ void *CommandSenderThread( void *threadargs )
             cm_packet_queue >> cp;
             comSender.send( &cp );
             //std::cout << "CommandSender: " << cp << std::endl;
+            if (LOG_PACKET_QUEUES) {
+                uint8_t length = cp.getLength();
+                uint8_t *payload = new uint8_t[length];
+                cp.outputTo(payload);
+                log.write((char *)payload, length);
+                delete payload;
+            }
         }
 
         if (stop_message[tid] == 1){
