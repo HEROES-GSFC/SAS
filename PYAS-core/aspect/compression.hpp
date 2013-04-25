@@ -20,7 +20,7 @@ struct HeaderData
     float XYinterceptslope[4];
     float CTLsolution[2];
     float screenCenter[2];
-	float screenCenterError[2];
+    float screenCenterError[2];
     float fiducialX[10];
     float fiducialY[10];
     float limbX[10];

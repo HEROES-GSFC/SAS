@@ -373,9 +373,9 @@ void *CameraStreamThread( void * threadargs)
                 fits_keys.captureTime = frameTime;
                 fits_keys.frameCount = frameCount;
                 fits_keys.exposure = exposure;
-				fits_keys.preampGain = preampGain;
-				fits_keys.analogGain = analogGain;
-				fits_keys.cameraTemperature = camera_temperature;
+                fits_keys.preampGain = preampGain;
+                fits_keys.analogGain = analogGain;
+                fits_keys.cameraTemperature = camera_temperature;
 
             }
             else
@@ -523,7 +523,7 @@ void *ImageProcessThread(void *threadargs)
                     fits_keys.screenCenter[1] = screenCenter.y;
                     fits_keys.screenCenterError[0] = error.x;
                     fits_keys.screenCenterError[1] = error.y;
-					fits_keys.imageMinMax[0] = frameMin;
+                    fits_keys.imageMinMax[0] = frameMin;
                     fits_keys.imageMinMax[1] = frameMax;
 
                     if(mapping.size() == 4){
@@ -728,11 +728,11 @@ void *SaveImageThread(void *threadargs)
                     fits_keys.cpuTemperature = sbc_temperature;
                     fits_keys.cameraID = sas_id;
 
-					fits_keys.cpuVoltage[0] = sbc_v105;
-					fits_keys.cpuVoltage[1] = sbc_v25;
-					fits_keys.cpuVoltage[2] = sbc_v33;
-					fits_keys.cpuVoltage[3] = sbc_v50;
-					fits_keys.cpuVoltage[4] = sbc_v120;
+                    fits_keys.cpuVoltage[0] = sbc_v105;
+                    fits_keys.cpuVoltage[1] = sbc_v25;
+                    fits_keys.cpuVoltage[2] = sbc_v33;
+                    fits_keys.cpuVoltage[3] = sbc_v50;
+                    fits_keys.cpuVoltage[4] = sbc_v120;
                     
                     pthread_mutex_unlock(&mutexImage);
 
