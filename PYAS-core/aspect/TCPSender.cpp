@@ -77,6 +77,6 @@ void TCPSender::send_packet( ImagePacket *packet )
             printf("CommandSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
         }
         if (bytesSent == -1){ printf("CommandSender: sendto() failed!\n"); }
-        free(payload);
+        delete payload;
     }
 }
