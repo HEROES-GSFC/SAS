@@ -1,9 +1,13 @@
 #define MAX_THREADS 20
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define REPORT_FOCUS false
+#define LOG_PACKETS true
+
+//Major settings
+#define FRAME_CADENCE 250000 // microseconds
 
 //Default camera settings
-#define CAMERA_EXPOSURE 15000 // microseconds, was 4500 microseconds in first Sun test
+#define CAMERA_EXPOSURE 15000 // microseconds
 #define CAMERA_ANALOGGAIN 400 // camera defaults to 143, but we are changing it
 #define CAMERA_PREAMPGAIN -3 // camera defaults to +6, but we are changing it
 #define CAMERA_XSIZE 1296 // full frame is 1296
@@ -93,6 +97,7 @@
 #include <opencv.hpp>
 #include <iostream>
 #include <string>
+#include <fstream>
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
@@ -113,7 +118,7 @@ uint16_t latest_heroes_command_key = 0x0000;
 uint16_t latest_sas_command_key = 0x0000;
 uint16_t latest_sas_command_vars[15];
 uint32_t tm_frame_sequence_number = 0;
-uint16_t solution_sequence_number = 0;
+uint16_t ctl_sequence_number = 0;
 
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
@@ -156,6 +161,7 @@ cv::Point2f pixelCenter, screenCenter, error;
 CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 std::vector<float> mapping;
+Pair offset;
 
 HeaderData fits_keys;
 
@@ -166,7 +172,7 @@ uint16_t exposure = CAMERA_EXPOSURE;
 uint16_t analogGain = CAMERA_ANALOGGAIN;
 int16_t preampGain = CAMERA_PREAMPGAIN;
 
-timespec frameRate = {0,100000000L};
+timespec frameRate = {0,FRAME_CADENCE*1000};
 int cameraReady = 0;
 
 timespec frameTime;
@@ -336,6 +342,17 @@ void *CameraStreamThread( void * threadargs)
 
             clock_gettime(CLOCK_REALTIME, &preExposure);
 
+            // Need to send timestamp of the next SAS solution *before* the exposure is taken
+            // Conceptually this would be part of CommandPackagerThread, but the timing requirement is strict
+            if(isOutputting && isTracking && acknowledgedCTL) {
+                ctl_sequence_number++;
+                CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
+                cp << (uint16_t)HKEY_SAS_TIMESTAMP;
+                cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
+                cp << (double)(preExposure.tv_sec + (double)preExposure.tv_nsec/1e9);  // timestamp 
+                cm_packet_queue << cp;
+            }
+
             if(!camera.Snap(localFrame))
             {
                 failcount = 0;
@@ -359,9 +376,9 @@ void *CameraStreamThread( void * threadargs)
                 fits_keys.captureTime = frameTime;
                 fits_keys.frameCount = frameCount;
                 fits_keys.exposure = exposure;
-				fits_keys.preampGain = preampGain;
-				fits_keys.analogGain = analogGain;
-				fits_keys.cameraTemperature = camera_temperature;
+                fits_keys.preampGain = preampGain;
+                fits_keys.analogGain = analogGain;
+                fits_keys.cameraTemperature = camera_temperature;
 
             }
             else
@@ -472,6 +489,9 @@ void *ImageProcessThread(void *threadargs)
                     switch(GeneralizeError(runResult))
                     {
                         case NO_ERROR:
+                            solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
+                            offset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y));
+
                             screenFiducials = localScreenFiducials;
                             screenCenter = localScreenCenter;
                             mapping = localMapping;
@@ -499,17 +519,15 @@ void *ImageProcessThread(void *threadargs)
                     
                     fits_keys.sunCenter[0] = pixelCenter.x;
                     fits_keys.sunCenter[1] = pixelCenter.y;
-                    // this should not have to be recaculated, should be a global
                   
-                    Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
-                    fits_keys.CTLsolution[0] = ctl.x();
-                    fits_keys.CTLsolution[1] = ctl.y();
+                    fits_keys.CTLsolution[0] = offset.x();
+                    fits_keys.CTLsolution[1] = offset.y();
 
                     fits_keys.screenCenter[0] = screenCenter.x; 
                     fits_keys.screenCenter[1] = screenCenter.y;
                     fits_keys.screenCenterError[0] = error.x;
                     fits_keys.screenCenterError[1] = error.y;
-					fits_keys.imageMinMax[0] = frameMin;
+                    fits_keys.imageMinMax[0] = frameMin;
                     fits_keys.imageMinMax[1] = frameMax;
 
                     if(mapping.size() == 4){
@@ -575,6 +593,22 @@ void *TelemetrySenderThread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("TelemetrySender thread #%ld!\n", tid);
 
+    char stringtemp[80];
+    char filename[128];
+    time_t ltime;
+    struct tm *times;
+    std::ofstream log; 
+
+    if (LOG_PACKETS) {
+        time(&ltime);
+        times = localtime(&ltime);
+        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+        sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION, stringtemp);
+        filename[128 - 1] = '\0';
+        printf("Creating telemetry log file %s \n",filename);
+        log.open(filename, std::ofstream::binary);
+    }
+
     TelemetrySender telSender(IP_FDR, (unsigned short) PORT_TM);
 
     while(1)    // run forever
@@ -586,6 +620,14 @@ void *TelemetrySenderThread(void *threadargs)
             tm_packet_queue >> tp;
             telSender.send( &tp );
             //std::cout << "TelemetrySender:" << tp << std::endl;
+            if (LOG_PACKETS) {
+                uint8_t length = tp.getLength();
+                uint8_t *payload = new uint8_t[length];
+                tp.outputTo(payload);
+                log.write((char *)payload, length);
+                delete payload;
+                log.flush();
+            }
         }
 
         if (stop_message[tid] == 1){
@@ -623,6 +665,7 @@ void *SBCInfoThread(void *threadargs)
 
         Packet packet( array, packet_length );
         packet >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
+        delete array;
     }
 }
 
@@ -714,11 +757,11 @@ void *SaveImageThread(void *threadargs)
                     fits_keys.cpuTemperature = sbc_temperature;
                     fits_keys.cameraID = sas_id;
 
-					fits_keys.cpuVoltage[0] = sbc_v105;
-					fits_keys.cpuVoltage[1] = sbc_v25;
-					fits_keys.cpuVoltage[2] = sbc_v33;
-					fits_keys.cpuVoltage[3] = sbc_v50;
-					fits_keys.cpuVoltage[4] = sbc_v120;
+                    fits_keys.cpuVoltage[0] = sbc_v105;
+                    fits_keys.cpuVoltage[1] = sbc_v25;
+                    fits_keys.cpuVoltage[2] = sbc_v33;
+                    fits_keys.cpuVoltage[3] = sbc_v50;
+                    fits_keys.cpuVoltage[4] = sbc_v120;
                     
                     pthread_mutex_unlock(&mutexImage);
 
@@ -758,6 +801,7 @@ void *TelemetryPackagerThread(void *threadargs)
     CoordList localLimbs, localFiducials;
     std::vector<float> localMapping;
     cv::Point2f localCenter, localError;
+    Pair localOffset;
 
     while(1)    // run forever
     {
@@ -779,16 +823,16 @@ void *TelemetryPackagerThread(void *threadargs)
             localError = error;
             localFiducials = pixelFiducials;
             localMapping = mapping;
+            localOffset = offset;
 
             std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
             if(localMapping.size() == 4) {
                 std::cout << ", mapping is";
                 for(uint8_t l = 0; l < 4; l++) std::cout << " " << localMapping[l];
-                solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
             }
             std::cout << std::endl;
 
-            std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
+            std::cout << "Offset: " << localOffset << std::endl;
 
             pthread_mutex_unlock(&mutexProcess);
         } else {
@@ -851,7 +895,7 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << (uint8_t) localMin; //min
 
         //Tacking on the offset numbers intended for CTL
-        tp << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y));
+        tp << localOffset;
 
         //add telemetry packet to the queue
         tm_packet_queue << tp;
@@ -911,6 +955,8 @@ void *listenForCommandsThread(void *threadargs)
             printf("listenForCommandsThread: bad command packet\n");
         }
 
+        delete packet;
+
         if (stop_message[tid] == 1){
             printf("listenForCommands thread #%ld exiting\n", tid);
             comReceiver.close_connection();
@@ -928,6 +974,22 @@ void *CommandSenderThread( void *threadargs )
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("CommandSender thread #%ld!\n", tid);
 
+    char stringtemp[80];
+    char filename[128];
+    time_t ltime;
+    struct tm *times;
+    std::ofstream log; 
+
+    if (LOG_PACKETS) {
+        time(&ltime);
+        times = localtime(&ltime);
+        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+        sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION, stringtemp);
+        filename[128 - 1] = '\0';
+        printf("Creating command log file %s \n",filename);
+        log.open(filename, std::ofstream::binary);
+    }
+
     CommandSender comSender(IP_CTL, PORT_CMD);
 
     while(1)    // run forever
@@ -939,6 +1001,14 @@ void *CommandSenderThread( void *threadargs )
             cm_packet_queue >> cp;
             comSender.send( &cp );
             //std::cout << "CommandSender: " << cp << std::endl;
+            if (LOG_PACKETS) {
+                uint8_t length = cp.getLength();
+                uint8_t *payload = new uint8_t[length];
+                cp.outputTo(payload);
+                log.write((char *)payload, length);
+                delete payload;
+                log.flush();
+            }
         }
 
         if (stop_message[tid] == 1){
@@ -954,15 +1024,13 @@ void *CommandPackagerThread( void *threadargs )
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("CommandPackager thread #%ld!\n", tid);
 
-    cv::Point2f localCenter, localError;
-
     while(1)    // run forever
     {
         sleep(SLEEP_SOLUTION);
 
         if (isOutputting) {
-            solution_sequence_number++;
-            CommandPacket cp(TARGET_ID_CTL, solution_sequence_number);
+            ctl_sequence_number++;
+            CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
 
             if (isTracking) {
                 if (!acknowledgedCTL) {
@@ -971,20 +1039,18 @@ void *CommandPackagerThread( void *threadargs )
                 } else {
                     if(pthread_mutex_trylock(&mutexProcess) == 0)
                     {
-                        localCenter = pixelCenter;
-                        localError = error;
+                        cp << (uint16_t)HKEY_SAS_SOLUTION;
+                        cp << (double)fits_keys.CTLsolution[0]; // azimuth offset
+                        cp << (double)fits_keys.CTLsolution[1]; // elevation offset
+                        cp << (double)0; // roll offset
+                        cp << (double)0.003; // error
+                        cp << (uint32_t)fits_keys.captureTime.tv_sec; //seconds
+                        cp << (uint16_t)(fits_keys.captureTime.tv_nsec/1000000); //milliseconds
 
                         pthread_mutex_unlock(&mutexProcess);
                     } else {
-                        std::cout << "Using stale information for solution packet" << std::endl;
+                        std::cout << "Could not send a new solution packet\n";
                     }
-
-                    cp << (uint16_t)HKEY_SAS_SOLUTION;
-                    cp << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y));
-                    cp << (double)0; // roll offset
-                    cp << (double)0.003; // error
-                    cp << (uint32_t)0; //seconds
-                    cp << (uint16_t)0; //milliseconds
                 }
             } else { // isTracking is false
                 if (!acknowledgedCTL) {

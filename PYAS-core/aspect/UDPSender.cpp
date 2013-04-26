@@ -62,8 +62,10 @@ void UDPSender::send( Packet *packet )
             printf("UDPSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
         }
         if (bytesSent == -1){ printf("UDPSender: sendto() failed!\n"); }
+        close_connection();
+
+        delete payload;
     }
-    close_connection();
 }
 
 TelemetrySender::TelemetrySender( const char *ip, unsigned short port )
@@ -86,8 +88,10 @@ void TelemetrySender::send( TelemetryPacket *packet )
             printf("TelemetrySender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
         }
         if (bytesSent == -1){ printf("TelemetrySender: sendto() failed!\n"); }
+        close_connection();
+
+        delete payload;
     }
-    close_connection();
 }
 
 CommandSender::CommandSender( const char *ip, unsigned short port )
@@ -113,5 +117,7 @@ void CommandSender::send( CommandPacket *packet )
         }
         if (bytesSent == -1){ printf("CommandSender: sendto() failed!\n"); }
         close_connection();
+
+        delete payload;
     }      
 }
