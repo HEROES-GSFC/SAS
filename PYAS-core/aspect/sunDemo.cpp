@@ -1099,9 +1099,15 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         
 void *commandHandlerThread(void *threadargs)
 {
+    // command error code definition
+    // error_code   description
+    // 0x0000       command implemented sucessfully
+    // 0x0001       command not implemented
+    // 0xffff       unknown command
+    // 
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     struct Thread_data *my_data;
-    uint16_t error_code = 1;
+    uint16_t error_code = 0x0001;
     my_data = (struct Thread_data *) threadargs;
 
     switch( my_data->command_key & 0x0FFF)
