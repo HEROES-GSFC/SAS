@@ -98,6 +98,7 @@
 #include <opencv.hpp>
 #include <iostream>
 #include <string>
+#include <sys/statvfs.h> /* for statvfs (get_disk_usage) */
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
@@ -197,13 +198,14 @@ void *TelemetryPackagerThread(void *threadargs);
 void *listenForCommandsThread(void *threadargs);
 void *CommandSenderThread( void *threadargs );
 void *CommandPackagerThread( void *threadargs );
-void queue_cmd_proc_ack_tmpacket( uint16_t error_code, bool payloadexists, uint16_t payload );
+void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
 uint16_t cmd_send_image_to_ground( int camera_id );
 void *commandHandlerThread(void *threadargs);
 void cmd_process_heroes_command(uint16_t heroes_command);
 void cmd_process_sas_command(uint16_t sas_command, Command &command);
 void start_all_workers( void );
 void start_thread(void *(*start_routine) (void *), const Thread_data *tdata);
+uint16_t get_disk_usage( disk );
 
 void sig_handler(int signum)
 {
@@ -1027,13 +1029,12 @@ void *CommandPackagerThread( void *threadargs )
     return NULL;
 }
 
-void queue_cmd_proc_ack_tmpacket( uint16_t error_code, bool payloadexists, uint16_t payload )
+void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 {
     TelemetryPacket ack_tp(TM_ACK_PROCESS, SOURCE_ID_SAS);
     ack_tp << command_sequence_number;
     ack_tp << latest_sas_command_key;
     ack_tp << error_code;
-    if( payloadexists == true ){ ack_tp << payload; }
     tm_packet_queue << ack_tp;
 }
 
@@ -1116,7 +1117,7 @@ void *commandHandlerThread(void *threadargs)
         case SKEY_REQUEST_IMAGE:
             {
                 error_code = cmd_send_image_to_ground( 0 );
-                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
+                queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
         case SKEY_SET_EXPOSURE:    // set exposure time
@@ -1124,7 +1125,7 @@ void *commandHandlerThread(void *threadargs)
                 if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
                 if( exposure == my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested exposure time is: " << exposure << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
+                queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
         case SKEY_SET_IMAGESAVETOGGLE:
@@ -1133,14 +1134,14 @@ void *commandHandlerThread(void *threadargs)
                 if( isImageSave == my_data->command_vars[0] ) error_code = 0;
                 if( isImageSave == true ){ std::cout << "Image saving is now turned on" << std::endl; }
                 if( isImageSave == false ){ std::cout << "Image saving is now turned off" << std::endl; }
-                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
+                queue_cmd_proc_ack_tmpacket( error_code );
             }
         case SKEY_SET_PREAMPGAIN:    // set preamp gain
             {
                 if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
                 if( preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested preamp gain is: " << preampGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
+                queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
         case SKEY_SET_ANALOGGAIN:    // set analog gain
@@ -1148,7 +1149,7 @@ void *commandHandlerThread(void *threadargs)
                 if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
                 if( analogGain == my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested analog gain is: " << analogGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
+                queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
         case SKEY_SET_TARGET:    // set new solar target
@@ -1164,10 +1165,28 @@ void *commandHandlerThread(void *threadargs)
                 isOutputting = false;
             }
             break;
+        case SKEY_GET_EXPOSURE:
+            {
+                queue_cmd_proc_ack_tmpacket( (uint16_t)exposure );
+            }
+        case SKEY_REQUEST_ANALOGGAIN:
+            {
+                queue_cmd_proc_ack_tmpacket( (uint16_t)analogGain );
+            }
+        case SKEY_REQUEST_PREAMPGAIN:
+            {
+                queue_cmd_proc_ack_tmpacket( (int16_t)preampGain );
+            }
+        case SKEY_REQUEST_DISKSPACE:
+            {
+                if( my_data->command_num_vars == 1) disk = (uint16_t)my_data->command_vars[0];
+                diskspace = get_disk_usage( disk );
+                queue_cmd_proc_ack_tmpacket( (uint16_t)diskspace );
+            }
         default:
             {
                 error_code = 0xffff;            // unknown command!
-                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
+                queue_cmd_proc_ack_tmpacket( error_code );
             }
     }
 
@@ -1223,6 +1242,22 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
     pthread_attr_destroy(&attr);
 
     return;
+}
+
+uint16_t get_disk_usage( disk ){
+    struct statvfs vfs;
+    if( disk == 1 ){ statvfs("/mnt/disk1/", &vfs);
+    if( disk == 2 ){ statvfs("/mnt/disk2/", &vfs);
+    
+    unsigned long total = vfs.f_blocks * vfs.f_frsize / 1024;
+    unsigned long available = vfs.f_bavail * vfs.f_frsize / 1024;
+    unsigned long free = vfs.f_bfree * vfs.f_frsize / 1024;
+    unsigned long used = total - free;
+
+    uintmax_t u100 = used * 100;
+    uintmax_t nonroot_total = used + available;
+    uint16_t percent = u100 / nonroot_total + (u100 % nonroot_total != 0);
+    return( percent );
 }
 
 void cmd_process_sas_command(uint16_t sas_command, Command &command)
