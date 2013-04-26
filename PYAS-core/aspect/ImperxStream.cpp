@@ -209,6 +209,7 @@ int ImperxStream::Initialize()
     // Get stream parameters/stats
     std::cout << "ImperxStream::Initialize Get Stream Parameters" << std::endl;
     lStreamParams = lStream.GetParameters();
+    lStreamParams->SetBooleanValue("EnableMissingPacketsList", 1);
 
     // TLParamsLocked is optional but when present, it MUST be set to 1
     // before sending the AcquisitionStart command
@@ -237,7 +238,8 @@ int ImperxStream::Snap(cv::Mat &frame, int timeout)
     // to start sending us images
     lDeviceParams->ExecuteCommand( "AcquisitionStart" );
     int lWidth, lHeight, result = 0;
-    // Retrieve next buffer             
+    PvUInt32 dropCount;
+    // Retrieve next buffer 
     PvBuffer *lBuffer = NULL;
     PvResult lOperationResult;
     PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, timeout, &lOperationResult );
@@ -271,7 +273,9 @@ int ImperxStream::Snap(cv::Mat &frame, int timeout)
         else
         {
             std::cout << "ImperxStream::Snap Operation result: " << lOperationResult << std::endl;
-            result = 1;;
+            lBuffer->GetMissingPacketIdsCount(dropCount);
+            std::cout << "ImperxStream::Snap dropped " << dropCount << " packets" << std::cout;
+            result = 1;
         }
         // We have an image - do some processing (...) and VERY IMPORTANT,
         // release the buffer back to the pipeline
