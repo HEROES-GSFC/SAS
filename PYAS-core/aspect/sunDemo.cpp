@@ -1101,7 +1101,7 @@ void *commandHandlerThread(void *threadargs)
 {
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     struct Thread_data *my_data;
-    uint16_t error_code = 0;
+    uint16_t error_code = 1;
     my_data = (struct Thread_data *) threadargs;
 
     switch( my_data->command_key & 0x0FFF)
@@ -1115,6 +1115,7 @@ void *commandHandlerThread(void *threadargs)
         case SKEY_SET_EXPOSURE:    // set exposure time
             {
                 if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
+                if( exposure == my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested exposure time is: " << exposure << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
@@ -1122,6 +1123,7 @@ void *commandHandlerThread(void *threadargs)
         case SKEY_SET_IMAGESAVETOGGLE:
             {
                 if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) isImageSaving = my_data->command_vars[0];
+                if( isImageSave == my_data->command_vars[0] ) error_code = 0;
                 if( isImageSave == true ){ std::cout << "Image saving is now turned on" << std::endl; }
                 if( isImageSave == false ){ std::cout << "Image saving is now turned off" << std::endl; }
                 queue_cmd_proc_ack_tmpacket( error_code );
@@ -1129,6 +1131,7 @@ void *commandHandlerThread(void *threadargs)
         case SKEY_SET_PREAMPGAIN:    // set preamp gain
             {
                 if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
+                if( preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested preamp gain is: " << preampGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
@@ -1136,6 +1139,7 @@ void *commandHandlerThread(void *threadargs)
         case SKEY_SET_ANALOGGAIN:    // set analog gain
             {
                 if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
+                if( analogGain == my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested analog gain is: " << analogGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
