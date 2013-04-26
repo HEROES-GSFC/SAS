@@ -197,7 +197,7 @@ void *TelemetryPackagerThread(void *threadargs);
 void *listenForCommandsThread(void *threadargs);
 void *CommandSenderThread( void *threadargs );
 void *CommandPackagerThread( void *threadargs );
-void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
+void queue_cmd_proc_ack_tmpacket( uint16_t error_code, bool payloadexists, uint16_t payload );
 uint16_t cmd_send_image_to_ground( int camera_id );
 void *commandHandlerThread(void *threadargs);
 void cmd_process_heroes_command(uint16_t heroes_command);
@@ -1027,12 +1027,13 @@ void *CommandPackagerThread( void *threadargs )
     return NULL;
 }
 
-void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
+void queue_cmd_proc_ack_tmpacket( uint16_t error_code, bool payloadexists, uint16_t payload )
 {
     TelemetryPacket ack_tp(TM_ACK_PROCESS, SOURCE_ID_SAS);
     ack_tp << command_sequence_number;
     ack_tp << latest_sas_command_key;
     ack_tp << error_code;
+    if( payloadexists == true ){ ack_tp << payload; }
     tm_packet_queue << ack_tp;
 }
 
@@ -1101,7 +1102,7 @@ void *commandHandlerThread(void *threadargs)
 {
     // command error code definition
     // error_code   description
-    // 0x0000       command implemented sucessfully
+    // 0x0000       command implemented successfully
     // 0x0001       command not implemented
     // 0xffff       unknown command
     // 
@@ -1115,7 +1116,7 @@ void *commandHandlerThread(void *threadargs)
         case SKEY_REQUEST_IMAGE:
             {
                 error_code = cmd_send_image_to_ground( 0 );
-                queue_cmd_proc_ack_tmpacket( error_code );
+                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
             }
             break;
         case SKEY_SET_EXPOSURE:    // set exposure time
@@ -1123,7 +1124,7 @@ void *commandHandlerThread(void *threadargs)
                 if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
                 if( exposure == my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested exposure time is: " << exposure << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
+                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
             }
             break;
         case SKEY_SET_IMAGESAVETOGGLE:
@@ -1132,14 +1133,14 @@ void *commandHandlerThread(void *threadargs)
                 if( isImageSave == my_data->command_vars[0] ) error_code = 0;
                 if( isImageSave == true ){ std::cout << "Image saving is now turned on" << std::endl; }
                 if( isImageSave == false ){ std::cout << "Image saving is now turned off" << std::endl; }
-                queue_cmd_proc_ack_tmpacket( error_code );
+                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
             }
         case SKEY_SET_PREAMPGAIN:    // set preamp gain
             {
                 if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
                 if( preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested preamp gain is: " << preampGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
+                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
             }
             break;
         case SKEY_SET_ANALOGGAIN:    // set analog gain
@@ -1147,7 +1148,7 @@ void *commandHandlerThread(void *threadargs)
                 if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
                 if( analogGain == my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested analog gain is: " << analogGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
+                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
             }
             break;
         case SKEY_SET_TARGET:    // set new solar target
@@ -1166,7 +1167,7 @@ void *commandHandlerThread(void *threadargs)
         default:
             {
                 error_code = 0xffff;            // unknown command!
-                queue_cmd_proc_ack_tmpacket( error_code );
+                queue_cmd_proc_ack_tmpacket( error_code, false, 0 );
             }
     }
 
@@ -1242,12 +1243,12 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
 
         switch( sas_command & 0x0FFF){
             case SKEY_OP_DUMMY:     // test, do nothing
-                queue_cmd_proc_ack_tmpacket( 1 );
+                queue_cmd_proc_ack_tmpacket( 1, false, 0 );
                 break;
             case SKEY_KILL_WORKERS:    // kill all worker threads
                 {
                     kill_all_workers();
-                    queue_cmd_proc_ack_tmpacket( 1 );
+                    queue_cmd_proc_ack_tmpacket( 1, false, 0 );
                 }
                 break;
             case SKEY_RESTART_THREADS:    // (re)start all worker threads
@@ -1256,7 +1257,7 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
 
                     start_thread(listenForCommandsThread, NULL);
                     start_all_workers();
-                    queue_cmd_proc_ack_tmpacket( 1 );
+                    queue_cmd_proc_ack_tmpacket( 1, false, 0 );
                 }
                 break;
             default:
