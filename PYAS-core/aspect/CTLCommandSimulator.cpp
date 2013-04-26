@@ -1,7 +1,7 @@
 #include "Command.hpp"
 #include "UDPSender.hpp"
 
-#define CTL_CMD_PORT 2001 /* The default port to send on */
+#define CTL_CMD_PORT 2000 /* The default port to send on */
 
 int main(int argc, char *argv[])
 {

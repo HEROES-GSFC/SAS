@@ -78,9 +78,14 @@
 #define SKEY_SET_EXPOSURE        0x0151
 #define SKEY_SET_ANALOGGAIN      0x0181
 #define SKEY_SET_PREAMPGAIN      0x0191
+#define SKEY_SET_IMAGESAVETOGGLE 0x0161
 
 //Getting commands
 #define SKEY_REQUEST_IMAGE       0x0210
+#define SKEY_REQUEST_EXPOSURE    0x0220
+#define SKEY_REQUEST_ANALOGGAIN  0x0230
+#define SKEY_REQUEST_PREAMPGAIN  0x0240
+#define SKEY_REQUEST_DISKSPACE   0x0241
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -118,6 +123,7 @@ uint16_t solution_sequence_number = 0;
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
 bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
+bool isImageSaving = true;  // is the SAS saving images?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -704,7 +710,7 @@ void *SaveImageThread(void *threadargs)
         {
             while(1)
             {
-                if(saveReady.check())
+                if(saveReady.check() && isImageSaving)
                 {
                     saveReady.lower();
                     break;
@@ -1113,6 +1119,13 @@ void *commandHandlerThread(void *threadargs)
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
+        case SKEY_SET_IMAGESAVETOGGLE:
+            {
+                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) isImageSaving = my_data->command_vars[0];
+                if( isImageSave == true ){ std::cout << "Image saving is now turned on" << std::endl; }
+                if( isImageSave == false ){ std::cout << "Image saving is now turned off" << std::endl; }
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
         case SKEY_SET_PREAMPGAIN:    // set preamp gain
             {
                 if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
