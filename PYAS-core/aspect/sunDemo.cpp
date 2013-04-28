@@ -79,17 +79,17 @@
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0112
+#define SKEY_SET_IMAGESAVETOGGLE 0x0121
 #define SKEY_SET_EXPOSURE        0x0151
 #define SKEY_SET_ANALOGGAIN      0x0181
 #define SKEY_SET_PREAMPGAIN      0x0191
-#define SKEY_SET_IMAGESAVETOGGLE 0x0161
 
 //Getting commands
 #define SKEY_REQUEST_IMAGE       0x0210
-#define SKEY_REQUEST_EXPOSURE    0x0220
-#define SKEY_REQUEST_ANALOGGAIN  0x0230
-#define SKEY_REQUEST_PREAMPGAIN  0x0240
-#define SKEY_REQUEST_DISKSPACE   0x0241
+#define SKEY_REQUEST_EXPOSURE    0x0250
+#define SKEY_REQUEST_ANALOGGAIN  0x0260
+#define SKEY_REQUEST_PREAMPGAIN  0x0270
+#define SKEY_REQUEST_DISKSPACE   0x0281
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
