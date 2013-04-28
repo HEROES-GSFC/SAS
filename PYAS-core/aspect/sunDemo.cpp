@@ -938,14 +938,16 @@ void *listenForCommandsThread(void *threadargs)
         if (command_packet.valid()){
             printf("listenForCommandsThread: good command packet\n");
 
-            if (sas_id == 1) comForwarder.send(&command_packet);
-
             command_sequence_number = command_packet.getSequenceNumber();
 
-            // add command ack packet
-            TelemetryPacket ack_tp(TM_ACK_RECEIPT, SOURCE_ID_SAS);
-            ack_tp << command_sequence_number;
-            tm_packet_queue << ack_tp;
+            if (sas_id == 1) {
+                comForwarder.send(&command_packet);
+
+                // add command ack packet
+                TelemetryPacket ack_tp(TM_ACK_RECEIPT, SOURCE_ID_SAS);
+                ack_tp << command_sequence_number;
+                tm_packet_queue << ack_tp;
+            }
 
             // update the command count
             printf("command sequence number to %i\n", command_sequence_number);
