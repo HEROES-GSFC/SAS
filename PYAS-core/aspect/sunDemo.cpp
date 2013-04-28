@@ -211,7 +211,7 @@ void cmd_process_heroes_command(uint16_t heroes_command);
 void cmd_process_sas_command(uint16_t sas_command, Command &command);
 void start_all_workers( void );
 void start_thread(void *(*start_routine) (void *), const Thread_data *tdata);
-uint16_t get_disk_usage( disk );
+uint16_t get_disk_usage( uint16_t disk );
 
 void sig_handler(int signum)
 {
@@ -1234,9 +1234,11 @@ void *commandHandlerThread(void *threadargs)
             }
         case SKEY_GET_DISKSPACE:
             {
-                if( my_data->command_num_vars == 1) disk = (uint16_t)my_data->command_vars[0];
-                diskspace = get_disk_usage( disk );
-                queue_cmd_proc_ack_tmpacket( (uint16_t)diskspace );
+                if( my_data->command_num_vars == 1) {
+                    uint16_t disk = (uint16_t)my_data->command_vars[0];
+                    error_code = get_disk_usage( disk );
+                }
+                queue_cmd_proc_ack_tmpacket( error_code );
             }
         default:
             {
@@ -1299,11 +1301,19 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
     return;
 }
 
-uint16_t get_disk_usage( disk ){
+uint16_t get_disk_usage( uint16_t disk ){
     struct statvfs vfs;
-    if( disk == 1 ){ statvfs("/mnt/disk1/", &vfs);
-    if( disk == 2 ){ statvfs("/mnt/disk2/", &vfs);
-    
+    switch (disk) {
+        case 1:
+            statvfs("/mnt/disk1/", &vfs);
+            break;
+        case 2:
+            statvfs("/mnt/disk2/", &vfs);
+            break;
+        default:
+            return 0;
+    }
+
     unsigned long total = vfs.f_blocks * vfs.f_frsize / 1024;
     unsigned long available = vfs.f_bavail * vfs.f_frsize / 1024;
     unsigned long free = vfs.f_bfree * vfs.f_frsize / 1024;
