@@ -45,6 +45,7 @@
 #define PORT_CMD      2000 // commands, FDR (receive) and CTL (send/receive)
 #define PORT_TM       2002 // send telemetry to FDR (except images)
 #define PORT_IMAGE    2013 // send images to FDR, TCP port
+#define PORT_SAS2     3000 // commands output from SAS2 to CTL are redirected here
 #define PORT_SBC_INFO 3456 //
 
 //HEROES target ID for commands, source ID for telemetry
@@ -198,6 +199,7 @@ void *TelemetryPackagerThread(void *threadargs);
 void *listenForCommandsThread(void *threadargs);
 void *CommandSenderThread( void *threadargs );
 void *CommandPackagerThread( void *threadargs );
+void *ForwardCommandsFromSAS2Thread( void *threadargs );
 void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
 uint16_t cmd_send_image_to_ground( int camera_id );
 void *commandHandlerThread(void *threadargs);
@@ -978,6 +980,53 @@ void *listenForCommandsThread(void *threadargs)
     return NULL;
 }
 
+void *ForwardCommandsFromSAS2Thread(void *threadargs)
+{  
+    long tid = (long)((struct Thread_data *)threadargs)->thread_id;
+    printf("ForwardCommandsFromSAS2 thread #%ld!\n", tid);
+
+    tid_listen = tid;
+
+    CommandReceiver comReceiver( (unsigned short) PORT_SAS2);
+    comReceiver.init_connection();
+
+    CommandSender comForwarder(IP_CTL, PORT_CMD);
+
+    while(1)    // run forever
+    {
+        unsigned int packet_length;
+    
+        packet_length = comReceiver.listen( );
+        printf("ForwardCommandsFromSAS2Thread: %i\n", packet_length);
+        uint8_t *packet;
+        packet = new uint8_t[packet_length];
+        comReceiver.get_packet( packet );
+
+        CommandPacket command_packet( packet, packet_length );
+
+        if (command_packet.valid()){
+            if (isOutputting) {
+                //SAS-1 is outputting, so discard SAS-2 output
+                printf("ForwardCommandsFromSAS2Thread: blocking SAS-2 output\n");
+            } else {
+                //SAS-1 is not outputting, so forward up SAS-2 output
+                comForwarder.send(&command_packet);
+            }
+        }
+        delete packet;
+
+        if (stop_message[tid] == 1){
+            printf("ForwardCommandsFromSAS2 thread #%ld exiting\n", tid);
+            comReceiver.close_connection();
+            started[tid] = false;
+            pthread_exit( NULL );
+        }
+    }
+
+    /* NEVER REACHED */
+    return NULL;
+}
+
 void *CommandSenderThread( void *threadargs )
 {
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
@@ -1318,6 +1367,7 @@ void start_all_workers( void ){
     start_thread(SaveImageThread, NULL);
     start_thread(SaveTemperaturesThread, NULL);
     start_thread(SBCInfoThread, NULL);
+    if (sas_id == 1) start_thread(ForwardCommandsFromSAS2Thread, NULL);
 }
 
 int main(void)
