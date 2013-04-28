@@ -27,6 +27,7 @@
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
 #define USLEEP_TM_GENERIC 250000 // period for adding generic telemetry packets to queue
+#define USLEEP_UDP_LISTEN   1000 // safety measure in case UDP listening is changed to non-blocking
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
@@ -662,6 +663,7 @@ void *SBCInfoThread(void *threadargs)
         }
 
         //This call will block forever if the service is not running
+        usleep(USLEEP_UDP_LISTEN);
         packet_length = receiver.listen();
         array = new uint8_t[packet_length];
         receiver.get_packet(array);
@@ -929,7 +931,8 @@ void *listenForCommandsThread(void *threadargs)
     while(1)    // run forever
     {
         unsigned int packet_length;
-    
+
+        usleep(USLEEP_UDP_LISTEN);
         packet_length = comReceiver.listen( );
         printf("listenForCommandsThread: %i\n", packet_length);
         uint8_t *packet;
@@ -995,7 +998,8 @@ void *ForwardCommandsFromSAS2Thread(void *threadargs)
     while(1)    // run forever
     {
         unsigned int packet_length;
-    
+
+        usleep(USLEEP_UDP_LISTEN);
         packet_length = comReceiver.listen( );
         printf("ForwardCommandsFromSAS2Thread: %i\n", packet_length);
         uint8_t *packet;
