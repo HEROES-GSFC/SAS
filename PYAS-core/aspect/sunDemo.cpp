@@ -920,7 +920,9 @@ void *listenForCommandsThread(void *threadargs)
 
     CommandReceiver comReceiver( (unsigned short) PORT_CMD);
     comReceiver.init_connection();
-    
+
+    CommandSender comForwarder(IP_SAS2, PORT_CMD);
+
     while(1)    // run forever
     {
         unsigned int packet_length;
@@ -930,11 +932,13 @@ void *listenForCommandsThread(void *threadargs)
         uint8_t *packet;
         packet = new uint8_t[packet_length];
         comReceiver.get_packet( packet );
-    
+
         CommandPacket command_packet( packet, packet_length );
 
         if (command_packet.valid()){
             printf("listenForCommandsThread: good command packet\n");
+
+            if (sas_id == 1) comForwarder.send(&command_packet);
 
             command_sequence_number = command_packet.getSequenceNumber();
 
