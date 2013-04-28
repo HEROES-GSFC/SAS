@@ -1343,12 +1343,12 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
 
         switch( sas_command & 0x0FFF){
             case SKEY_OP_DUMMY:     // test, do nothing
-                queue_cmd_proc_ack_tmpacket( 1, false, 0 );
+                queue_cmd_proc_ack_tmpacket( 0 );
                 break;
             case SKEY_KILL_WORKERS:    // kill all worker threads
                 {
                     kill_all_workers();
-                    queue_cmd_proc_ack_tmpacket( 1, false, 0 );
+                    queue_cmd_proc_ack_tmpacket( 0 );
                 }
                 break;
             case SKEY_RESTART_THREADS:    // (re)start all worker threads
@@ -1357,7 +1357,7 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
 
                     start_thread(listenForCommandsThread, NULL);
                     start_all_workers();
-                    queue_cmd_proc_ack_tmpacket( 1, false, 0 );
+                    queue_cmd_proc_ack_tmpacket( 0 );
                 }
                 break;
             default:
