@@ -1177,7 +1177,7 @@ void *commandHandlerThread(void *threadargs)
             break;
         case SKEY_SET_EXPOSURE:    // set exposure time
             {
-                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
+                if(my_data->command_num_vars == 1) exposure = my_data->command_vars[0];
                 if( exposure == my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested exposure time is: " << exposure << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
@@ -1185,7 +1185,7 @@ void *commandHandlerThread(void *threadargs)
             break;
         case SKEY_SET_IMAGESAVETOGGLE:
             {
-                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) isImageSaving = my_data->command_vars[0];
+                if(my_data->command_num_vars == 1) isImageSaving = (my_data->command_vars[0] > 0);
                 if( isImageSave == my_data->command_vars[0] ) error_code = 0;
                 if( isImageSave == true ){ std::cout << "Image saving is now turned on" << std::endl; }
                 if( isImageSave == false ){ std::cout << "Image saving is now turned off" << std::endl; }
