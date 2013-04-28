@@ -49,6 +49,7 @@
 
 //HEROES target ID for commands, source ID for telemetry
 #define TARGET_ID_CTL 0x01
+#define TARGET_ID_SAS 0x30
 #define SOURCE_ID_SAS 0x30
 
 //HEROES telemetry types
@@ -952,9 +953,11 @@ void *listenForCommandsThread(void *threadargs)
             // update the command count
             printf("command sequence number to %i\n", command_sequence_number);
 
-            try { recvd_command_queue.add_packet(command_packet); }
-            catch (std::exception& e) {
-                std::cerr << e.what() << std::endl;
+            if (command_packet.getTargetID() == TARGET_ID_SAS) {
+                try { recvd_command_queue.add_packet(command_packet); }
+                catch (std::exception& e) {
+                    std::cerr << e.what() << std::endl;
+                }
             }
 
         } else {
