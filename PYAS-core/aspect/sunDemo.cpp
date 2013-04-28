@@ -27,6 +27,7 @@
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
 #define USLEEP_TM_GENERIC 250000 // period for adding generic telemetry packets to queue
+#define USLEEP_UDP_LISTEN   1000 // safety measure in case UDP listening is changed to non-blocking
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
@@ -45,10 +46,12 @@
 #define PORT_CMD      2000 // commands, FDR (receive) and CTL (send/receive)
 #define PORT_TM       2002 // send telemetry to FDR (except images)
 #define PORT_IMAGE    2013 // send images to FDR, TCP port
+#define PORT_SAS2     3000 // commands output from SAS2 to CTL are redirected here
 #define PORT_SBC_INFO 3456 //
 
 //HEROES target ID for commands, source ID for telemetry
 #define TARGET_ID_CTL 0x01
+#define TARGET_ID_SAS 0x30
 #define SOURCE_ID_SAS 0x30
 
 //HEROES telemetry types
@@ -79,12 +82,17 @@
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0112
+#define SKEY_SET_IMAGESAVETOGGLE 0x0121
 #define SKEY_SET_EXPOSURE        0x0151
 #define SKEY_SET_ANALOGGAIN      0x0181
 #define SKEY_SET_PREAMPGAIN      0x0191
 
 //Getting commands
 #define SKEY_REQUEST_IMAGE       0x0210
+#define SKEY_GET_EXPOSURE        0x0250
+#define SKEY_GET_ANALOGGAIN      0x0260
+#define SKEY_GET_PREAMPGAIN      0x0270
+#define SKEY_GET_DISKSPACE       0x0281
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -97,6 +105,7 @@
 #include <opencv.hpp>
 #include <iostream>
 #include <string>
+#include <sys/statvfs.h> /* for statvfs (get_disk_usage) */
 #include <fstream>
 
 #include "UDPSender.hpp"
@@ -123,6 +132,7 @@ uint16_t ctl_sequence_number = 0;
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
 bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
+bool isSavingImages = true;  // is the SAS saving images?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -197,6 +207,7 @@ void *TelemetryPackagerThread(void *threadargs);
 void *listenForCommandsThread(void *threadargs);
 void *CommandSenderThread( void *threadargs );
 void *CommandPackagerThread( void *threadargs );
+void *ForwardCommandsFromSAS2Thread( void *threadargs );
 void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
 uint16_t cmd_send_image_to_ground( int camera_id );
 void *commandHandlerThread(void *threadargs);
@@ -204,6 +215,7 @@ void cmd_process_heroes_command(uint16_t heroes_command);
 void cmd_process_sas_command(uint16_t sas_command, Command &command);
 void start_all_workers( void );
 void start_thread(void *(*start_routine) (void *), const Thread_data *tdata);
+uint16_t get_disk_usage( uint16_t disk );
 
 void sig_handler(int signum)
 {
@@ -659,6 +671,7 @@ void *SBCInfoThread(void *threadargs)
         }
 
         //This call will block forever if the service is not running
+        usleep(USLEEP_UDP_LISTEN);
         packet_length = receiver.listen();
         array = new uint8_t[packet_length];
         receiver.get_packet(array);
@@ -736,7 +749,7 @@ void *SaveImageThread(void *threadargs)
         {
             while(1)
             {
-                if(saveReady.check())
+                if(saveReady.check() && isSavingImages)
                 {
                     saveReady.lower();
                     break;
@@ -920,17 +933,20 @@ void *listenForCommandsThread(void *threadargs)
 
     CommandReceiver comReceiver( (unsigned short) PORT_CMD);
     comReceiver.init_connection();
-    
+
+    CommandSender comForwarder(IP_SAS2, PORT_CMD);
+
     while(1)    // run forever
     {
         unsigned int packet_length;
-    
+
+        usleep(USLEEP_UDP_LISTEN);
         packet_length = comReceiver.listen( );
         printf("listenForCommandsThread: %i\n", packet_length);
         uint8_t *packet;
         packet = new uint8_t[packet_length];
         comReceiver.get_packet( packet );
-    
+
         CommandPacket command_packet( packet, packet_length );
 
         if (command_packet.valid()){
@@ -938,17 +954,23 @@ void *listenForCommandsThread(void *threadargs)
 
             command_sequence_number = command_packet.getSequenceNumber();
 
-            // add command ack packet
-            TelemetryPacket ack_tp(TM_ACK_RECEIPT, SOURCE_ID_SAS);
-            ack_tp << command_sequence_number;
-            tm_packet_queue << ack_tp;
+            if (sas_id == 1) {
+                comForwarder.send(&command_packet);
+
+                // add command ack packet
+                TelemetryPacket ack_tp(TM_ACK_RECEIPT, SOURCE_ID_SAS);
+                ack_tp << command_sequence_number;
+                tm_packet_queue << ack_tp;
+            }
 
             // update the command count
             printf("command sequence number to %i\n", command_sequence_number);
 
-            try { recvd_command_queue.add_packet(command_packet); }
-            catch (std::exception& e) {
-                std::cerr << e.what() << std::endl;
+            if (command_packet.getTargetID() == TARGET_ID_SAS) {
+                try { recvd_command_queue.add_packet(command_packet); }
+                catch (std::exception& e) {
+                    std::cerr << e.what() << std::endl;
+                }
             }
 
         } else {
@@ -959,6 +981,54 @@ void *listenForCommandsThread(void *threadargs)
 
         if (stop_message[tid] == 1){
             printf("listenForCommands thread #%ld exiting\n", tid);
+            comReceiver.close_connection();
+            started[tid] = false;
+            pthread_exit( NULL );
+        }
+    }
+
+    /* NEVER REACHED */
+    return NULL;
+}
+
+void *ForwardCommandsFromSAS2Thread(void *threadargs)
+{  
+    long tid = (long)((struct Thread_data *)threadargs)->thread_id;
+    printf("ForwardCommandsFromSAS2 thread #%ld!\n", tid);
+
+    tid_listen = tid;
+
+    CommandReceiver comReceiver( (unsigned short) PORT_SAS2);
+    comReceiver.init_connection();
+
+    CommandSender comForwarder(IP_CTL, PORT_CMD);
+
+    while(1)    // run forever
+    {
+        unsigned int packet_length;
+
+        usleep(USLEEP_UDP_LISTEN);
+        packet_length = comReceiver.listen( );
+        printf("ForwardCommandsFromSAS2Thread: %i\n", packet_length);
+        uint8_t *packet;
+        packet = new uint8_t[packet_length];
+        comReceiver.get_packet( packet );
+
+        CommandPacket command_packet( packet, packet_length );
+
+        if (command_packet.valid()){
+            if (isOutputting) {
+                //SAS-1 is outputting, so discard SAS-2 output
+                printf("ForwardCommandsFromSAS2Thread: blocking SAS-2 output\n");
+            } else {
+                //SAS-1 is not outputting, so forward up SAS-2 output
+                comForwarder.send(&command_packet);
+            }
+        }
+        delete packet;
+
+        if (stop_message[tid] == 1){
+            printf("ForwardCommandsFromSAS2 thread #%ld exiting\n", tid);
             comReceiver.close_connection();
             started[tid] = false;
             pthread_exit( NULL );
@@ -1148,9 +1218,15 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         
 void *commandHandlerThread(void *threadargs)
 {
+    // command error code definition
+    // error_code   description
+    // 0x0000       command implemented successfully
+    // 0x0001       command not implemented
+    // 0xffff       unknown command
+    // 
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     struct Thread_data *my_data;
-    uint16_t error_code = 0;
+    uint16_t error_code = 0x0001;
     my_data = (struct Thread_data *) threadargs;
 
     switch( my_data->command_key & 0x0FFF)
@@ -1163,14 +1239,24 @@ void *commandHandlerThread(void *threadargs)
             break;
         case SKEY_SET_EXPOSURE:    // set exposure time
             {
-                if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
+                if(my_data->command_num_vars == 1) exposure = my_data->command_vars[0];
+                if( exposure == my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested exposure time is: " << exposure << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
+        case SKEY_SET_IMAGESAVETOGGLE:
+            {
+                if(my_data->command_num_vars == 1) isSavingImages = (my_data->command_vars[0] > 0);
+                if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
+                if( isSavingImages == true ){ std::cout << "Image saving is now turned on" << std::endl; }
+                if( isSavingImages == false ){ std::cout << "Image saving is now turned off" << std::endl; }
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
         case SKEY_SET_PREAMPGAIN:    // set preamp gain
             {
                 if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
+                if( preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested preamp gain is: " << preampGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
@@ -1178,6 +1264,7 @@ void *commandHandlerThread(void *threadargs)
         case SKEY_SET_ANALOGGAIN:    // set analog gain
             {
                 if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
+                if( analogGain == my_data->command_vars[0] ) error_code = 0;
                 std::cout << "Requested analog gain is: " << analogGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
@@ -1195,6 +1282,26 @@ void *commandHandlerThread(void *threadargs)
                 isOutputting = false;
             }
             break;
+        case SKEY_GET_EXPOSURE:
+            {
+                queue_cmd_proc_ack_tmpacket( (uint16_t)exposure );
+            }
+        case SKEY_GET_ANALOGGAIN:
+            {
+                queue_cmd_proc_ack_tmpacket( (uint16_t)analogGain );
+            }
+        case SKEY_GET_PREAMPGAIN:
+            {
+                queue_cmd_proc_ack_tmpacket( (int16_t)preampGain );
+            }
+        case SKEY_GET_DISKSPACE:
+            {
+                if( my_data->command_num_vars == 1) {
+                    uint16_t disk = (uint16_t)my_data->command_vars[0];
+                    error_code = get_disk_usage( disk );
+                }
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
         default:
             {
                 error_code = 0xffff;            // unknown command!
@@ -1256,6 +1363,30 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
     return;
 }
 
+uint16_t get_disk_usage( uint16_t disk ){
+    struct statvfs vfs;
+    switch (disk) {
+        case 1:
+            statvfs("/mnt/disk1/", &vfs);
+            break;
+        case 2:
+            statvfs("/mnt/disk2/", &vfs);
+            break;
+        default:
+            return 0;
+    }
+
+    unsigned long total = vfs.f_blocks * vfs.f_frsize / 1024;
+    unsigned long available = vfs.f_bavail * vfs.f_frsize / 1024;
+    unsigned long free = vfs.f_bfree * vfs.f_frsize / 1024;
+    unsigned long used = total - free;
+
+    uintmax_t u100 = used * 100;
+    uintmax_t nonroot_total = used + available;
+    uint16_t percent = u100 / nonroot_total + (u100 % nonroot_total != 0);
+    return( percent );
+}
+
 void cmd_process_sas_command(uint16_t sas_command, Command &command)
 {
     Thread_data tdata;
@@ -1274,12 +1405,12 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
 
         switch( sas_command & 0x0FFF){
             case SKEY_OP_DUMMY:     // test, do nothing
-                queue_cmd_proc_ack_tmpacket( 1 );
+                queue_cmd_proc_ack_tmpacket( 0 );
                 break;
             case SKEY_KILL_WORKERS:    // kill all worker threads
                 {
                     kill_all_workers();
-                    queue_cmd_proc_ack_tmpacket( 1 );
+                    queue_cmd_proc_ack_tmpacket( 0 );
                 }
                 break;
             case SKEY_RESTART_THREADS:    // (re)start all worker threads
@@ -1288,7 +1419,7 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
 
                     start_thread(listenForCommandsThread, NULL);
                     start_all_workers();
-                    queue_cmd_proc_ack_tmpacket( 1 );
+                    queue_cmd_proc_ack_tmpacket( 0 );
                 }
                 break;
             default:
@@ -1309,6 +1440,7 @@ void start_all_workers( void ){
     start_thread(SaveImageThread, NULL);
     start_thread(SaveTemperaturesThread, NULL);
     start_thread(SBCInfoThread, NULL);
+    if (sas_id == 1) start_thread(ForwardCommandsFromSAS2Thread, NULL);
 }
 
 int main(void)
