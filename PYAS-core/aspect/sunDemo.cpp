@@ -86,10 +86,10 @@
 
 //Getting commands
 #define SKEY_REQUEST_IMAGE       0x0210
-#define SKEY_REQUEST_EXPOSURE    0x0250
-#define SKEY_REQUEST_ANALOGGAIN  0x0260
-#define SKEY_REQUEST_PREAMPGAIN  0x0270
-#define SKEY_REQUEST_DISKSPACE   0x0281
+#define SKEY_GET_EXPOSURE        0x0250
+#define SKEY_GET_ANALOGGAIN      0x0260
+#define SKEY_GET_PREAMPGAIN      0x0270
+#define SKEY_GET_DISKSPACE       0x0281
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -129,7 +129,7 @@ uint16_t ctl_sequence_number = 0;
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
 bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
-bool isImageSaving = true;  // is the SAS saving images?
+bool isSavingImages = true;  // is the SAS saving images?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -744,7 +744,7 @@ void *SaveImageThread(void *threadargs)
         {
             while(1)
             {
-                if(saveReady.check() && isImageSaving)
+                if(saveReady.check() && isSavingImages)
                 {
                     saveReady.lower();
                     break;
@@ -1185,10 +1185,10 @@ void *commandHandlerThread(void *threadargs)
             break;
         case SKEY_SET_IMAGESAVETOGGLE:
             {
-                if(my_data->command_num_vars == 1) isImageSaving = (my_data->command_vars[0] > 0);
-                if( isImageSave == my_data->command_vars[0] ) error_code = 0;
-                if( isImageSave == true ){ std::cout << "Image saving is now turned on" << std::endl; }
-                if( isImageSave == false ){ std::cout << "Image saving is now turned off" << std::endl; }
+                if(my_data->command_num_vars == 1) isSavingImages = (my_data->command_vars[0] > 0);
+                if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
+                if( isSavingImages == true ){ std::cout << "Image saving is now turned on" << std::endl; }
+                if( isSavingImages == false ){ std::cout << "Image saving is now turned off" << std::endl; }
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
         case SKEY_SET_PREAMPGAIN:    // set preamp gain
@@ -1224,15 +1224,15 @@ void *commandHandlerThread(void *threadargs)
             {
                 queue_cmd_proc_ack_tmpacket( (uint16_t)exposure );
             }
-        case SKEY_REQUEST_ANALOGGAIN:
+        case SKEY_GET_ANALOGGAIN:
             {
                 queue_cmd_proc_ack_tmpacket( (uint16_t)analogGain );
             }
-        case SKEY_REQUEST_PREAMPGAIN:
+        case SKEY_GET_PREAMPGAIN:
             {
                 queue_cmd_proc_ack_tmpacket( (int16_t)preampGain );
             }
-        case SKEY_REQUEST_DISKSPACE:
+        case SKEY_GET_DISKSPACE:
             {
                 if( my_data->command_num_vars == 1) disk = (uint16_t)my_data->command_vars[0];
                 diskspace = get_disk_usage( disk );
