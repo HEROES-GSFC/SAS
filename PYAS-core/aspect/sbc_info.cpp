@@ -9,7 +9,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <linux/i2c-dev.h>
-#include "smbus.h"
+#include "smbus/smbus.h"
 
 #define EC_INDEX 0x6f0
 #define EC_DATA  0x6f1
