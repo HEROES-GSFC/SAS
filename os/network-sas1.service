@@ -1,0 +1,39 @@
+[Unit]
+Description=Network for SAS-1
+Wants=network.target
+Before=network.target
+BindsTo=sys-subsystem-net-devices-sbc.device
+After=sys-subsystem-net-devices-sbc.device
+BindsTo=sys-subsystem-net-devices-j1.device
+After=sys-subsystem-net-devices-j1.device
+BindsTo=sys-subsystem-net-devices-j6.device
+After=sys-subsystem-net-devices-j6.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/conf.d/network
+ExecStart=/sbin/ip link set dev sbc up
+ExecStart=/sbin/ip link set dev j1 up
+ExecStart=/sbin/ip link set dev j6 up
+ExecStart=/sbin/ip addr add 192.168.2.221/24 dev sbc 
+ExecStart=/sbin/ip addr add 169.254.0.1/16 dev j1
+ExecStart=/sbin/ip addr add 192.168.16.1/24 dev j6
+ExecStart=/sbin/ip route add default via 192.168.2.1
+ExecStart=/usr/sbin/iptables -t nat -A PREROUTING -p tcp -d $IP_SAS1 --dport $PORT_SSH_REDIRECT -j DNAT --to ${IP_SAS2}:${PORT_SSH}
+ExecStart=/usr/sbin/iptables -t nat -A POSTROUTING -p tcp -d $IP_SAS2 --dport $PORT_SSH -j SNAT --to $IP_SAS2_GATEWAY
+ExecStart=/usr/sbin/iptables -t nat -A PREROUTING -p udp -s $IP_SAS2 --dport $PORT_CMD -j DNAT --to ${IP_SAS1}:${PORT_CMD_REDIRECT}
+ExecStart=/usr/sbin/iptables -t nat -A POSTROUTING -s $IP_SAS2 -j SNAT --to $IP_SAS1
+ExecStart=/usr/sbin/iptables -t mangle -A PREROUTING -p udp -d $IP_SAS1 --dport $PORT_CMD -j TEE --gateway $IP_SAS2
+
+ExecStop=/usr/sbin/iptables -t mangle -F
+ExecStop=/usr/sbin/iptables -t nat -F
+ExecStop=/sbin/ip addr flush dev sbc
+ExecStop=/sbin/ip addr flush dev j1
+ExecStop=/sbin/ip addr flush dev j6
+ExecStop=/sbin/ip link set dev sbc down
+ExecStop=/sbin/ip link set dev j1 down
+ExecStop=/sbin/ip link set dev j6 down
+
+[Install]
+WantedBy=multi-user.target

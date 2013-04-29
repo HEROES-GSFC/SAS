@@ -35,8 +35,6 @@
 //IP addresses
 #define IP_FDR      "192.168.2.4"   // will be 192.168.1.1 in flight
 #define IP_CTL      "192.168.2.4"   // will be 192.168.1.2 in flight
-#define IP_SAS1     "192.168.2.221" // will be 192.168.1.32 in flight
-#define IP_SAS2     "192.168.16.16" // not yet implemented
 #define IP_PYAS     "192.168.4.4"   // not yet implemented
 #define IP_RAS      "192.168.8.8"   // not yet implemented
 
@@ -190,6 +188,7 @@ long int frameCount = 0;
 
 float camera_temperature;
 int8_t sbc_temperature;
+int8_t i2c_temperatures[8];
 float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 
 //Function declarations
@@ -678,6 +677,7 @@ void *SBCInfoThread(void *threadargs)
 
         Packet packet( array, packet_length );
         packet >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
+        for (int i=0; i<8; i++) packet >> i2c_temperatures[i];
         delete array;
     }
 }
@@ -934,8 +934,6 @@ void *listenForCommandsThread(void *threadargs)
     CommandReceiver comReceiver( (unsigned short) PORT_CMD);
     comReceiver.init_connection();
 
-    CommandSender comForwarder(IP_SAS2, PORT_CMD);
-
     while(1)    // run forever
     {
         unsigned int packet_length;
@@ -955,8 +953,6 @@ void *listenForCommandsThread(void *threadargs)
             command_sequence_number = command_packet.getSequenceNumber();
 
             if (sas_id == 1) {
-                comForwarder.send(&command_packet);
-
                 // add command ack packet
                 TelemetryPacket ack_tp(TM_ACK_RECEIPT, SOURCE_ID_SAS);
                 ack_tp << command_sequence_number;

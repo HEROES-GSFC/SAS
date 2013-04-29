@@ -76,7 +76,7 @@ AspectVideo: AspectVideo.cpp processing.o utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 #This executable need to be copied to /usr/local/bin/ after it is built
-sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o
+sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 sbc_info_reader: sbc_info_reader.cpp Packet.o lib_crc.o UDPReceiver.o
@@ -84,6 +84,9 @@ sbc_info_reader: sbc_info_reader.cpp Packet.o lib_crc.o UDPReceiver.o
 
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp
+	$(CC) -c $(CFLAGS) $< -o $@
+
+smbus.o: smbus/smbus.c smbus/smbus.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
 lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
