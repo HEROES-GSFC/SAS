@@ -1,11 +1,11 @@
 Here there be code for the HEROES SAS flight computer
 
-Instructions for setting up the network configuration for each SAS computer:
+Installation scripts for the SAS computers:
 
     cd os/
     source install-sas1.sh (or install-sas2.sh)
 
-Note that these files contain stored MAC addresses, so cannot be simply swapped between the computers or with the third computer.
+Note that these files contain stored MAC addresses, so cannot be simply interchanged between the computers or with the third computer.
 
 Instructions for installing the camera's SDK:
 
