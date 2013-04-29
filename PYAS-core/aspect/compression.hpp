@@ -18,9 +18,9 @@ struct HeaderData
     float sunCenterError[2];
     int imageMinMax[2];
     float XYinterceptslope[4];
-    float CTLsolution[2];
+    double CTLsolution[2];
     float screenCenter[2];
-	float screenCenterError[2];
+    float screenCenterError[2];
     float fiducialX[10];
     float fiducialY[10];
     float limbX[10];

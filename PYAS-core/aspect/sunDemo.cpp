@@ -1,9 +1,13 @@
 #define MAX_THREADS 20
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define REPORT_FOCUS false
+#define LOG_PACKETS true
+
+//Major settings
+#define FRAME_CADENCE 250000 // microseconds
 
 //Default camera settings
-#define CAMERA_EXPOSURE 15000 // microseconds, was 4500 microseconds in first Sun test
+#define CAMERA_EXPOSURE 15000 // microseconds
 #define CAMERA_ANALOGGAIN 400 // camera defaults to 143, but we are changing it
 #define CAMERA_PREAMPGAIN -3 // camera defaults to +6, but we are changing it
 #define CAMERA_XSIZE 1296 // full frame is 1296
@@ -23,6 +27,7 @@
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
 #define USLEEP_TM_GENERIC 250000 // period for adding generic telemetry packets to queue
+#define USLEEP_UDP_LISTEN   1000 // safety measure in case UDP listening is changed to non-blocking
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
@@ -41,10 +46,12 @@
 #define PORT_CMD      2000 // commands, FDR (receive) and CTL (send/receive)
 #define PORT_TM       2002 // send telemetry to FDR (except images)
 #define PORT_IMAGE    2013 // send images to FDR, TCP port
+#define PORT_SAS2     3000 // commands output from SAS2 to CTL are redirected here
 #define PORT_SBC_INFO 3456 //
 
 //HEROES target ID for commands, source ID for telemetry
 #define TARGET_ID_CTL 0x01
+#define TARGET_ID_SAS 0x30
 #define SOURCE_ID_SAS 0x30
 
 //HEROES telemetry types
@@ -75,12 +82,17 @@
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0112
+#define SKEY_SET_IMAGESAVETOGGLE 0x0121
 #define SKEY_SET_EXPOSURE        0x0151
 #define SKEY_SET_ANALOGGAIN      0x0181
 #define SKEY_SET_PREAMPGAIN      0x0191
 
 //Getting commands
 #define SKEY_REQUEST_IMAGE       0x0210
+#define SKEY_GET_EXPOSURE        0x0250
+#define SKEY_GET_ANALOGGAIN      0x0260
+#define SKEY_GET_PREAMPGAIN      0x0270
+#define SKEY_GET_DISKSPACE       0x0281
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -93,6 +105,8 @@
 #include <opencv.hpp>
 #include <iostream>
 #include <string>
+#include <sys/statvfs.h> /* for statvfs (get_disk_usage) */
+#include <fstream>
 
 #include "UDPSender.hpp"
 #include "UDPReceiver.hpp"
@@ -113,11 +127,12 @@ uint16_t latest_heroes_command_key = 0x0000;
 uint16_t latest_sas_command_key = 0x0000;
 uint16_t latest_sas_command_vars[15];
 uint32_t tm_frame_sequence_number = 0;
-uint16_t solution_sequence_number = 0;
+uint16_t ctl_sequence_number = 0;
 
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
 bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
+bool isSavingImages = true;  // is the SAS saving images?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -156,6 +171,7 @@ cv::Point2f pixelCenter, screenCenter, error;
 CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 std::vector<float> mapping;
+Pair offset;
 
 HeaderData fits_keys;
 
@@ -166,7 +182,7 @@ uint16_t exposure = CAMERA_EXPOSURE;
 uint16_t analogGain = CAMERA_ANALOGGAIN;
 int16_t preampGain = CAMERA_PREAMPGAIN;
 
-timespec frameRate = {0,100000000L};
+timespec frameRate = {0,FRAME_CADENCE*1000};
 int cameraReady = 0;
 
 timespec frameTime;
@@ -191,6 +207,7 @@ void *TelemetryPackagerThread(void *threadargs);
 void *listenForCommandsThread(void *threadargs);
 void *CommandSenderThread( void *threadargs );
 void *CommandPackagerThread( void *threadargs );
+void *ForwardCommandsFromSAS2Thread( void *threadargs );
 void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
 uint16_t cmd_send_image_to_ground( int camera_id );
 void *commandHandlerThread(void *threadargs);
@@ -198,6 +215,7 @@ void cmd_process_heroes_command(uint16_t heroes_command);
 void cmd_process_sas_command(uint16_t sas_command, Command &command);
 void start_all_workers( void );
 void start_thread(void *(*start_routine) (void *), const Thread_data *tdata);
+uint16_t get_disk_usage( uint16_t disk );
 
 void sig_handler(int signum)
 {
@@ -319,24 +337,22 @@ void *CameraStreamThread( void * threadargs)
         }
         else
         {
-            if (localExposure != exposure) {
-                localExposure = exposure;
-                camera.SetExposure(localExposure);
-            }
-            
-            if (localPreampGain != preampGain) {
-                localPreampGain = preampGain;
-                camera.SetPreAmpGain(localPreampGain);
-            }
-            
-            if (localAnalogGain != analogGain) {
-                localAnalogGain = analogGain;
-                camera.SetAnalogGain(analogGain);
-            }
-
+            // Measure time immediately before exposure. Ideally the bare minimum of operations
+            // happen between this command and the Imperx::Snap command
             clock_gettime(CLOCK_REALTIME, &preExposure);
 
-            if(!camera.Snap(localFrame))
+            // Need to send timestamp of the next SAS solution *before* the exposure is taken
+            // Conceptually this would be part of CommandPackagerThread, but the timing requirement is strict
+            if(isOutputting && isTracking && acknowledgedCTL) {
+                ctl_sequence_number++;
+                CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
+                cp << (uint16_t)HKEY_SAS_TIMESTAMP;
+                cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
+                cp << (double)(preExposure.tv_sec + (double)preExposure.tv_nsec/1e9);  // timestamp 
+                cm_packet_queue << cp;
+            }
+
+            if(!camera.Snap(localFrame, frameTime))
             {
                 failcount = 0;
                 procReady.raise();
@@ -378,6 +394,24 @@ void *CameraStreamThread( void * threadargs)
                     continue;
                 }
             }
+
+            // Adjust camera settings
+            if (localExposure != exposure) {
+                localExposure = exposure;
+                camera.SetExposure(localExposure);
+            }
+            
+            if (localPreampGain != preampGain) {
+                localPreampGain = preampGain;
+                camera.SetPreAmpGain(localPreampGain);
+            }
+            
+            if (localAnalogGain != analogGain) {
+                localAnalogGain = analogGain;
+                camera.SetAnalogGain(analogGain);
+            }
+
+            // Determine time remaining to wait for next frame capture.
             clock_gettime(CLOCK_REALTIME, &postExposure);
             timeElapsed = TimespecDiff(preExposure, postExposure);
             duration.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
@@ -472,6 +506,9 @@ void *ImageProcessThread(void *threadargs)
                     switch(GeneralizeError(runResult))
                     {
                     case NO_ERROR:
+                        solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
+                        offset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y));
+
                         screenFiducials = localScreenFiducials;
                         screenCenter = localScreenCenter;
                         mapping = localMapping;
@@ -499,11 +536,9 @@ void *ImageProcessThread(void *threadargs)
                     
                     fits_keys.sunCenter[0] = pixelCenter.x;
                     fits_keys.sunCenter[1] = pixelCenter.y;
-                    // this should not have to be recaculated, should be a global
                   
-                    Pair ctl = solarTransform.calculateOffset(Pair(pixelCenter.x,pixelCenter.y));
-                    fits_keys.CTLsolution[0] = ctl.x();
-                    fits_keys.CTLsolution[1] = ctl.y();
+                    fits_keys.CTLsolution[0] = offset.x();
+                    fits_keys.CTLsolution[1] = offset.y();
 
                     fits_keys.screenCenter[0] = screenCenter.x; 
                     fits_keys.screenCenter[1] = screenCenter.y;
@@ -575,6 +610,22 @@ void *TelemetrySenderThread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("TelemetrySender thread #%ld!\n", tid);
 
+    char stringtemp[80];
+    char filename[128];
+    time_t ltime;
+    struct tm *times;
+    std::ofstream log; 
+
+    if (LOG_PACKETS) {
+        time(&ltime);
+        times = localtime(&ltime);
+        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+        sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION, stringtemp);
+        filename[128 - 1] = '\0';
+        printf("Creating telemetry log file %s \n",filename);
+        log.open(filename, std::ofstream::binary);
+    }
+
     TelemetrySender telSender(IP_FDR, (unsigned short) PORT_TM);
 
     while(1)    // run forever
@@ -586,6 +637,14 @@ void *TelemetrySenderThread(void *threadargs)
             tm_packet_queue >> tp;
             telSender.send( &tp );
             //std::cout << "TelemetrySender:" << tp << std::endl;
+            if (LOG_PACKETS) {
+                uint8_t length = tp.getLength();
+                uint8_t *payload = new uint8_t[length];
+                tp.outputTo(payload);
+                log.write((char *)payload, length);
+                delete payload;
+                log.flush();
+            }
         }
 
         if (stop_message[tid] == 1){
@@ -617,12 +676,14 @@ void *SBCInfoThread(void *threadargs)
         }
 
         //This call will block forever if the service is not running
+        usleep(USLEEP_UDP_LISTEN);
         packet_length = receiver.listen();
         array = new uint8_t[packet_length];
         receiver.get_packet(array);
 
         Packet packet( array, packet_length );
         packet >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
+        delete array;
     }
 }
 
@@ -693,7 +754,7 @@ void *SaveImageThread(void *threadargs)
         {
             while(1)
             {
-                if(saveReady.check())
+                if(saveReady.check() && isSavingImages)
                 {
                     saveReady.lower();
                     break;
@@ -758,6 +819,7 @@ void *TelemetryPackagerThread(void *threadargs)
     CoordList localLimbs, localFiducials;
     std::vector<float> localMapping;
     cv::Point2f localCenter, localError;
+    Pair localOffset;
 
     while(1)    // run forever
     {
@@ -779,16 +841,16 @@ void *TelemetryPackagerThread(void *threadargs)
             localError = error;
             localFiducials = pixelFiducials;
             localMapping = mapping;
+            localOffset = offset;
 
             std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
             if(localMapping.size() == 4) {
                 std::cout << ", mapping is";
                 for(uint8_t l = 0; l < 4; l++) std::cout << " " << localMapping[l];
-                solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
             }
             std::cout << std::endl;
 
-            std::cout << "Offset: " << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y)) << std::endl;
+            std::cout << "Offset: " << localOffset << std::endl;
 
             pthread_mutex_unlock(&mutexProcess);
         } else {
@@ -851,7 +913,7 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << (uint8_t) localMin; //min
 
         //Tacking on the offset numbers intended for CTL
-        tp << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y));
+        tp << localOffset;
 
         //add telemetry packet to the queue
         tm_packet_queue << tp;
@@ -876,17 +938,20 @@ void *listenForCommandsThread(void *threadargs)
 
     CommandReceiver comReceiver( (unsigned short) PORT_CMD);
     comReceiver.init_connection();
-    
+
+    CommandSender comForwarder(IP_SAS2, PORT_CMD);
+
     while(1)    // run forever
     {
         unsigned int packet_length;
-    
+
+        usleep(USLEEP_UDP_LISTEN);
         packet_length = comReceiver.listen( );
         printf("listenForCommandsThread: %i\n", packet_length);
         uint8_t *packet;
         packet = new uint8_t[packet_length];
         comReceiver.get_packet( packet );
-    
+
         CommandPacket command_packet( packet, packet_length );
 
         if (command_packet.valid()){
@@ -894,25 +959,81 @@ void *listenForCommandsThread(void *threadargs)
 
             command_sequence_number = command_packet.getSequenceNumber();
 
-            // add command ack packet
-            TelemetryPacket ack_tp(TM_ACK_RECEIPT, SOURCE_ID_SAS);
-            ack_tp << command_sequence_number;
-            tm_packet_queue << ack_tp;
+            if (sas_id == 1) {
+                comForwarder.send(&command_packet);
+
+                // add command ack packet
+                TelemetryPacket ack_tp(TM_ACK_RECEIPT, SOURCE_ID_SAS);
+                ack_tp << command_sequence_number;
+                tm_packet_queue << ack_tp;
+            }
 
             // update the command count
             printf("command sequence number to %i\n", command_sequence_number);
 
-            try { recvd_command_queue.add_packet(command_packet); }
-            catch (std::exception& e) {
-                std::cerr << e.what() << std::endl;
+            if (command_packet.getTargetID() == TARGET_ID_SAS) {
+                try { recvd_command_queue.add_packet(command_packet); }
+                catch (std::exception& e) {
+                    std::cerr << e.what() << std::endl;
+                }
             }
 
         } else {
             printf("listenForCommandsThread: bad command packet\n");
         }
 
+        delete packet;
+
         if (stop_message[tid] == 1){
             printf("listenForCommands thread #%ld exiting\n", tid);
+            comReceiver.close_connection();
+            started[tid] = false;
+            pthread_exit( NULL );
+        }
+    }
+
+    /* NEVER REACHED */
+    return NULL;
+}
+
+void *ForwardCommandsFromSAS2Thread(void *threadargs)
+{  
+    long tid = (long)((struct Thread_data *)threadargs)->thread_id;
+    printf("ForwardCommandsFromSAS2 thread #%ld!\n", tid);
+
+    tid_listen = tid;
+
+    CommandReceiver comReceiver( (unsigned short) PORT_SAS2);
+    comReceiver.init_connection();
+
+    CommandSender comForwarder(IP_CTL, PORT_CMD);
+
+    while(1)    // run forever
+    {
+        unsigned int packet_length;
+
+        usleep(USLEEP_UDP_LISTEN);
+        packet_length = comReceiver.listen( );
+        printf("ForwardCommandsFromSAS2Thread: %i\n", packet_length);
+        uint8_t *packet;
+        packet = new uint8_t[packet_length];
+        comReceiver.get_packet( packet );
+
+        CommandPacket command_packet( packet, packet_length );
+
+        if (command_packet.valid()){
+            if (isOutputting) {
+                //SAS-1 is outputting, so discard SAS-2 output
+                printf("ForwardCommandsFromSAS2Thread: blocking SAS-2 output\n");
+            } else {
+                //SAS-1 is not outputting, so forward up SAS-2 output
+                comForwarder.send(&command_packet);
+            }
+        }
+        delete packet;
+
+        if (stop_message[tid] == 1){
+            printf("ForwardCommandsFromSAS2 thread #%ld exiting\n", tid);
             comReceiver.close_connection();
             started[tid] = false;
             pthread_exit( NULL );
@@ -928,6 +1049,22 @@ void *CommandSenderThread( void *threadargs )
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("CommandSender thread #%ld!\n", tid);
 
+    char stringtemp[80];
+    char filename[128];
+    time_t ltime;
+    struct tm *times;
+    std::ofstream log; 
+
+    if (LOG_PACKETS) {
+        time(&ltime);
+        times = localtime(&ltime);
+        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+        sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION, stringtemp);
+        filename[128 - 1] = '\0';
+        printf("Creating command log file %s \n",filename);
+        log.open(filename, std::ofstream::binary);
+    }
+
     CommandSender comSender(IP_CTL, PORT_CMD);
 
     while(1)    // run forever
@@ -939,6 +1076,14 @@ void *CommandSenderThread( void *threadargs )
             cm_packet_queue >> cp;
             comSender.send( &cp );
             //std::cout << "CommandSender: " << cp << std::endl;
+            if (LOG_PACKETS) {
+                uint8_t length = cp.getLength();
+                uint8_t *payload = new uint8_t[length];
+                cp.outputTo(payload);
+                log.write((char *)payload, length);
+                delete payload;
+                log.flush();
+            }
         }
 
         if (stop_message[tid] == 1){
@@ -954,15 +1099,13 @@ void *CommandPackagerThread( void *threadargs )
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("CommandPackager thread #%ld!\n", tid);
 
-    cv::Point2f localCenter, localError;
-
     while(1)    // run forever
     {
         sleep(SLEEP_SOLUTION);
 
         if (isOutputting) {
-            solution_sequence_number++;
-            CommandPacket cp(TARGET_ID_CTL, solution_sequence_number);
+            ctl_sequence_number++;
+            CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
 
             if (isTracking) {
                 if (!acknowledgedCTL) {
@@ -971,20 +1114,18 @@ void *CommandPackagerThread( void *threadargs )
                 } else {
                     if(pthread_mutex_trylock(&mutexProcess) == 0)
                     {
-                        localCenter = pixelCenter;
-                        localError = error;
+                        cp << (uint16_t)HKEY_SAS_SOLUTION;
+                        cp << (double)fits_keys.CTLsolution[0]; // azimuth offset
+                        cp << (double)fits_keys.CTLsolution[1]; // elevation offset
+                        cp << (double)0; // roll offset
+                        cp << (double)0.003; // error
+                        cp << (uint32_t)fits_keys.captureTime.tv_sec; //seconds
+                        cp << (uint16_t)(fits_keys.captureTime.tv_nsec/1000000); //milliseconds
 
                         pthread_mutex_unlock(&mutexProcess);
                     } else {
-                        std::cout << "Using stale information for solution packet" << std::endl;
+                        std::cout << "Could not send a new solution packet\n";
                     }
-
-                    cp << (uint16_t)HKEY_SAS_SOLUTION;
-                    cp << solarTransform.calculateOffset(Pair(localCenter.x,localCenter.y));
-                    cp << (double)0; // roll offset
-                    cp << (double)0.003; // error
-                    cp << (uint32_t)0; //seconds
-                    cp << (uint16_t)0; //milliseconds
                 }
             } else { // isTracking is false
                 if (!acknowledgedCTL) {
@@ -1082,9 +1223,15 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         
 void *commandHandlerThread(void *threadargs)
 {
+    // command error code definition
+    // error_code   description
+    // 0x0000       command implemented successfully
+    // 0x0001       command not implemented
+    // 0xffff       unknown command
+    // 
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     struct Thread_data *my_data;
-    uint16_t error_code = 0;
+    uint16_t error_code = 0x0001;
     my_data = (struct Thread_data *) threadargs;
 
     switch( my_data->command_key & 0x0FFF)
@@ -1097,14 +1244,24 @@ void *commandHandlerThread(void *threadargs)
     break;
     case SKEY_SET_EXPOSURE:    // set exposure time
     {
-        if( (my_data->command_vars[0] > 0) && (my_data->command_num_vars == 1)) exposure = my_data->command_vars[0];
+        if(my_data->command_num_vars == 1) exposure = my_data->command_vars[0];
+        if( exposure == my_data->command_vars[0] ) error_code = 0;
         std::cout << "Requested exposure time is: " << exposure << std::endl;
         queue_cmd_proc_ack_tmpacket( error_code );
     }
     break;
+    case SKEY_SET_IMAGESAVETOGGLE:
+    {
+        if(my_data->command_num_vars == 1) isSavingImages = (my_data->command_vars[0] > 0);
+        if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
+        if( isSavingImages == true ){ std::cout << "Image saving is now turned on" << std::endl; }
+        if( isSavingImages == false ){ std::cout << "Image saving is now turned off" << std::endl; }
+        queue_cmd_proc_ack_tmpacket( error_code );
+    }
     case SKEY_SET_PREAMPGAIN:    // set preamp gain
     {
         if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
+        if( preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
         std::cout << "Requested preamp gain is: " << preampGain << std::endl;
         queue_cmd_proc_ack_tmpacket( error_code );
     }
@@ -1112,6 +1269,7 @@ void *commandHandlerThread(void *threadargs)
     case SKEY_SET_ANALOGGAIN:    // set analog gain
     {
         if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
+        if( analogGain == my_data->command_vars[0] ) error_code = 0;
         std::cout << "Requested analog gain is: " << analogGain << std::endl;
         queue_cmd_proc_ack_tmpacket( error_code );
     }
@@ -1129,6 +1287,26 @@ void *commandHandlerThread(void *threadargs)
         isOutputting = false;
     }
     break;
+    case SKEY_GET_EXPOSURE:
+    {
+        queue_cmd_proc_ack_tmpacket( (uint16_t)exposure );
+    }
+    case SKEY_GET_ANALOGGAIN:
+    {
+        queue_cmd_proc_ack_tmpacket( (uint16_t)analogGain );
+    }
+    case SKEY_GET_PREAMPGAIN:
+    {
+        queue_cmd_proc_ack_tmpacket( (int16_t)preampGain );
+    }
+    case SKEY_GET_DISKSPACE:
+    {
+        if( my_data->command_num_vars == 1) {
+            uint16_t disk = (uint16_t)my_data->command_vars[0];
+            error_code = get_disk_usage( disk );
+        }
+        queue_cmd_proc_ack_tmpacket( error_code );
+    }
     default:
     {
         error_code = 0xffff;            // unknown command!
@@ -1190,6 +1368,30 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
     return;
 }
 
+uint16_t get_disk_usage( uint16_t disk ){
+    struct statvfs vfs;
+    switch (disk) {
+    case 1:
+        statvfs("/mnt/disk1/", &vfs);
+        break;
+    case 2:
+        statvfs("/mnt/disk2/", &vfs);
+        break;
+    default:
+        return 0;
+    }
+
+    unsigned long total = vfs.f_blocks * vfs.f_frsize / 1024;
+    unsigned long available = vfs.f_bavail * vfs.f_frsize / 1024;
+    unsigned long free = vfs.f_bfree * vfs.f_frsize / 1024;
+    unsigned long used = total - free;
+
+    uintmax_t u100 = used * 100;
+    uintmax_t nonroot_total = used + available;
+    uint16_t percent = u100 / nonroot_total + (u100 % nonroot_total != 0);
+    return( percent );
+}
+
 void cmd_process_sas_command(uint16_t sas_command, Command &command)
 {
     Thread_data tdata;
@@ -1208,12 +1410,12 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
 
         switch( sas_command & 0x0FFF){
         case SKEY_OP_DUMMY:     // test, do nothing
-            queue_cmd_proc_ack_tmpacket( 1 );
+            queue_cmd_proc_ack_tmpacket( 0 );
             break;
         case SKEY_KILL_WORKERS:    // kill all worker threads
         {
             kill_all_workers();
-            queue_cmd_proc_ack_tmpacket( 1 );
+            queue_cmd_proc_ack_tmpacket( 0 );
         }
         break;
         case SKEY_RESTART_THREADS:    // (re)start all worker threads
@@ -1222,7 +1424,7 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
 
             start_thread(listenForCommandsThread, NULL);
             start_all_workers();
-            queue_cmd_proc_ack_tmpacket( 1 );
+            queue_cmd_proc_ack_tmpacket( 0 );
         }
         break;
         default:
@@ -1243,6 +1445,7 @@ void start_all_workers( void ){
     start_thread(SaveImageThread, NULL);
     start_thread(SaveTemperaturesThread, NULL);
     start_thread(SBCInfoThread, NULL);
+    if (sas_id == 1) start_thread(ForwardCommandsFromSAS2Thread, NULL);
 }
 
 int main(void)
