@@ -188,6 +188,7 @@ long int frameCount = 0;
 
 float camera_temperature;
 int8_t sbc_temperature;
+int8_t i2c_temperatures[8];
 float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 
 //Function declarations
@@ -676,6 +677,7 @@ void *SBCInfoThread(void *threadargs)
 
         Packet packet( array, packet_length );
         packet >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
+        for (int i=0; i<8; i++) packet >> i2c_temperatures[i];
         delete array;
     }
 }
