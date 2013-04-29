@@ -160,8 +160,8 @@ Aspect::Aspect()
     frameMin = 255;
     frameMax = 0;
     
-    initialNumChords = 30;
-    chordsPerAxis = 10;
+    initialNumChords = 20;
+    chordsPerAxis = 5;
     chordThreshold = .25;
     solarRadius = 98;
     limbWidth = 2;

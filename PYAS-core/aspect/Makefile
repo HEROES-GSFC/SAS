@@ -14,6 +14,7 @@ INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR)
 CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CFLAGS += -std=gnu++0x
+    CCLIBS = -lrt
 endif
 
 IMPERX =-L$(PUREGEV_ROOT)/lib/		\
@@ -27,9 +28,6 @@ IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
 CCFITS = -lCCfits
-ifeq "$(GCC_VERSION_GE_43)" "1"
-    CCFITS += -lrt
-endif
 
 EXEC = sunDemo fullDemo packetDemo commandingDemo networkDemo test_command test_sender AspectTest sbc_info
 
@@ -41,7 +39,7 @@ fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS)
 
 packetDemo: packetDemo.cpp ImperxStream.o utilities.o
-	$(CC) $(CFLAGS) $^ -o $@ $(IMPERX)
+	$(CC) $(CFLAGS) $^ -o $@ $(CCLIBS) $(IMPERX)
 
 CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
@@ -56,10 +54,7 @@ networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) -pg
 
 sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
-
-streamTest: streamTest.cpp processing.o utilities.o ImperxStream.o compression.o lib_crc.o
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
+	$(CC) $(CFLAGS) $^ -o $@ $(CCLIBS) $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
 tcpDemo: tcpDemo.cpp TCPReceiver.o Packet.o lib_crc.o TCPSender.o
 	$(CC) $(CFLAGS) $^ -o $@
@@ -88,7 +83,7 @@ sbc_info_reader: sbc_info_reader.cpp Packet.o lib_crc.o UDPReceiver.o
 
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ $(CCLIBS)
 
 lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
 	$(CC) -c $(CFLAGS) $< -o $@
