@@ -1,0 +1,3 @@
+SUBSYSTEM=="net", ATTR{address}=="00:20:9d:23:26:b9", NAME="sbc"
+SUBSYSTEM=="net", ATTR{address}=="00:01:45:05:0d:ff", NAME="j6"
+SUBSYSTEM=="net", ATTR{address}=="00:01:45:05:0e:00", NAME="j1"
