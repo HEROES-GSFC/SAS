@@ -1,0 +1,13 @@
+[Unit]
+Description=SAS runtime
+Requires=network.target
+After=network.target
+
+[Service]
+User=root
+Type=simple
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/sas
+
+[Install]
+WantedBy=multi-user.target
