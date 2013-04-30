@@ -705,7 +705,7 @@ void *SaveTemperaturesThread(void *threadargs)
         started[tid] = false;
         pthread_exit( NULL );
     } else {
-        fprintf(file, "time, camera temp, cpu temp\n");
+        fprintf(file, "time, camera temp, cpu temp, i2c temp x8\n");
         sleep(SLEEP_LOG_TEMPERATURE);
         while(1)
         {
@@ -722,8 +722,12 @@ void *SaveTemperaturesThread(void *threadargs)
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
-            printf("%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
+            fprintf(file, "%s, %f, %d", current_time, camera_temperature, sbc_temperature);
+            for (int i=0; i<8; i++) fprintf(file, ", %d", i2c_temperatures[i]);
+            fprintf(file, "\n");
+            printf("%s, %f, %d", current_time, camera_temperature, sbc_temperature);
+            for (int i=0; i<8; i++) printf(", %d", i2c_temperatures[i]);
+            printf("\n");
         }
     }
 }
@@ -909,6 +913,9 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Tacking on the offset numbers intended for CTL
         tp << localOffset;
+
+        //Tacking on I2C temperatures
+        for (int i=0; i<8; i++) tp << i2c_temperatures[i];
 
         //add telemetry packet to the queue
         tm_packet_queue << tp;
