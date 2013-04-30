@@ -7,7 +7,7 @@ After=network.target
 User=root
 Type=simple
 RemainAfterExit=yes
-ExecStart=/usr/local/bin/sbc_info
+ExecStart=/usr/local/bin/sbc_info.runtime
 
 [Install]
 WantedBy=multi-user.target

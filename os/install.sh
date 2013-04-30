@@ -42,7 +42,7 @@ echo "Enabling services..."
 sudo systemctl enable network
 sudo systemctl enable lm_sensors
 sudo systemctl enable sbc_info
-sudo systemctl enable sas
+#sudo systemctl enable sas
 echo "    Note: you will also need to run 'make install' to install our compiled executables!"
 
 echo "-----------------------------"
