@@ -1,0 +1,4 @@
+#!/bin/sh
+
+source /opt/pleora/ebus_sdk/bin/set_puregev_env
+/usr/local/bin/sunDemo

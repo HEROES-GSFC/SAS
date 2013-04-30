@@ -34,12 +34,16 @@ sudo cp network-sas${sas_id}.service /etc/systemd/system/network.service
 sudo cp sbc_info.service /etc/systemd/system/sbc_info.service
 sudo cp sas.service /etc/systemd/system/sas.service
 
+echo "Copying executable scripts..."
+sudo cp sas /usr/local/bin/
+sudo chmod a+x /usr/local/bin/sas
+
 echo "Enabling services..."
 sudo systemctl enable network
 sudo systemctl enable lm_sensors
 sudo systemctl enable sbc_info
 sudo systemctl enable sas
-echo "    Note: you will also need to run 'make install' for the sbc_info executable!"
+echo "    Note: you will also need to run 'make install' to install our compiled executables!"
 
 echo "-----------------------------"
 echo "Installation complete; reboot the computer!"

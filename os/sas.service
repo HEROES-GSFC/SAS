@@ -7,7 +7,7 @@ After=network.target
 User=root
 Type=simple
 RemainAfterExit=yes
-ExecStart=/usr/local/bin/sas
+ExecStart=/usr/local/bin/sas > /dev/null
 
 [Install]
 WantedBy=multi-user.target
