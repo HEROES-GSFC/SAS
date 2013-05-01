@@ -176,6 +176,7 @@ HeaderData fits_keys;
 bool staleFrame;
 Flag procReady, saveReady;
 int runtime = 10;
+
 uint16_t exposure = CAMERA_EXPOSURE;
 uint16_t analogGain = CAMERA_ANALOGGAIN;
 int16_t preampGain = CAMERA_PREAMPGAIN;
@@ -183,7 +184,8 @@ int16_t preampGain = CAMERA_PREAMPGAIN;
 timespec frameRate = {0,FRAME_CADENCE*1000};
 int cameraReady = 0;
 
-timespec frameTime;
+
+timespec captureTimeNTP, captureTimeFixed;
 long int frameCount = 0;
 
 float camera_temperature;
@@ -283,7 +285,7 @@ void *CameraStreamThread( void * threadargs)
     ImperxStream camera;
 
     cv::Mat localFrame;
-    timespec preExposure, postExposure, timeElapsed, duration;
+    timespec localCaptureTime, preExposure, postExposure, timeElapsed, timeToWait;
     int width, height;
     int failcount = 0;
 
@@ -314,6 +316,7 @@ void *CameraStreamThread( void * threadargs)
             else
             {
                 camera.ConfigureSnap();
+
                 camera.SetROISize(CAMERA_XSIZE,CAMERA_YSIZE);
                 camera.SetROIOffset(CAMERA_XOFFSET,CAMERA_YOFFSET);
                 camera.SetExposure(localExposure);
@@ -374,7 +377,8 @@ void *CameraStreamThread( void * threadargs)
                 pthread_mutex_lock(&mutexImage);
                 //printf("CameraStreamThread: got lock, copying over\n");
                 localFrame.copyTo(frame);
-                frameTime = preExposure;
+                captureTimeNTP = localCaptureTime;
+                captureTimeFixed = preExposure;
                 //printf("%d\n", frame.at<uint8_t>(0,0));
                 frameCount++;
                 pthread_mutex_unlock(&mutexImage);
@@ -406,12 +410,36 @@ void *CameraStreamThread( void * threadargs)
                     continue;
                 }
             }
-            clock_gettime(CLOCK_REALTIME, &postExposure);
+
+            //Make any changes to camera settings that happened since last exposure.
+            if (localExposure != exposure) {
+                localExposure = exposure;
+                camera.SetExposure(localExposure);
+            }
+            
+            if (localPreampGain != preampGain) {
+                localPreampGain = preampGain;
+                camera.SetPreAmpGain(localPreampGain);
+            }
+            
+            if (localAnalogGain != analogGain) {
+                localAnalogGain = analogGain;
+                camera.SetAnalogGain(analogGain);
+            }
+
+            //Record time that camera exposure finished. As little as possible should happen between this call and the call to nanosleep()
+            clock_gettime(CLOCK_MONOTONIC, &postExposure);
+
+            //Determine time spent on camera exposure
             timeElapsed = TimespecDiff(preExposure, postExposure);
-            duration.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
-            duration.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
+
+            //Calculate the time to wait for next exposure
+            timeToWait.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
+            timeToWait.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
 //            std::cout << timeElapsed.tv_sec << " " << timeElapsed.tv_nsec << "\n";
-            nanosleep(&duration, NULL);
+
+            //Wait till next exposure time
+            nanosleep(&timeToWait, NULL);
         }
     }
 }
@@ -464,7 +492,7 @@ void *ImageProcessThread(void *threadargs)
                     aspect.LoadFrame(frame);
 
                     pthread_mutex_unlock(&mutexImage);
-
+                    
                     runResult = aspect.Run();
                     
                     switch(GeneralizeError(runResult))
@@ -1426,14 +1454,75 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
     } else printf("Not the intended SAS for this command\n");
 }
 
-void start_all_workers( void ){
-    start_thread(TelemetryPackagerThread, NULL);
-    start_thread(CommandPackagerThread, NULL);
-    start_thread(TelemetrySenderThread, NULL);
-    start_thread(CommandSenderThread, NULL);
+void start_all_threads( void ){
+    int rc;
+    long t;
+ 
+    for(int i = 1; i < NUM_THREADS; i++ ){
+        skip[i] = true;
+        // reset stop message
+        stop_message[i] = 0;
+    }
+
+    // start all threads
+    t = 1L;
+    rc = pthread_create(&threads[t],NULL, TelemetryPackagerThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 2L;
+    rc = pthread_create(&threads[t],NULL, CommandPackagerThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 3L;
+    rc = pthread_create(&threads[t],NULL, TelemetrySenderThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 4L;
+    rc = pthread_create(&threads[t],NULL, CommandSenderThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 5L;
+    rc = pthread_create(&threads[t],NULL, CameraStreamThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 6L;
+    rc = pthread_create(&threads[t],NULL, ImageProcessThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 7L;
+    rc = pthread_create(&threads[t],NULL, SaveImageThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 8L;
+    rc = pthread_create(&threads[t],NULL, SaveTemperaturesThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    t = 9L;
+    rc = pthread_create(&threads[t],NULL, SBCInfoThread,(void *)t);
+    if ((skip[t] = (rc != 0))) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+    }
+    //Thread #10 is for the commandHandler
+}
+
+void start_all_workers( void )
+{
+/*    start_thread(TelemetryPackagerThread, NULL);
+      start_thread(CommandPackagerThread, NULL);
+      start_thread(TelemetrySenderThread, NULL);
+      start_thread(CommandSenderThread, NULL);
+*/
     start_thread(CameraStreamThread, NULL);
     start_thread(ImageProcessThread, NULL);
-    start_thread(SaveImageThread, NULL);
+/*    start_thread(SaveImageThread, NULL);
     start_thread(SaveTemperaturesThread, NULL);
     start_thread(SBCInfoThread, NULL);
     if (sas_id == 1) start_thread(ForwardCommandsFromSAS2Thread, NULL);
