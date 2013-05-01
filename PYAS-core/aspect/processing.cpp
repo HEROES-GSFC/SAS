@@ -121,7 +121,7 @@ const char * GetMessage(const AspectCode& code)
         return "Generic error with pixel center";
         
     case CENTER_ERROR_LARGE:
-        return "Radius off by 10%";
+        return "Pixel center error is too large%";
         
     case CENTER_OUT_OF_BOUNDS:
         return "Pixel center is out of bounds";
@@ -813,9 +813,9 @@ void Aspect::FindPixelCenter()
 {
     std::vector<int> rows, cols;
     std::vector<float> crossings, midpoints;
-    int rowStart, colStart, rowStep, colStep, limit, K;
+    float mean, std;
+    int rowStart, colStart, rowStep, colStep, limit, K, M;
     cv::Range rowRange, colRange;
-    Circle sun;
 
     rows.clear();
     cols.clear();
@@ -898,10 +898,36 @@ void Aspect::FindPixelCenter()
                 }
             }
         }
+//Determine the mean of the midpoints for this dimension
+        mean = 0;
+        M =  midpoints.size();
+        for (int m = 0; m < M; m++)
+            mean += midpoints[m];
+        mean = (float)mean/M;
+        
+        //Determine the std dev of the midpoints
+        std = 0;
+        for (int m = 0; m < M; m++)
+        {
+            std += pow(midpoints[m]-mean,2);
+        }
+        std = sqrt(std/M);
+
+        //Store the Center and RMS Error for this dimension
+        //std::cout << "Aspect: Setting Center and Error for this dimension." << std::endl;
+        if (dim)
+        {
+            pixelCenter.x = mean;
+            pixelError.x = std;
+        }
+        else
+        {
+            pixelCenter.y = mean;
+            pixelError.y = std;
+        }       
     }
-    CoopeCircleFit(limbCrossings, sun);
-    pixelCenter = sun.center();
-    pixelError = cv::Point2f(sun.r(), sun.r());
+    //std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
+
     return;
 }
 
@@ -1408,18 +1434,18 @@ void BullockCircleFit(const CoordList& inPoints, Circle& fit)
 //UNTESTED
 /*
   
-    //Adjust for bias from unbalanced points
-    fit[0] = center.x;
-    fit[1] = center.y;
-    fit[2] = radius;
+//Adjust for bias from unbalanced points
+fit[0] = center.x;
+fit[1] = center.y;
+fit[2] = radius;
     
-    do
-    {
-        VectorToCircle(fit, inPoints, biasVectors);
-        center = center - Mean(biasVectors);
-        bias = Euclidian(Mean(biasVectors));
-        std::cout << "Bias was: " << bias << std::endl;
-    } while(bias > 1);
+do
+{
+VectorToCircle(fit, inPoints, biasVectors);
+center = center - Mean(biasVectors);
+bias = Euclidian(Mean(biasVectors));
+std::cout << "Bias was: " << bias << std::endl;
+} while(bias > 1);
 */
 
         
@@ -1463,29 +1489,29 @@ void CoopeCircleFit(const CoordList& points, Circle& fit)
     radius = sqrt(Y.at<float>(2) + pow(center.x,2) + pow(center.y,2));
 
     H = B*((B.t()*B).inv())*B.t();
-      for (unsigned int k = 0; k < points.size(); k++)
-      {
-      residual.push_back(pow(Euclidian(points[k] - center),2));
-      CookDistance[k] = residual[k] * H.at<float>(k,k) / 
-      pow(1 - H.at<float>(k,k), 2);
-      }
-      MSE = Mean(residual); 
-      CookPoints = points;
-      for (unsigned int k = 0; k < CookPoints.size(); k++)
-      {
-      if (CookDistance[k] > MSE)
-      {
-      CookDistance.erase(CookDistance.begin() + k);
-      CookPoints.erase(CookPoints.begin() + k);
-      k--;
-      }
-      }
+    for (unsigned int k = 0; k < points.size(); k++)
+    {
+        residual.push_back(pow(Euclidian(points[k] - center),2));
+        CookDistance[k] = residual[k] * H.at<float>(k,k) / 
+            pow(1 - H.at<float>(k,k), 2);
+    }
+    MSE = Mean(residual); 
+    CookPoints = points;
+    for (unsigned int k = 0; k < CookPoints.size(); k++)
+    {
+        if (CookDistance[k] > MSE)
+        {
+            CookDistance.erase(CookDistance.begin() + k);
+            CookPoints.erase(CookPoints.begin() + k);
+            k--;
+        }
+    }
 
-      if (CookPoints.size() < points.size() && CookPoints.size() > 4)
-      {
-      std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
-      CoopeCircleFit(CookPoints, fit);
-      }
+    if (CookPoints.size() < points.size() && CookPoints.size() > 4)
+    {
+        std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
+        CoopeCircleFit(CookPoints, fit);
+    }
 
     fit[0] = center.x;
     fit[1] = center.y;
