@@ -165,7 +165,7 @@ Aspect::Aspect()
     chordThreshold = .25;
 
     solarRadius = 98;
-    radiusTol = 1.1;
+    radiusTol = 1.5;
 
     limbWidth = 2;
     fiducialLength = 15;
@@ -180,8 +180,8 @@ Aspect::Aspect()
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
     
-    //GenerateKernel();
-    matchKernel(kernel);
+    GenerateKernel();
+    //matchKernel(kernel);
 
     mDistances.clear();
     nDistances.clear();
@@ -646,7 +646,7 @@ Aspect Private processing functions
 
 void Aspect::GenerateKernel()
 {
-    int edge = 1, d = 100;
+    int edge = 1, d = 20;
     cv::Mat distanceField, subField, bar, mask, shape;
     cv::Range crossLength, crossWidth;
     double minVal;
@@ -691,12 +691,20 @@ void Aspect::GenerateKernel()
                 compare(shape, 0, mask, cv::CMP_GT);
 
             cv::minMaxIdx(subField, &minVal, NULL, NULL, NULL, mask);
-            kernel.at<float>(m,n) = ((shape.at<float>(m,n) > 0) ? -1 : 1) * (-pow(d,2)/2)*exp(-d*((float) minVal));
+            kernel.at<float>(m,n) = ((shape.at<float>(m,n) > 0) ? 1 : -1) * (-pow(d,2)/2)*exp(-d*((float) minVal));
+        }
+    }
+
+    cv::normalize(kernel, kernel, -1, 1,cv::NORM_MINMAX);
+    for (int m = 0; m < shape.rows; m++)
+    {
+        for (int n = 0; n < shape.cols; n++)
+        {
             std::cout << kernel.at<float>(m,n) << " ";
         }
         std::cout << std::endl;
     }
-    kernel = kernel/(sum(kernel)[0]);
+    return;
 }
 
 int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
@@ -914,7 +922,7 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
     cv::namedWindow("Correlation", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
     cv::filter2D(image, correlation, CV_32FC1, kernel, cv::Point(-1,-1));
     cv::normalize(correlation,correlation,0,1,cv::NORM_MINMAX);
-    cv::imshow("Correlation", correlation);
+    cv::imshow("Correlation", kernel);
     cv::waitKey(0);
     cv::meanStdDev(correlation, mean, stddev);
 
