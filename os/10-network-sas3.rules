@@ -1,0 +1,1 @@
+SUBSYSTEM=="net", ATTR{address}=="00:20:9d:23:5c:a1", NAME="sbc"

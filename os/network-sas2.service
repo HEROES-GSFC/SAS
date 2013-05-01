@@ -16,10 +16,10 @@ EnvironmentFile=/etc/conf.d/network
 ExecStart=/sbin/ip link set dev sbc up
 ExecStart=/sbin/ip link set dev j1 up
 ExecStart=/sbin/ip link set dev j6 up
-ExecStart=/sbin/ip addr add 192.168.16.16/24 dev sbc
-ExecStart=/sbin/ip addr add 169.254.0.1/16 dev j6
-ExecStart=/sbin/ip addr add 192.168.8.1/24 dev j1
-ExecStart=/sbin/ip route add default via 192.168.16.1
+ExecStart=/sbin/ip addr add ${IP_SAS2}/24 dev sbc
+ExecStart=/sbin/ip addr add ${IP_PYAS_GATEWAY}/24 dev j6
+ExecStart=/sbin/ip addr add ${IP_RAS_GATEWAY}/24 dev j1
+ExecStart=/sbin/ip route add default via $IP_SAS2_GATEWAY
 ExecStart=/usr/sbin/iptables -t nat -A PREROUTING -p udp -d $IP_SAS1 --dport $PORT_CMD -j DNAT --to $IP_SAS2
 
 ExecStop=/sbin/ip addr flush dev sbc

@@ -11,6 +11,9 @@ else
     elif [ $1 == 2 ]
     then
         sas_id=2
+    elif [ $1 == 3 ]
+    then
+        sas_id=3
     else
         echo "Error: unknown SAS specified"
         return
