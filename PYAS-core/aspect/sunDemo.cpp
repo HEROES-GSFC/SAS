@@ -354,7 +354,7 @@ void *CameraStreamThread( void * threadargs)
                 camera.SetAnalogGain(analogGain);
             }
 
-            clock_gettime(CLOCK_REALTIME, &preExposure);
+            clock_gettime(CLOCK_MONOTONIC, &preExposure);
 
             // Need to send timestamp of the next SAS solution *before* the exposure is taken
             // Conceptually this would be part of CommandPackagerThread, but the timing requirement is strict
@@ -412,6 +412,7 @@ void *CameraStreamThread( void * threadargs)
             }
 
             //Make any changes to camera settings that happened since last exposure.
+            //This is weirdly duplicated from above
             if (localExposure != exposure) {
                 localExposure = exposure;
                 camera.SetExposure(localExposure);
@@ -1461,75 +1462,15 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
     } else printf("Not the intended SAS for this command\n");
 }
 
-void start_all_threads( void ){
-    int rc;
-    long t;
- 
-    for(int i = 1; i < NUM_THREADS; i++ ){
-        skip[i] = true;
-        // reset stop message
-        stop_message[i] = 0;
-    }
-
-    // start all threads
-    t = 1L;
-    rc = pthread_create(&threads[t],NULL, TelemetryPackagerThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 2L;
-    rc = pthread_create(&threads[t],NULL, CommandPackagerThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 3L;
-    rc = pthread_create(&threads[t],NULL, TelemetrySenderThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 4L;
-    rc = pthread_create(&threads[t],NULL, CommandSenderThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 5L;
-    rc = pthread_create(&threads[t],NULL, CameraStreamThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 6L;
-    rc = pthread_create(&threads[t],NULL, ImageProcessThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 7L;
-    rc = pthread_create(&threads[t],NULL, SaveImageThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 8L;
-    rc = pthread_create(&threads[t],NULL, SaveTemperaturesThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    t = 9L;
-    rc = pthread_create(&threads[t],NULL, SBCInfoThread,(void *)t);
-    if ((skip[t] = (rc != 0))) {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-    }
-    //Thread #10 is for the commandHandler
-}
-
 void start_all_workers( void )
 {
-/*    start_thread(TelemetryPackagerThread, NULL);
-      start_thread(CommandPackagerThread, NULL);
-      start_thread(TelemetrySenderThread, NULL);
-      start_thread(CommandSenderThread, NULL);
-*/
+    start_thread(TelemetryPackagerThread, NULL);
+    start_thread(CommandPackagerThread, NULL);
+    start_thread(TelemetrySenderThread, NULL);
+    start_thread(CommandSenderThread, NULL);
     start_thread(CameraStreamThread, NULL);
     start_thread(ImageProcessThread, NULL);
-/*    start_thread(SaveImageThread, NULL);
+    start_thread(SaveImageThread, NULL);
     start_thread(SaveTemperaturesThread, NULL);
     start_thread(SBCInfoThread, NULL);
     if (sas_id == 1) start_thread(ForwardCommandsFromSAS2Thread, NULL);
