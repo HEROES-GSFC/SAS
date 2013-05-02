@@ -198,7 +198,9 @@ void sig_handler(int signum);
 void kill_all_threads( void ); //kills all threads
 void kill_all_workers( void ); //kills all threads except the one that listens for commands
 void identifySAS();
-void *CameraStreamThread( void * threadargs);
+void *CameraStreamThread( void * threadargs, int camera_id);
+void *PYASCameraStreamThread( void * threadargs);
+void *RASCameraStreamThread( void * threadargs);
 void *ImageProcessThread(void *threadargs);
 void *TelemetrySenderThread(void *threadargs);
 void *SBCInfoThread(void *threadargs);
@@ -277,10 +279,37 @@ void identifySAS()
     pclose(in);
 }
 
-void *CameraStreamThread( void * threadargs)
-{    
+void *PYASCameraStreamThread( void *threadargs)
+{
+    std::cout << "Starting a CameraStream thread for PYAS\n";
+    return CameraStreamThread(threadargs, 0);
+}
+
+void *RASCameraStreamThread( void *threadargs)
+{
+    std::cout << "Starting a CameraStream thread for RAS\n";
+    return CameraStreamThread(threadargs, 1);
+}
+
+void *CameraStreamThread( void * threadargs, int camera_id)
+{
+    // camera_id refers to 0 PYAS, 1 is RAS (if valid)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("CameraStream thread #%ld!\n", tid);
+
+    char ip[50];
+
+    switch (camera_id) {
+        case 0: //PYAS
+           strcpy(ip, IP_PYAS);
+           break;
+        case 1:
+            strcpy(ip, IP_RAS);
+            break;
+        default:
+            std::cerr << "Invalid camera specified!\n";
+            stop_message[tid] = 1;
+    }
 
     ImperxStream camera;
 
@@ -307,7 +336,7 @@ void *CameraStreamThread( void * threadargs)
         }
         else if (cameraReady == false)
         {
-            if (camera.Connect() != 0)
+            if (camera.Connect(ip) != 0)
             {
                 std::cout << "Error connecting to camera!\n";
                 sleep(SLEEP_CAMERA_CONNECT);
@@ -1470,12 +1499,21 @@ void start_all_workers( void )
     start_thread(CommandPackagerThread, NULL);
     start_thread(TelemetrySenderThread, NULL);
     start_thread(CommandSenderThread, NULL);
-    start_thread(CameraStreamThread, NULL);
+    start_thread(PYASCameraStreamThread, NULL);
     start_thread(ImageProcessThread, NULL);
     start_thread(SaveImageThread, NULL);
     start_thread(SaveTemperaturesThread, NULL);
     start_thread(SBCInfoThread, NULL);
-    if (sas_id == 1) start_thread(ForwardCommandsFromSAS2Thread, NULL);
+    switch (sas_id) {
+        case 1:
+            start_thread(ForwardCommandsFromSAS2Thread, NULL);
+            break;
+        case 2:
+            start_thread(RASCameraStreamThread, NULL);
+            break;
+        default:
+            break;
+    }
 }
 
 int main(void)
