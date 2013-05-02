@@ -390,6 +390,7 @@ void *CameraStreamThread( void * threadargs)
                     camera.Disconnect();
                     cameraReady = false;
                     staleFrame = true;
+                    failCount = 0;
                     std::cout << "*********************** RESETTING CAMERA ***********************************" << std::endl;
                     continue;
                 }
