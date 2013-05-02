@@ -121,7 +121,7 @@ const char * GetMessage(const AspectCode& code)
         return "Generic error with pixel center";
         
     case CENTER_ERROR_LARGE:
-        return "Pixel center error is too large%";
+        return "Pixel center error is too large";
         
     case CENTER_OUT_OF_BOUNDS:
         return "Pixel center is out of bounds";
@@ -175,7 +175,7 @@ Aspect::Aspect()
     fiducialNeighborhood = 2;
     numFiducials = 12;
 
-    fiducialSpacing = 15.5; //15.7
+    fiducialSpacing = 15.7;
     fiducialSpacingTol = 1.5;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
@@ -307,7 +307,8 @@ AspectCode Aspect::Run()
 /*        else if (pixelError.x > 1.5*solarRadius || pixelError.x < .5*solarRadius|| 
           std::isnan(pixelError.x))
 */
-        else if (pixelError.x > solarRadius*1.5 || pixelError.x < solarRadius*.5 || 
+
+        else if (pixelError.x > 50 || pixelError.y > solarRadius > 50 || 
                  std::isnan(pixelError.x) || std::isnan(pixelError.y))
         {
             //std::cout << "Aspect: Radius off from expected by 10%" << pixelError << std::endl;
@@ -315,6 +316,7 @@ AspectCode Aspect::Run()
             state = CENTER_ERROR_LARGE;
             return state;
         }
+
 
         //Find solar subImage
         //std::cout << "Aspect: Finding solar subimage" << std::endl;
@@ -655,7 +657,6 @@ void Aspect::GenerateKernel()
                      CV_32FC1);
     shape = cv::Mat::zeros(kernel.size(), CV_32FC1);
  
-    distanceField = (shape.rows*2 + 1, shape.cols*2+1, CV_32FC1);
     crossLength = SafeRange(edge, shape.rows-edge, shape.rows);
     crossWidth = SafeRange((fiducialLength/2) + 1 - (fiducialWidth/2),
                            (fiducialLength/2) + 1 + (fiducialWidth/2) + 1,
@@ -696,6 +697,7 @@ void Aspect::GenerateKernel()
     }
 
     cv::normalize(kernel, kernel, -1, 1,cv::NORM_MINMAX);
+/*
     for (int m = 0; m < shape.rows; m++)
     {
         for (int n = 0; n < shape.cols; n++)
@@ -704,6 +706,7 @@ void Aspect::GenerateKernel()
         }
         std::cout << std::endl;
     }
+*/
     return;
 }
 
@@ -761,6 +764,9 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
             else k -= 2;
         }
     }
+
+    //for (int i=0; i<edges.size(); i++) std::cout << edges[i] << " ";
+    //std::cout << std::endl;
 
     //if we still have anything other than a single edge pair, ignore the chord
     if ( edges.size() != 2)
@@ -896,6 +902,7 @@ void Aspect::FindPixelCenter()
                     if (dim) limbCrossings.add(crossings[l], rows[k]);
                     else limbCrossings.add(cols[k], crossings[l]);
                 }
+                midpoints.push_back((crossings[0]+crossings[1])/2.);
             }
         }
 //Determine the mean of the midpoints for this dimension
@@ -945,11 +952,11 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
     pixelFiducials.clear();
     imageSize = image.size();
 
-    cv::namedWindow("Correlation", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
+    //cv::namedWindow("Correlation", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
     cv::filter2D(image, correlation, CV_32FC1, kernel, cv::Point(-1,-1));
     cv::normalize(correlation,correlation,0,1,cv::NORM_MINMAX);
-    cv::imshow("Correlation", kernel);
-    cv::waitKey(0);
+    //cv::imshow("Correlation", kernel);
+    //cv::waitKey(0);
     cv::meanStdDev(correlation, mean, stddev);
 
     threshold = mean[0] + fiducialThreshold*stddev[0];
@@ -1085,7 +1092,7 @@ void Aspect::FindFiducialIDs()
     }
     
     //std::cout << "Aspect: Compute intra-pair distances for row pairs." << std::endl;
-    std::cout << "Rows: " << std::endl;
+    //std::cout << "Rows: " << std::endl;
     for (k = 0; k <  rowPairs.size(); k++)
     {
         rowDiff = pixelFiducials[rowPairs[k].y].y 
@@ -1095,7 +1102,7 @@ void Aspect::FindFiducialIDs()
         {
             if (fabs(fabs(rowDiff) - mDistances[d]) < fiducialSpacingTol)
             {
-                std::cout << fabs(rowDiff) - mDistances[d] << " ";
+                //std::cout << fabs(rowDiff) - mDistances[d] << " ";
                 if (rowDiff > 0) 
                 {
                     rowVotes[rowPairs[k].x].push_back(d-7);
@@ -1109,8 +1116,8 @@ void Aspect::FindFiducialIDs()
             }
         }
     }
-    std::cout << std::endl;
-    std::cout << "Columns: " << std::endl;
+    //std::cout << std::endl;
+    //std::cout << "Columns: " << std::endl;
     //std::cout << "Aspect: Compute intra-pair distances for col pairs." << std::endl;
     for (k = 0; k <  colPairs.size(); k++)
     {
@@ -1120,7 +1127,7 @@ void Aspect::FindFiducialIDs()
         {
             if (fabs(fabs(colDiff) - nDistances[d]) < fiducialSpacingTol)
             {
-                std::cout << fabs(colDiff) - nDistances[d] << " ";
+                //std::cout << fabs(colDiff) - nDistances[d] << " ";
                 if (colDiff > 0) 
                 {
                     colVotes[colPairs[k].x].push_back(d-7);
@@ -1135,7 +1142,7 @@ void Aspect::FindFiducialIDs()
         }
     }
     
-    std::cout << std::endl;
+    //std::cout << std::endl;
     // Accumulate results of first pass
     for (k = 0; k < K; k++)
     {

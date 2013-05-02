@@ -29,7 +29,7 @@ OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
 CCFITS = -lCCfits
 
-EXEC = sunDemo fullDemo packetDemo commandingDemo networkDemo test_command test_sender AspectTest sbc_info
+EXEC = sunDemo sbc_info sbc_info_reader CTLCommandSimulator CTLSimulator
 
 default: sunDemo sbc_info
 
@@ -38,35 +38,20 @@ all: $(EXEC)
 fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS)
 
+<<<<<<< HEAD
 packetDemo: packetDemo.cpp ImperxStream.o utilities.o
 	$(CC) $(CFLAGS) $^ -o $@ $(CCLIBS) $(IMPERX)
 
+=======
+>>>>>>> 2ce948d737aac512f30513c55e9fbcb9b93c39de
 CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-commandingDemo: commandingDemo.cpp Commanding.o lib_crc.o
-	$(CC) $(CFLAGS) $^ -o $@
-
-networkDemo: networkDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o TCPSender.o
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) -pg
-
 sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
 	$(CC) $(CFLAGS) $^ -o $@ $(CCLIBS) $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
-
-tcpDemo: tcpDemo.cpp TCPReceiver.o Packet.o lib_crc.o TCPSender.o
-	$(CC) $(CFLAGS) $^ -o $@
-
-tcpSend: tcpSend.cpp Telemetry.o Packet.o lib_crc.o TCPSender.o
-	$(CC) $(CFLAGS) $^ -o $@ -pg
-
-test_command: test_command.cpp Packet.o Command.o lib_crc.o UDPSender.o
-	$(CC) $(CFLAGS) $^ -o $@
-
-test_sender: test_sender.cpp UDPSender.o Packet.o lib_crc.o Telemetry.o
-	$(CC) $(CFLAGS) $^ -o $@
 
 AspectTest: AspectTest.cpp processing.o utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
@@ -94,10 +79,13 @@ lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
 Transform.o: Transform.cpp Transform.hpp spa/spa.c spa/spa.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
-install: sbc_info
+install: sunDemo sbc_info
+	sudo systemctl stop sas
 	sudo systemctl stop sbc_info
-	sudo cp $^ /usr/local/bin
+	sudo cp sunDemo /usr/local/bin/sunDemo.runtime
+	sudo cp sbc_info /usr/local/bin/sbc_info.runtime
 	sudo systemctl start sbc_info
+	sudo systemctl start sas
 
 clean:
 	rm -rf *.o *.out $(EXEC)
