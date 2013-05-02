@@ -388,7 +388,7 @@ void *CameraStreamThread( void * threadargs)
                 camera_temperature = camera.getTemperature();
                 
                 // save data into the fits_header
-                fits_keys.captureTime = frameTime;
+                fits_keys.captureTime = captureTimeNTP;
                 fits_keys.frameCount = frameCount;
                 fits_keys.exposure = exposure;
                 fits_keys.preampGain = preampGain;
@@ -524,6 +524,8 @@ void *ImageProcessThread(void *threadargs)
                         default:
                             std::cout << "Nothing worked\n";
                     }
+
+                    //printf("Aspect result: %s\n", GetMessage(runResult));
 
                     pthread_mutex_lock(&mutexProcess);
                     switch(GeneralizeError(runResult))
