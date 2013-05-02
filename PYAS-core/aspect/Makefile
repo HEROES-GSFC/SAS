@@ -100,12 +100,12 @@ Transform.o: Transform.cpp Transform.hpp spa/spa.c spa/spa.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
 install: sunDemo sbc_info
-	#sudo systemctl stop sas
+	sudo systemctl stop sas
 	sudo systemctl stop sbc_info
 	sudo cp sunDemo /usr/local/bin/sunDemo.runtime
 	sudo cp sbc_info /usr/local/bin/sbc_info.runtime
 	sudo systemctl start sbc_info
-	#sudo systemctl start sas
+	sudo systemctl start sas
 
 clean:
 	rm -rf *.o *.out $(EXEC)
