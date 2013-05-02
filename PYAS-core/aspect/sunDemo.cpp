@@ -184,8 +184,6 @@ int16_t preampGain = CAMERA_PREAMPGAIN;
 timespec frameRate = {0,FRAME_CADENCE*1000};
 int cameraReady = 0;
 
-
-timespec captureTimeNTP, captureTimeFixed;
 long int frameCount = 0;
 
 float camera_temperature;
@@ -339,22 +337,9 @@ void *CameraStreamThread( void * threadargs)
         }
         else
         {
-            if (localExposure != exposure) {
-                localExposure = exposure;
-                camera.SetExposure(localExposure);
-            }
-            
-            if (localPreampGain != preampGain) {
-                localPreampGain = preampGain;
-                camera.SetPreAmpGain(localPreampGain);
-            }
-            
-            if (localAnalogGain != analogGain) {
-                localAnalogGain = analogGain;
-                camera.SetAnalogGain(analogGain);
-            }
-
+            // Record time of frame capture
             clock_gettime(CLOCK_MONOTONIC, &preExposure);
+            clock_gettime(CLOCK_REALTIME, &localCaptureTime);
 
             // Need to send timestamp of the next SAS solution *before* the exposure is taken
             // Conceptually this would be part of CommandPackagerThread, but the timing requirement is strict
@@ -367,7 +352,7 @@ void *CameraStreamThread( void * threadargs)
                 cm_packet_queue << cp;
             }
 
-            if(!camera.Snap(localFrame))
+            if(!camera.Snap(localFrame, frameRate))
             {
                 failcount = 0;
                 procReady.raise();
@@ -377,8 +362,6 @@ void *CameraStreamThread( void * threadargs)
                 pthread_mutex_lock(&mutexImage);
                 //printf("CameraStreamThread: got lock, copying over\n");
                 localFrame.copyTo(frame);
-                captureTimeNTP = localCaptureTime;
-                captureTimeFixed = preExposure;
                 //printf("%d\n", frame.at<uint8_t>(0,0));
                 frameCount++;
                 pthread_mutex_unlock(&mutexImage);
@@ -388,7 +371,8 @@ void *CameraStreamThread( void * threadargs)
                 camera_temperature = camera.getTemperature();
                 
                 // save data into the fits_header
-                fits_keys.captureTime = captureTimeNTP;
+                fits_keys.captureTime = localCaptureTime;
+                fits_keys.captureTimeMono = preExposure;
                 fits_keys.frameCount = frameCount;
                 fits_keys.exposure = exposure;
                 fits_keys.preampGain = preampGain;
@@ -412,7 +396,6 @@ void *CameraStreamThread( void * threadargs)
             }
 
             //Make any changes to camera settings that happened since last exposure.
-            //This is weirdly duplicated from above
             if (localExposure != exposure) {
                 localExposure = exposure;
                 camera.SetExposure(localExposure);
