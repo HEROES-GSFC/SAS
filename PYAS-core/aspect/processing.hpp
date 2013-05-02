@@ -116,6 +116,7 @@ public:
     AspectCode GetPixelCenter(cv::Point2f& center);
     AspectCode GetPixelError(cv::Point2f& error);
     AspectCode GetPixelFiducials(CoordList& fiducials);
+    AspectCode GetFiducialPairs(IndexList& rowPairs, IndexList& colPairs);
     AspectCode GetFiducialIDs(IndexList& fiducialIDs);
     AspectCode GetMapping(std::vector<float>& map);
     AspectCode GetScreenCenter(cv::Point2f& center);
@@ -137,6 +138,7 @@ private:
     int limbWidth;
 
     int solarRadius;
+    float radiusTol;
 
     int fiducialLength;
     int fiducialWidth;
@@ -150,6 +152,7 @@ private:
     float fiducialSpacingTol;
     std::vector<float> mDistances, nDistances;
     
+    void GenerateKernel();
     int FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings);
     void FindPixelCenter();
     void FindPixelFiducials(cv::Mat image, cv::Point offset);
@@ -174,6 +177,7 @@ private:
     
     CoordList pixelFiducials;
 
+    IndexList rowPairs, colPairs;
     IndexList fiducialIDs;
 
     std::vector<float> conditionNumbers;
@@ -204,4 +208,5 @@ float Mean(const std::vector<float> &d);
 std::vector<float> Euclidian(CoordList& vectors);
 float Euclidian(cv::Point2f d);
 float Euclidian(cv::Point2f p1, cv::Point2f p2);
+
 template <class T> std::vector<T> Mode(std::vector<T> data);

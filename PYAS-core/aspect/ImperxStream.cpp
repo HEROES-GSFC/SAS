@@ -197,7 +197,7 @@ int ImperxStream::Initialize()
     // Set the Buffer size and the Buffer count
     std::cout << "ImperxStream::Initialize Setting Buffer Size" << std::endl;
     lPipeline.SetBufferSize( static_cast<PvUInt32>( lSize ) );
-    lPipeline.SetBufferCount( 32 ); // Increase for high frame rate without missing block IDs
+    lPipeline.SetBufferCount( 16 ); // Increase for high frame rate without missing block IDs
 
     // Have to set the Device IP destination to the Stream
     lDevice.SetStreamDestination( lStream.GetLocalIPAddress(), lStream.GetLocalPort() ); 
@@ -209,7 +209,7 @@ int ImperxStream::Initialize()
     // Get stream parameters/stats
     std::cout << "ImperxStream::Initialize Get Stream Parameters" << std::endl;
     lStreamParams = lStream.GetParameters();
-    lStreamParams->SetBooleanValue("EnableMissingPacketsList", 1);
+    (lStreamParams)->SetBooleanValue("EnableMissingPacketsList", 1);
 
     // TLParamsLocked is optional but when present, it MUST be set to 1
     // before sending the AcquisitionStart command
@@ -239,6 +239,7 @@ int ImperxStream::Snap(cv::Mat &frame, int timeout)
     lDeviceParams->ExecuteCommand( "AcquisitionStart" );
     int lWidth, lHeight, result = 0;
     PvUInt32 dropCount;
+
     // Retrieve next buffer 
     PvBuffer *lBuffer = NULL;
     PvResult lOperationResult;
@@ -274,7 +275,8 @@ int ImperxStream::Snap(cv::Mat &frame, int timeout)
         {
             std::cout << "ImperxStream::Snap Operation result: " << lOperationResult << std::endl;
             lBuffer->GetMissingPacketIdsCount(dropCount);
-            std::cout << "ImperxStream::Snap dropped " << dropCount << " packets" << std::cout;
+            std::cout << "ImperxStream::Snap Dropped " << (int) dropCount << " packets!" << std::endl;
+
             result = 1;
         }
         // We have an image - do some processing (...) and VERY IMPORTANT,

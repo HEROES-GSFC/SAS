@@ -30,8 +30,11 @@ int main(int argc, char* argv[])
     cv::Range rowRange, colRange;
 
     CoordList crossings, fiducials;
+
+    IndexList IDs, rowPairs, colPairs;
+
     Circle circle[2];
-    IndexList IDs;
+
     std::vector<float> mapping;
         
     Aspect aspect;
@@ -45,7 +48,7 @@ int main(int argc, char* argv[])
     {
         std::cout << "Failed to whatever file list" << std::endl;
     }
-    else        
+    else 
     {
         while (frames.getline(line,256))
         {
@@ -90,6 +93,7 @@ int main(int argc, char* argv[])
             case MAPPING_ERROR:
                 //std::cout << "AspectTest: Get IDs" << std::endl;
                 aspect.GetFiducialIDs(IDs);
+                aspect.GetFiducialPairs(rowPairs, colPairs);
                 
             case ID_ERROR:
                 //std::cout << "AspectTest: Get Fiducials" << std::endl;
@@ -126,6 +130,8 @@ int main(int argc, char* argv[])
 */
             offset = cv::Point(0,0);
 
+            offset = cv::Point(0,0);
+
             //Generate summary image with accurate data products marked.
             switch(GeneralizeError(runResult))
             {
@@ -141,9 +147,40 @@ int main(int argc, char* argv[])
                     sprintf(number, "%d", (int) IDs[k].y);
                     label += number;
                     DrawCross(image, fiducials[k], fiducialColor, 15, 1, 8);
+
                     cv::putText(image, label, fiducials[k] - offset, cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
+                    std::cout << "[" << label << "] ";
                 }
-                
+                std::cout << std::endl;
+
+
+                float rowDiff, colDiff;
+                std::cout << "Pair distances: \n";
+                for (int k = 0; k < rowPairs.size(); k++)
+                {
+                    std::cout << fiducials[rowPairs[k].x] << " ";
+                    std::cout << fiducials[rowPairs[k].y] << " ";
+                    std::cout << IDs[rowPairs[k].x] << " ";
+                    std::cout << IDs[rowPairs[k].y] << " ";
+                    rowDiff = fiducials[rowPairs[k].y].y - 
+                        fiducials[rowPairs[k].x].y;
+                    colDiff = fiducials[rowPairs[k].y].x - 
+                        fiducials[rowPairs[k].x].x;
+                    std::cout << " | " << rowDiff << " " << colDiff << std::endl;
+                }
+
+                for (int k = 0; k < colPairs.size(); k++)
+                {
+                    std::cout << fiducials[colPairs[k].x] << " ";
+                    std::cout << fiducials[colPairs[k].y] << " ";
+                    std::cout << IDs[colPairs[k].x] << " ";
+                    std::cout << IDs[colPairs[k].y] << " ";
+                    rowDiff = fiducials[colPairs[k].y].y - 
+                        fiducials[colPairs[k].x].y;
+                    colDiff = fiducials[colPairs[k].y].x - 
+                        fiducials[colPairs[k].x].x;
+                    std::cout << " | " << rowDiff << " " << colDiff << std::endl;
+                }
             case ID_ERROR:
                 //std::cout << "AspectTest: Get Fiducials" << std::endl;
                 for (int k = 0; k < fiducials.size(); k++)
@@ -197,8 +234,7 @@ int main(int argc, char* argv[])
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             
             cv::imshow("Solution", image);
-            
-            cv::waitKey(1);
+            cv::waitKey(0);
 
 
         }
