@@ -10,22 +10,7 @@
 #include "ImperxStream.hpp"
 #include "processing.hpp"
 #include "compression.hpp"
- 
-void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness)
-{
-    cv::Point2f pt1, pt2;
-    length = (length+1)/2;
-    pt1.x = point.x-length;
-    pt1.y = point.y-length;
-    pt2.x = point.x+length;
-    pt2.y = point.y+length;
-    cv::line(image, pt1*128, pt2*128, color, thickness, CV_AA, 7);
-    pt1.x = point.x+length;
-    pt1.y = point.y-length;
-    pt2.x = point.x-length;
-    pt2.y = point.y+length;
-    cv::line(image, pt1*128, pt2*128, color, thickness, CV_AA, 7);
-}
+#include "utilities.hpp"
 
 int main(int argc, char* agrv[])
 {
@@ -58,7 +43,7 @@ int main(int argc, char* agrv[])
     cv::Point2f center, error, IDCenter;
 
     CoordList fiducials, crossings;
-    IndexList IDs;
+    IndexList IDs, rowPairs, colPairs;
     std::vector<float> mapping;
     mapping.resize(4);
     std::cout << "fullDemo: Connecting to camera" << std::endl;
@@ -111,8 +96,6 @@ int main(int argc, char* agrv[])
             camera.Snap(frame);
 
             cv::merge(list,3,image);
-            cv::imshow("Solar Solution", image);
-            cv::waitKey(1);
 
             //std::cout << "fullDemo: Load Frame" << std::endl;
             aspect.LoadFrame(frame);
@@ -124,15 +107,11 @@ int main(int argc, char* agrv[])
             aspect.GetPixelCrossings(crossings);
             for (int k = 0; k < crossings.size(); k++)
                 DrawCross(image, crossings[k], crossingColor, 10, 1);
-            cv::imshow("Solar Solution", image);
-            cv::waitKey(1);
 
             //std::cout << "fullDemo: Get Center" << std::endl;
             aspect.GetPixelCenter(center);
             //std::cout << "fullDemo: Center: " << center.x << " " << center.y << std::endl;
             DrawCross(image, center, centerColor, 20, 1);
-            cv::imshow("Solar Solution", image);
-            cv::waitKey(1);
             
             //std::cout << "fullDemo: Get Error" << std::endl;
             aspect.GetPixelError(error);
@@ -142,11 +121,10 @@ int main(int argc, char* agrv[])
             aspect.GetPixelFiducials(fiducials);
             for (int k = 0; k < fiducials.size(); k++)
                 DrawCross(image, fiducials[k], fiducialColor, 15, 1);
-            cv::imshow("Solar Solution", image);
-            cv::waitKey(1);
 
             //std::cout << "fullDemo: Get IDs" << std::endl;
             aspect.GetFiducialIDs(IDs);
+            aspect.GetFiducialPairs(rowPairs, colPairs);
             for (int k = 0; k < IDs.size(); k++)
             {
                 label = "";
@@ -157,9 +135,42 @@ int main(int argc, char* agrv[])
                 label += number;
                 DrawCross(image, fiducials[k], fiducialColor, 15, 1);
                 cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
+                
+                std::cout << "[" << label << "] ";
             }
-            cv::imshow("Solar Solution", image);
-            cv::waitKey(1);
+            std::cout << std::endl;
+
+
+            float rowDiff, colDiff;
+            std::cout << "Pair distances: \n";
+            for (int k = 0; k < rowPairs.size(); k++)
+            {
+                std::cout << fiducials[rowPairs[k].x] << " ";
+                std::cout << fiducials[rowPairs[k].y] << " ";
+                std::cout << IDs[rowPairs[k].x] << " ";
+                std::cout << IDs[rowPairs[k].y] << " ";
+                rowDiff = fiducials[rowPairs[k].y].y - 
+                    fiducials[rowPairs[k].x].y;
+                colDiff = fiducials[rowPairs[k].y].x - 
+                    fiducials[rowPairs[k].x].x;
+                std::cout << " | " << rowDiff << " " << colDiff << std::endl;
+            }
+
+            for (int k = 0; k < colPairs.size(); k++)
+            {
+                std::cout << fiducials[colPairs[k].x] << " ";
+                std::cout << fiducials[colPairs[k].y] << " ";
+                std::cout << IDs[colPairs[k].x] << " ";
+                std::cout << IDs[colPairs[k].y] << " ";
+                rowDiff = fiducials[colPairs[k].y].y - 
+                    fiducials[colPairs[k].x].y;
+                colDiff = fiducials[colPairs[k].y].x - 
+                    fiducials[colPairs[k].x].x;
+                std::cout << " | " << rowDiff << " " << colDiff << std::endl;
+            }
+            std::cout << std::endl;
+//            cv::imshow("Solar Solution", image);
+//            cv::waitKey(1);
 
             /*      std::cout << "fullDemo: Get Screen Center" << std::endl;
                     aspect.GetScreenCenter(IDCenter);
@@ -177,7 +188,6 @@ int main(int argc, char* agrv[])
 
             std::cout.flush();
 
-            std::cout << "Screen center: " << IDCenter << std::endl;
             imshow("Solar Solution", image);
             cv::waitKey(10);
                                                 

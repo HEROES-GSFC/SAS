@@ -176,6 +176,7 @@ HeaderData fits_keys;
 bool staleFrame;
 Flag procReady, saveReady;
 int runtime = 10;
+
 uint16_t exposure = CAMERA_EXPOSURE;
 uint16_t analogGain = CAMERA_ANALOGGAIN;
 int16_t preampGain = CAMERA_PREAMPGAIN;
@@ -183,7 +184,8 @@ int16_t preampGain = CAMERA_PREAMPGAIN;
 timespec frameRate = {0,FRAME_CADENCE*1000};
 int cameraReady = 0;
 
-timespec frameTime;
+
+timespec captureTimeNTP, captureTimeFixed;
 long int frameCount = 0;
 
 float camera_temperature;
@@ -283,7 +285,7 @@ void *CameraStreamThread( void * threadargs)
     ImperxStream camera;
 
     cv::Mat localFrame;
-    timespec preExposure, postExposure, timeElapsed, duration;
+    timespec localCaptureTime, preExposure, postExposure, timeElapsed, timeToWait;
     int width, height;
     int failcount = 0;
 
@@ -314,6 +316,7 @@ void *CameraStreamThread( void * threadargs)
             else
             {
                 camera.ConfigureSnap();
+
                 camera.SetROISize(CAMERA_XSIZE,CAMERA_YSIZE);
                 camera.SetROIOffset(CAMERA_XOFFSET,CAMERA_YOFFSET);
                 camera.SetExposure(localExposure);
@@ -351,7 +354,7 @@ void *CameraStreamThread( void * threadargs)
                 camera.SetAnalogGain(analogGain);
             }
 
-            clock_gettime(CLOCK_REALTIME, &preExposure);
+            clock_gettime(CLOCK_MONOTONIC, &preExposure);
 
             // Need to send timestamp of the next SAS solution *before* the exposure is taken
             // Conceptually this would be part of CommandPackagerThread, but the timing requirement is strict
@@ -374,7 +377,8 @@ void *CameraStreamThread( void * threadargs)
                 pthread_mutex_lock(&mutexImage);
                 //printf("CameraStreamThread: got lock, copying over\n");
                 localFrame.copyTo(frame);
-                frameTime = preExposure;
+                captureTimeNTP = localCaptureTime;
+                captureTimeFixed = preExposure;
                 //printf("%d\n", frame.at<uint8_t>(0,0));
                 frameCount++;
                 pthread_mutex_unlock(&mutexImage);
@@ -384,7 +388,7 @@ void *CameraStreamThread( void * threadargs)
                 camera_temperature = camera.getTemperature();
                 
                 // save data into the fits_header
-                fits_keys.captureTime = frameTime;
+                fits_keys.captureTime = captureTimeNTP;
                 fits_keys.frameCount = frameCount;
                 fits_keys.exposure = exposure;
                 fits_keys.preampGain = preampGain;
@@ -406,12 +410,37 @@ void *CameraStreamThread( void * threadargs)
                     continue;
                 }
             }
-            clock_gettime(CLOCK_REALTIME, &postExposure);
+
+            //Make any changes to camera settings that happened since last exposure.
+            //This is weirdly duplicated from above
+            if (localExposure != exposure) {
+                localExposure = exposure;
+                camera.SetExposure(localExposure);
+            }
+            
+            if (localPreampGain != preampGain) {
+                localPreampGain = preampGain;
+                camera.SetPreAmpGain(localPreampGain);
+            }
+            
+            if (localAnalogGain != analogGain) {
+                localAnalogGain = analogGain;
+                camera.SetAnalogGain(analogGain);
+            }
+
+            //Record time that camera exposure finished. As little as possible should happen between this call and the call to nanosleep()
+            clock_gettime(CLOCK_MONOTONIC, &postExposure);
+
+            //Determine time spent on camera exposure
             timeElapsed = TimespecDiff(preExposure, postExposure);
-            duration.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
-            duration.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
+
+            //Calculate the time to wait for next exposure
+            timeToWait.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
+            timeToWait.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
 //            std::cout << timeElapsed.tv_sec << " " << timeElapsed.tv_nsec << "\n";
-            nanosleep(&duration, NULL);
+
+            //Wait till next exposure time
+            nanosleep(&timeToWait, NULL);
         }
     }
 }
@@ -464,7 +493,7 @@ void *ImageProcessThread(void *threadargs)
                     aspect.LoadFrame(frame);
 
                     pthread_mutex_unlock(&mutexImage);
-
+                    
                     runResult = aspect.Run();
                     
                     switch(GeneralizeError(runResult))
@@ -495,6 +524,8 @@ void *ImageProcessThread(void *threadargs)
                         default:
                             std::cout << "Nothing worked\n";
                     }
+
+                    //printf("Aspect result: %s\n", GetMessage(runResult));
 
                     pthread_mutex_lock(&mutexProcess);
                     switch(GeneralizeError(runResult))
@@ -705,7 +736,7 @@ void *SaveTemperaturesThread(void *threadargs)
         started[tid] = false;
         pthread_exit( NULL );
     } else {
-        fprintf(file, "time, camera temp, cpu temp\n");
+        fprintf(file, "time, camera temp, cpu temp, i2c temp x8\n");
         sleep(SLEEP_LOG_TEMPERATURE);
         while(1)
         {
@@ -722,8 +753,12 @@ void *SaveTemperaturesThread(void *threadargs)
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
-            printf("%s, %f, %d\n", current_time, camera_temperature, sbc_temperature);
+            fprintf(file, "%s, %f, %d", current_time, camera_temperature, sbc_temperature);
+            for (int i=0; i<8; i++) fprintf(file, ", %d", i2c_temperatures[i]);
+            fprintf(file, "\n");
+            printf("%s, %f, %d", current_time, camera_temperature, sbc_temperature);
+            for (int i=0; i<8; i++) printf(", %d", i2c_temperatures[i]);
+            printf("\n");
         }
     }
 }
@@ -909,6 +944,9 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Tacking on the offset numbers intended for CTL
         tp << localOffset;
+
+        //Tacking on I2C temperatures
+        for (int i=0; i<8; i++) tp << i2c_temperatures[i];
 
         //add telemetry packet to the queue
         tm_packet_queue << tp;
@@ -1426,7 +1464,8 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
     } else printf("Not the intended SAS for this command\n");
 }
 
-void start_all_workers( void ){
+void start_all_workers( void )
+{
     start_thread(TelemetryPackagerThread, NULL);
     start_thread(CommandPackagerThread, NULL);
     start_thread(TelemetrySenderThread, NULL);
