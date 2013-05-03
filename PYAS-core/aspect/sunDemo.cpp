@@ -182,7 +182,7 @@ uint16_t analogGain = CAMERA_ANALOGGAIN;
 int16_t preampGain = CAMERA_PREAMPGAIN;
 
 timespec frameRate = {0,FRAME_CADENCE*1000};
-bool cameraReady[2] = false;
+bool cameraReady[2] = {false, false};
 
 long int frameCount[2] = {0, 0};
 
@@ -205,7 +205,7 @@ void *ImageProcessThread(void *threadargs, int camera_id);
 void *PYASImageProcessThread(void *threadargs);
 void *RASImageProcessThread(void *threadargs);
 
-void *SaveImageThread(void *threadargs int camera_id);
+void *SaveImageThread(void *threadargs, int camera_id);
 void *PYASSaveImageThread(void *threadargs);
 void *RASSaveImageThread(void *threadargs);
 
@@ -394,12 +394,12 @@ void *CameraStreamThread( void * threadargs, int camera_id)
                 saveReady[camera_id].raise();
 
                 //printf("CameraStreamThread: trying to lock\n");
-                pthread_mutex_lock(&mutexImage+camera_id);
+                pthread_mutex_lock(mutexImage+camera_id);
                 //printf("CameraStreamThread: got lock, copying over\n");
                 localFrame.copyTo(frame[camera_id]);
                 //printf("%d\n", frame.at<uint8_t>(0,0));
                 frameCount[camera_id]++;
-                pthread_mutex_unlock(&mutexImage+camera_id);
+                pthread_mutex_unlock(mutexImage+camera_id);
                 staleFrame[camera_id] = false;
 
                 //printf("camera temp is %lld\n", camera.getTemperature());
@@ -425,7 +425,7 @@ void *CameraStreamThread( void * threadargs, int camera_id)
                     camera.Disconnect();
                     cameraReady[camera_id] = false;
                     staleFrame[camera_id] = true;
-                    failCount = 0;
+                    failcount = 0;
                     std::cout << "*********************** RESETTING CAMERA ***********************************" << std::endl;
                     continue;
                 }
@@ -514,14 +514,14 @@ void *ImageProcessThread(void *threadargs, int camera_id)
             }
     
             //printf("ImageProcessThread: trying to lock\n");
-            if (pthread_mutex_trylock(&mutexImage+camera_id) == 0)
+            if (pthread_mutex_trylock(mutexImage+camera_id) == 0)
             {
                 //printf("ImageProcessThread: got lock\n");
                 if((camera_id == 0) && !frame[camera_id].empty())
                 {
                     aspect.LoadFrame(frame[0]);
 
-                    pthread_mutex_unlock(&mutexImage+camera_id);
+                    pthread_mutex_unlock(mutexImage+camera_id);
                     
                     runResult = aspect.Run();
                     
@@ -642,11 +642,11 @@ void *ImageProcessThread(void *threadargs, int camera_id)
                     fits_keys[0].imageMinMax[0] = (uint8_t)min;
                     fits_keys[0].imageMinMax[1] = (uint8_t)max;
 
-                    pthread_mutex_unlock(&mutexImage+camera_id);
+                    pthread_mutex_unlock(mutexImage+camera_id);
                 }
                 else
                 {
-                    pthread_mutex_unlock(&mutexImage+camera_id);
+                    pthread_mutex_unlock(mutexImage+camera_id);
                     //std::cout << "Frame empty!" << std::endl;
                 }
 
@@ -847,7 +847,7 @@ void *SaveImageThread(void *threadargs, int camera_id)
             }
 
             //printf("SaveImageThread: trying to lock\n");
-            if (pthread_mutex_trylock(&mutexImage+camera_id) == 0)
+            if (pthread_mutex_trylock(mutexImage+camera_id) == 0)
             {
                 //printf("ImageProcessThread: got lock\n");
                 if(!frame[camera_id].empty())
@@ -862,7 +862,7 @@ void *SaveImageThread(void *threadargs, int camera_id)
                     fits_keys[camera_id].cpuVoltage[3] = sbc_v50;
                     fits_keys[camera_id].cpuVoltage[4] = sbc_v120;
                     
-                    pthread_mutex_unlock(&mutexImage+camera_id);
+                    pthread_mutex_unlock(mutexImage+camera_id);
 
                     char stringtemp[80];
                     char obsfilespec[128];
@@ -884,7 +884,7 @@ void *SaveImageThread(void *threadargs, int camera_id)
                 }
                 else
                 {
-                    pthread_mutex_unlock(&mutexImage+camera_id);
+                    pthread_mutex_unlock(mutexImage+camera_id);
                 }
             }
         }
@@ -915,8 +915,8 @@ void *TelemetryPackagerThread(void *threadargs)
 
         if(pthread_mutex_trylock(&mutexProcess) == 0)
         {
-            localMin = frameMin;
-            localMax = frameMax;
+            localMin = frameMin[tm_frame_sequence_number % 2];
+            localMax = frameMax[tm_frame_sequence_number % 2];
             localLimbs = limbs;
             localCenter = pixelCenter;
             localError = error;
@@ -1250,12 +1250,12 @@ uint16_t cmd_send_image_to_ground( int camera_id )
     TCPSender tcpSndr(IP_FDR, (unsigned short) PORT_IMAGE);
     int ret = tcpSndr.init_connection();
     if (ret > 0){
-        if (pthread_mutex_trylock(&mutexImage+camera_id) == 0){
+        if (pthread_mutex_trylock(mutexImage+camera_id) == 0){
             if( !frame[camera_id].empty() ){
                 frame[camera_id].copyTo(localFrame);
                 localKeys = fits_keys[camera_id];
             }
-            pthread_mutex_unlock(&mutexImage+camera_id);
+            pthread_mutex_unlock(mutexImage+camera_id);
         }
         if( !localFrame.empty() ){
             //1 for SAS-1/PYAS, 2 for SAS-2/PYAS, 6 for SAS-2/RAS
@@ -1548,8 +1548,8 @@ int main(void)
     identifySAS();
     if (sas_id == 1) isOutputting = true;
 
-    pthread_mutex_init(&mutexImage, NULL);
-    pthread_mutex_init(&mutexImage+1, NULL);
+    pthread_mutex_init(mutexImage, NULL);
+    pthread_mutex_init(mutexImage+1, NULL);
     pthread_mutex_init(&mutexProcess, NULL);
 
     /* Create worker threads */
@@ -1586,8 +1586,8 @@ int main(void)
     printf("Quitting and cleaning up.\n");
     /* wait for threads to finish */
     kill_all_threads();
-    pthread_mutex_destroy(&mutexImage);
-    pthread_mutex_destroy(&mutexImage+1);
+    pthread_mutex_destroy(mutexImage);
+    pthread_mutex_destroy(mutexImage+1);
     pthread_mutex_destroy(&mutexProcess);
     pthread_exit(NULL);
 
