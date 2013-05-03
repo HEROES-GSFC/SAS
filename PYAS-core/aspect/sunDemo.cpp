@@ -886,7 +886,7 @@ void *SaveImageThread(void *threadargs, int camera_id)
                     times = localtime(&ltime);
                     strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
 
-                    sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)fits_keys[camera_id].frameCount);
+                    sprintf(obsfilespec, "%s%s_%s_%06d.fits", SAVE_LOCATION, (camera_id == 1 ? "ras" : "pyas"), stringtemp, (int)fits_keys[camera_id].frameCount);
 
                     printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
                     writeFITSImage(localFrame, fits_keys[camera_id], obsfilespec);
