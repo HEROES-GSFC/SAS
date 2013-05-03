@@ -498,7 +498,7 @@ void *ImageProcessThread(void *threadargs, int camera_id)
             pthread_exit( NULL );
         }
         
-        if (cameraReady[0])
+        if (cameraReady[camera_id])
         {
             while(1)
             {
@@ -639,8 +639,10 @@ void *ImageProcessThread(void *threadargs, int camera_id)
                 else if((camera_id == 1) && !frame[camera_id].empty()) {
                     double min, max;
                     cv::minMaxLoc(frame[1], &min, &max, NULL, NULL);
-                    fits_keys[0].imageMinMax[0] = (uint8_t)min;
-                    fits_keys[0].imageMinMax[1] = (uint8_t)max;
+                    frameMin[1] = (uint8_t)min;
+                    frameMax[1] = (uint8_t)max;
+                    fits_keys[1].imageMinMax[0] = frameMin[1];
+                    fits_keys[1].imageMinMax[1] = frameMax[1];
 
                     pthread_mutex_unlock(mutexImage+camera_id);
                 }
