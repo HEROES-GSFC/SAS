@@ -1,4 +1,4 @@
-#define MAX_THREADS 20
+#define MAX_THREADS 30
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
@@ -143,7 +143,7 @@ pthread_t threads[MAX_THREADS];
 bool started[MAX_THREADS];
 int tid_listen = 0;
 pthread_attr_t attr;
-pthread_mutex_t mutexImage;
+pthread_mutex_t mutexImage[2];
 pthread_mutex_t mutexProcess;
 
 struct Thread_data{
@@ -158,23 +158,23 @@ sig_atomic_t volatile g_running = 1;
 
 int sas_id;
 
-cv::Mat frame;
+cv::Mat frame[2];
 
 Aspect aspect;
 AspectCode runResult;
 Transform solarTransform;
 
-uint8_t frameMin, frameMax;
+uint8_t frameMin[2], frameMax[2];
 cv::Point2f pixelCenter, screenCenter, error;
 CoordList limbs, pixelFiducials, screenFiducials;
 IndexList ids;
 std::vector<float> mapping;
 Pair offset;
 
-HeaderData fits_keys;
+HeaderData fits_keys[2];
 
-bool staleFrame;
-Flag procReady, saveReady;
+bool staleFrame[2];
+Flag procReady[2], saveReady[2];
 int runtime = 10;
 
 uint16_t exposure = CAMERA_EXPOSURE;
@@ -182,13 +182,11 @@ uint16_t analogGain = CAMERA_ANALOGGAIN;
 int16_t preampGain = CAMERA_PREAMPGAIN;
 
 timespec frameRate = {0,FRAME_CADENCE*1000};
-int cameraReady = 0;
+bool cameraReady[2] = {false, false};
 
+long int frameCount[2] = {0, 0};
 
-timespec captureTimeNTP, captureTimeFixed;
-long int frameCount = 0;
-
-float camera_temperature;
+float camera_temperature[2];
 int8_t sbc_temperature;
 int8_t i2c_temperatures[8];
 float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
@@ -198,12 +196,22 @@ void sig_handler(int signum);
 void kill_all_threads( void ); //kills all threads
 void kill_all_workers( void ); //kills all threads except the one that listens for commands
 void identifySAS();
-void *CameraStreamThread( void * threadargs);
-void *ImageProcessThread(void *threadargs);
+
+void *CameraStreamThread( void * threadargs, int camera_id);
+void *PYASCameraStreamThread( void * threadargs);
+void *RASCameraStreamThread( void * threadargs);
+
+void *ImageProcessThread(void *threadargs, int camera_id);
+void *PYASImageProcessThread(void *threadargs);
+void *RASImageProcessThread(void *threadargs);
+
+void *SaveImageThread(void *threadargs, int camera_id);
+void *PYASSaveImageThread(void *threadargs);
+void *RASSaveImageThread(void *threadargs);
+
 void *TelemetrySenderThread(void *threadargs);
 void *SBCInfoThread(void *threadargs);
 void *SaveTemperaturesThread(void *threadargs);
-void *SaveImageThread(void *threadargs);
 void *TelemetryPackagerThread(void *threadargs);
 void *listenForCommandsThread(void *threadargs);
 void *CommandSenderThread( void *threadargs );
@@ -277,10 +285,35 @@ void identifySAS()
     pclose(in);
 }
 
-void *CameraStreamThread( void * threadargs)
-{    
+void *PYASCameraStreamThread( void *threadargs)
+{
+    return CameraStreamThread(threadargs, 0);
+}
+
+void *RASCameraStreamThread( void *threadargs)
+{
+    return CameraStreamThread(threadargs, 1);
+}
+
+void *CameraStreamThread( void * threadargs, int camera_id)
+{
+    // camera_id refers to 0 PYAS, 1 is RAS (if valid)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
-    printf("CameraStream thread #%ld!\n", tid);
+    printf("%sCameraStream thread #%ld!\n", (camera_id == 1 ? "RAS" : "PYAS"), tid);
+
+    char ip[50];
+
+    switch (camera_id) {
+        case 0: //PYAS
+           strcpy(ip, IP_PYAS);
+           break;
+        case 1:
+            strcpy(ip, IP_RAS);
+            break;
+        default:
+            std::cerr << "Invalid camera specified!\n";
+            stop_message[tid] = 1;
+    }
 
     ImperxStream camera;
 
@@ -293,8 +326,8 @@ void *CameraStreamThread( void * threadargs)
     int16_t localPreampGain = preampGain;
     uint16_t localAnalogGain = analogGain;
 
-    cameraReady = 0;
-    staleFrame = true;
+    cameraReady[camera_id] = false;
+    staleFrame[camera_id] = true;
     while(1)
     {
         if (stop_message[tid] == 1)
@@ -305,9 +338,9 @@ void *CameraStreamThread( void * threadargs)
             started[tid] = false;
             pthread_exit( NULL );
         }
-        else if (cameraReady == false)
+        else if (cameraReady[camera_id] == false)
         {
-            if (camera.Connect() != 0)
+            if (camera.Connect(ip) != 0)
             {
                 std::cout << "Error connecting to camera!\n";
                 sleep(SLEEP_CAMERA_CONNECT);
@@ -333,28 +366,15 @@ void *CameraStreamThread( void * threadargs)
                     sleep(SLEEP_CAMERA_CONNECT);
                     continue;
                 }
-                cameraReady = 1;
-                frameCount = 0;
+                cameraReady[camera_id] = true;
+                frameCount[camera_id] = 0;
             }
         }
         else
         {
-            if (localExposure != exposure) {
-                localExposure = exposure;
-                camera.SetExposure(localExposure);
-            }
-            
-            if (localPreampGain != preampGain) {
-                localPreampGain = preampGain;
-                camera.SetPreAmpGain(localPreampGain);
-            }
-            
-            if (localAnalogGain != analogGain) {
-                localAnalogGain = analogGain;
-                camera.SetAnalogGain(analogGain);
-            }
-
+            // Record time of frame capture
             clock_gettime(CLOCK_MONOTONIC, &preExposure);
+            clock_gettime(CLOCK_REALTIME, &localCaptureTime);
 
             // Need to send timestamp of the next SAS solution *before* the exposure is taken
             // Conceptually this would be part of CommandPackagerThread, but the timing requirement is strict
@@ -367,33 +387,32 @@ void *CameraStreamThread( void * threadargs)
                 cm_packet_queue << cp;
             }
 
-            if(!camera.Snap(localFrame))
+            if(!camera.Snap(localFrame, frameRate))
             {
                 failcount = 0;
-                procReady.raise();
-                saveReady.raise();
+                procReady[camera_id].raise();
+                saveReady[camera_id].raise();
 
                 //printf("CameraStreamThread: trying to lock\n");
-                pthread_mutex_lock(&mutexImage);
+                pthread_mutex_lock(mutexImage+camera_id);
                 //printf("CameraStreamThread: got lock, copying over\n");
-                localFrame.copyTo(frame);
-                captureTimeNTP = localCaptureTime;
-                captureTimeFixed = preExposure;
+                localFrame.copyTo(frame[camera_id]);
                 //printf("%d\n", frame.at<uint8_t>(0,0));
-                frameCount++;
-                pthread_mutex_unlock(&mutexImage);
-                staleFrame = false;
+                frameCount[camera_id]++;
+                pthread_mutex_unlock(mutexImage+camera_id);
+                staleFrame[camera_id] = false;
 
                 //printf("camera temp is %lld\n", camera.getTemperature());
-                camera_temperature = camera.getTemperature();
+                camera_temperature[camera_id] = camera.getTemperature();
                 
                 // save data into the fits_header
-                fits_keys.captureTime = captureTimeNTP;
-                fits_keys.frameCount = frameCount;
-                fits_keys.exposure = exposure;
-                fits_keys.preampGain = preampGain;
-                fits_keys.analogGain = analogGain;
-                fits_keys.cameraTemperature = camera_temperature;
+                fits_keys[camera_id].captureTime = localCaptureTime;
+                fits_keys[camera_id].captureTimeMono = preExposure;
+                fits_keys[camera_id].frameCount = frameCount[camera_id];
+                fits_keys[camera_id].exposure = exposure;
+                fits_keys[camera_id].preampGain = preampGain;
+                fits_keys[camera_id].analogGain = analogGain;
+                fits_keys[camera_id].cameraTemperature = camera_temperature[camera_id];
 
             }
             else
@@ -404,15 +423,15 @@ void *CameraStreamThread( void * threadargs)
                 {
                     camera.Stop();
                     camera.Disconnect();
-                    cameraReady = false;
-                    staleFrame = true;
+                    cameraReady[camera_id] = false;
+                    staleFrame[camera_id] = true;
+                    failcount = 0;
                     std::cout << "*********************** RESETTING CAMERA ***********************************" << std::endl;
                     continue;
                 }
             }
 
             //Make any changes to camera settings that happened since last exposure.
-            //This is weirdly duplicated from above
             if (localExposure != exposure) {
                 localExposure = exposure;
                 camera.SetExposure(localExposure);
@@ -445,10 +464,20 @@ void *CameraStreamThread( void * threadargs)
     }
 }
 
-void *ImageProcessThread(void *threadargs)
+void *PYASImageProcessThread( void *threadargs)
+{
+    return ImageProcessThread(threadargs, 0);
+}
+
+void *RASImageProcessThread( void *threadargs)
+{
+    return ImageProcessThread(threadargs, 1);
+}
+
+void *ImageProcessThread(void *threadargs, int camera_id)
 {
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
-    printf("ImageProcess thread #%ld!\n", tid);
+    printf("%sImageProcess thread #%ld!\n", (camera_id == 1 ? "RAS" : "PYAS"), tid);
 
     CoordList localLimbs, localPixelFiducials, localScreenFiducials;
     IndexList localIds;
@@ -464,18 +493,18 @@ void *ImageProcessThread(void *threadargs)
     {
         if (stop_message[tid] == 1)
         {
-            printf("ImageProcess thread #%ld exiting\n", tid);
+            printf("%sImageProcess thread #%ld exiting\n", (camera_id == 1 ? "RAS" : "PYAS"), tid);
             started[tid] = false;
             pthread_exit( NULL );
         }
         
-        if (cameraReady)
+        if (cameraReady[camera_id])
         {
             while(1)
             {
-                if(procReady.check())
+                if(procReady[camera_id].check())
                 {
-                    procReady.lower();
+                    procReady[camera_id].lower();
                     break;
                 }
                 else
@@ -485,14 +514,14 @@ void *ImageProcessThread(void *threadargs)
             }
     
             //printf("ImageProcessThread: trying to lock\n");
-            if (pthread_mutex_trylock(&mutexImage) == 0)
+            if (pthread_mutex_trylock(mutexImage+camera_id) == 0)
             {
                 //printf("ImageProcessThread: got lock\n");
-                if(!frame.empty())
+                if((camera_id == 0) && !frame[camera_id].empty())
                 {
-                    aspect.LoadFrame(frame);
+                    aspect.LoadFrame(frame[0]);
 
-                    pthread_mutex_unlock(&mutexImage);
+                    pthread_mutex_unlock(mutexImage+camera_id);
                     
                     runResult = aspect.Run();
                     
@@ -552,63 +581,74 @@ void *ImageProcessThread(void *threadargs)
 
                         case LIMB_ERROR:
                         case RANGE_ERROR:
-                            frameMin = localMin;
-                            frameMax = localMax;
+                            frameMin[0] = localMin;
+                            frameMax[0] = localMax;
                             break;
                         default:
                             break;
                     }
                     
-                    fits_keys.sunCenter[0] = pixelCenter.x;
-                    fits_keys.sunCenter[1] = pixelCenter.y;
+                    fits_keys[0].sunCenter[0] = pixelCenter.x;
+                    fits_keys[0].sunCenter[1] = pixelCenter.y;
                   
-                    fits_keys.CTLsolution[0] = offset.x();
-                    fits_keys.CTLsolution[1] = offset.y();
+                    fits_keys[0].CTLsolution[0] = offset.x();
+                    fits_keys[0].CTLsolution[1] = offset.y();
 
-                    fits_keys.screenCenter[0] = screenCenter.x; 
-                    fits_keys.screenCenter[1] = screenCenter.y;
-                    fits_keys.screenCenterError[0] = error.x;
-                    fits_keys.screenCenterError[1] = error.y;
-                    fits_keys.imageMinMax[0] = frameMin;
-                    fits_keys.imageMinMax[1] = frameMax;
+                    fits_keys[0].screenCenter[0] = screenCenter.x; 
+                    fits_keys[0].screenCenter[1] = screenCenter.y;
+                    fits_keys[0].screenCenterError[0] = error.x;
+                    fits_keys[0].screenCenterError[1] = error.y;
+                    fits_keys[0].imageMinMax[0] = frameMin[0];
+                    fits_keys[0].imageMinMax[1] = frameMax[1];
 
                     if(mapping.size() == 4){
-                        fits_keys.XYinterceptslope[0] = mapping[0];
-                        fits_keys.XYinterceptslope[1] = mapping[2];
-                        fits_keys.XYinterceptslope[2] = mapping[1];
-                        fits_keys.XYinterceptslope[3] = mapping[3];
+                        fits_keys[0].XYinterceptslope[0] = mapping[0];
+                        fits_keys[0].XYinterceptslope[1] = mapping[2];
+                        fits_keys[0].XYinterceptslope[2] = mapping[1];
+                        fits_keys[0].XYinterceptslope[3] = mapping[3];
                     }
-                    fits_keys.isTracking = isTracking;
+                    fits_keys[0].isTracking = isTracking;
                     
                     for(uint8_t j = 0; j < 8; j++) {
                         if (j < limbs.size()) {
-                                fits_keys.limbX[j] = limbs[j].x,
-                                fits_keys.limbY[j] = limbs[j].y;
+                                fits_keys[0].limbX[j] = limbs[j].x,
+                                fits_keys[0].limbY[j] = limbs[j].y;
                             } else {
-                                fits_keys.limbX[j] = 0,
-                                fits_keys.limbY[j] = 0;
+                                fits_keys[0].limbX[j] = 0,
+                                fits_keys[0].limbY[j] = 0;
                             }
                     }
                     for(uint8_t j = 0; j < 8; j++) {
                         if (j < ids.size()) {
-                            fits_keys.fiducialIDX[j] = ids[j].x,
-                            fits_keys.fiducialIDY[j] = ids[j].y;
+                            fits_keys[0].fiducialIDX[j] = ids[j].x,
+                            fits_keys[0].fiducialIDY[j] = ids[j].y;
                         } else {
-                            fits_keys.fiducialIDX[j] = 0,
-                            fits_keys.fiducialIDY[j] = 0;
+                            fits_keys[0].fiducialIDX[j] = 0,
+                            fits_keys[0].fiducialIDY[j] = 0;
                         }
                         if (j < pixelFiducials.size()){
-                            fits_keys.fiducialX[j] = pixelFiducials[j].x;
-                            fits_keys.fiducialY[j] = pixelFiducials[j].y;
+                            fits_keys[0].fiducialX[j] = pixelFiducials[j].x;
+                            fits_keys[0].fiducialY[j] = pixelFiducials[j].y;
                         } else {
-                            fits_keys.fiducialX[j] = 0;
-                            fits_keys.fiducialY[j] = 0;
+                            fits_keys[0].fiducialX[j] = 0;
+                            fits_keys[0].fiducialY[j] = 0;
                         }
                     }
                     pthread_mutex_unlock(&mutexProcess);
                 }
+                else if((camera_id == 1) && !frame[camera_id].empty()) {
+                    double min, max;
+                    cv::minMaxLoc(frame[1], &min, &max, NULL, NULL);
+                    frameMin[1] = (uint8_t)min;
+                    frameMax[1] = (uint8_t)max;
+                    fits_keys[1].imageMinMax[0] = frameMin[1];
+                    fits_keys[1].imageMinMax[1] = frameMax[1];
+
+                    pthread_mutex_unlock(mutexImage+camera_id);
+                }
                 else
                 {
+                    pthread_mutex_unlock(mutexImage+camera_id);
                     //std::cout << "Frame empty!" << std::endl;
                 }
 
@@ -731,6 +771,8 @@ void *SaveTemperaturesThread(void *threadargs)
     obsfilespec[128 - 1] = '\0';
     printf("Creating file %s \n",obsfilespec);
 
+    int count = 0;
+
     if((file = fopen(obsfilespec, "w")) == NULL){
         printf("Cannot open file\n");
         started[tid] = false;
@@ -753,20 +795,31 @@ void *SaveTemperaturesThread(void *threadargs)
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %f, %d", current_time, camera_temperature, sbc_temperature);
+            fprintf(file, "%s, %f, %d", current_time, camera_temperature[count % sas_id], sbc_temperature);
             for (int i=0; i<8; i++) fprintf(file, ", %d", i2c_temperatures[i]);
             fprintf(file, "\n");
-            printf("%s, %f, %d", current_time, camera_temperature, sbc_temperature);
+            printf("%s, %f, %d", current_time, camera_temperature[count % sas_id], sbc_temperature);
             for (int i=0; i<8; i++) printf(", %d", i2c_temperatures[i]);
             printf("\n");
+            count++;
         }
     }
 }
 
-void *SaveImageThread(void *threadargs)
+void *PYASSaveImageThread( void *threadargs)
+{
+    return SaveImageThread(threadargs, 0);
+}
+
+void *RASSaveImageThread( void *threadargs)
+{
+    return SaveImageThread(threadargs, 1);
+}
+
+void *SaveImageThread(void *threadargs, int camera_id)
 {
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
-    printf("SaveImage thread #%ld!\n", tid);
+    printf("%sSaveImage thread #%ld!\n", (camera_id == 1 ? "RAS" : "PYAS"), tid);
 
     cv::Mat localFrame;
     std::string fitsfile;
@@ -780,13 +833,13 @@ void *SaveImageThread(void *threadargs)
             started[tid] = false;
             pthread_exit( NULL );
         }
-        if (cameraReady)
+        if (cameraReady[camera_id])
         {
             while(1)
             {
-                if(saveReady.check() && isSavingImages)
+                if(saveReady[camera_id].check() && isSavingImages)
                 {
-                    saveReady.lower();
+                    saveReady[camera_id].lower();
                     break;
                 }
                 else
@@ -796,22 +849,22 @@ void *SaveImageThread(void *threadargs)
             }
 
             //printf("SaveImageThread: trying to lock\n");
-            if (pthread_mutex_trylock(&mutexImage) == 0)
+            if (pthread_mutex_trylock(mutexImage+camera_id) == 0)
             {
                 //printf("ImageProcessThread: got lock\n");
-                if(!frame.empty())
+                if(!frame[camera_id].empty())
                 {
-                    frame.copyTo(localFrame);
-                    fits_keys.cpuTemperature = sbc_temperature;
-                    fits_keys.cameraID = sas_id;
+                    frame[camera_id].copyTo(localFrame);
+                    fits_keys[camera_id].cpuTemperature = sbc_temperature;
+                    fits_keys[camera_id].cameraID = sas_id+4*camera_id;
 
-                    fits_keys.cpuVoltage[0] = sbc_v105;
-                    fits_keys.cpuVoltage[1] = sbc_v25;
-                    fits_keys.cpuVoltage[2] = sbc_v33;
-                    fits_keys.cpuVoltage[3] = sbc_v50;
-                    fits_keys.cpuVoltage[4] = sbc_v120;
+                    fits_keys[camera_id].cpuVoltage[0] = sbc_v105;
+                    fits_keys[camera_id].cpuVoltage[1] = sbc_v25;
+                    fits_keys[camera_id].cpuVoltage[2] = sbc_v33;
+                    fits_keys[camera_id].cpuVoltage[3] = sbc_v50;
+                    fits_keys[camera_id].cpuVoltage[4] = sbc_v120;
                     
-                    pthread_mutex_unlock(&mutexImage);
+                    pthread_mutex_unlock(mutexImage+camera_id);
 
                     char stringtemp[80];
                     char obsfilespec[128];
@@ -823,17 +876,17 @@ void *SaveImageThread(void *threadargs)
                     times = localtime(&ltime);
                     strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
 
-                    sprintf(obsfilespec, "%simage_%s_%02d.fits", SAVE_LOCATION, stringtemp, (int)fits_keys.frameCount);
+                    sprintf(obsfilespec, "%s%s_%s_%06d.fits", SAVE_LOCATION, (camera_id == 1 ? "ras" : "pyas"), stringtemp, (int)fits_keys[camera_id].frameCount);
 
                     printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
-                    writeFITSImage(localFrame, fits_keys, obsfilespec);
+                    writeFITSImage(localFrame, fits_keys[camera_id], obsfilespec);
 
                     sleep(SLEEP_SAVE);
                     usleep(USLEEP_SAVE);
                 }
                 else
                 {
-                    pthread_mutex_unlock(&mutexImage);
+                    pthread_mutex_unlock(mutexImage+camera_id);
                 }
             }
         }
@@ -864,8 +917,8 @@ void *TelemetryPackagerThread(void *threadargs)
 
         if(pthread_mutex_trylock(&mutexProcess) == 0)
         {
-            localMin = frameMin;
-            localMax = frameMax;
+            localMin = frameMin[tm_frame_sequence_number % sas_id];
+            localMax = frameMax[tm_frame_sequence_number % sas_id];
             localLimbs = limbs;
             localCenter = pixelCenter;
             localError = error;
@@ -888,7 +941,7 @@ void *TelemetryPackagerThread(void *threadargs)
         }
 
         //Housekeeping fields, two of them
-        tp << Float2B(camera_temperature);
+        tp << Float2B(camera_temperature[tm_frame_sequence_number % sas_id]);
         tp << (uint16_t)sbc_temperature;
 
         //Sun center and error
@@ -1144,12 +1197,12 @@ void *CommandPackagerThread( void *threadargs )
                     if(pthread_mutex_trylock(&mutexProcess) == 0)
                     {
                         cp << (uint16_t)HKEY_SAS_SOLUTION;
-                        cp << (double)fits_keys.CTLsolution[0]; // azimuth offset
-                        cp << (double)fits_keys.CTLsolution[1]; // elevation offset
+                        cp << (double)fits_keys[0].CTLsolution[0]; // azimuth offset
+                        cp << (double)fits_keys[0].CTLsolution[1]; // elevation offset
                         cp << (double)0; // roll offset
                         cp << (double)0.003; // error
-                        cp << (uint32_t)fits_keys.captureTime.tv_sec; //seconds
-                        cp << (uint16_t)(fits_keys.captureTime.tv_nsec/1000000); //milliseconds
+                        cp << (uint32_t)fits_keys[0].captureTime.tv_sec; //seconds
+                        cp << (uint16_t)(fits_keys[0].captureTime.tv_nsec/1000000); //milliseconds
 
                         pthread_mutex_unlock(&mutexProcess);
                     } else {
@@ -1199,12 +1252,12 @@ uint16_t cmd_send_image_to_ground( int camera_id )
     TCPSender tcpSndr(IP_FDR, (unsigned short) PORT_IMAGE);
     int ret = tcpSndr.init_connection();
     if (ret > 0){
-        if (pthread_mutex_trylock(&mutexImage) == 0){
-            if( !frame.empty() ){
-                frame.copyTo(localFrame);
-                localKeys = fits_keys;
+        if (pthread_mutex_trylock(mutexImage+camera_id) == 0){
+            if( !frame[camera_id].empty() ){
+                frame[camera_id].copyTo(localFrame);
+                localKeys = fits_keys[camera_id];
             }
-            pthread_mutex_unlock(&mutexImage);
+            pthread_mutex_unlock(mutexImage+camera_id);
         }
         if( !localFrame.empty() ){
             //1 for SAS-1/PYAS, 2 for SAS-2/PYAS, 6 for SAS-2/RAS
@@ -1470,12 +1523,23 @@ void start_all_workers( void )
     start_thread(CommandPackagerThread, NULL);
     start_thread(TelemetrySenderThread, NULL);
     start_thread(CommandSenderThread, NULL);
-    start_thread(CameraStreamThread, NULL);
-    start_thread(ImageProcessThread, NULL);
-    start_thread(SaveImageThread, NULL);
+    start_thread(PYASCameraStreamThread, NULL);
+    start_thread(PYASImageProcessThread, NULL);
+    start_thread(PYASSaveImageThread, NULL);
     start_thread(SaveTemperaturesThread, NULL);
     start_thread(SBCInfoThread, NULL);
-    if (sas_id == 1) start_thread(ForwardCommandsFromSAS2Thread, NULL);
+    switch (sas_id) {
+        case 1:
+            start_thread(ForwardCommandsFromSAS2Thread, NULL);
+            break;
+        case 2:
+            start_thread(RASCameraStreamThread, NULL);
+            start_thread(RASImageProcessThread, NULL);
+            start_thread(RASSaveImageThread, NULL);
+            break;
+        default:
+            break;
+    }
 }
 
 int main(void)
@@ -1486,7 +1550,8 @@ int main(void)
     identifySAS();
     if (sas_id == 1) isOutputting = true;
 
-    pthread_mutex_init(&mutexImage, NULL);
+    pthread_mutex_init(mutexImage, NULL);
+    pthread_mutex_init(mutexImage+1, NULL);
     pthread_mutex_init(&mutexProcess, NULL);
 
     /* Create worker threads */
@@ -1523,7 +1588,8 @@ int main(void)
     printf("Quitting and cleaning up.\n");
     /* wait for threads to finish */
     kill_all_threads();
-    pthread_mutex_destroy(&mutexImage);
+    pthread_mutex_destroy(mutexImage);
+    pthread_mutex_destroy(mutexImage+1);
     pthread_mutex_destroy(&mutexProcess);
     pthread_exit(NULL);
 
