@@ -372,22 +372,9 @@ void *CameraStreamThread( void * threadargs, int camera_id)
         }
         else
         {
-            if (localExposure != exposure) {
-                localExposure = exposure;
-                camera.SetExposure(localExposure);
-            }
-            
-            if (localPreampGain != preampGain) {
-                localPreampGain = preampGain;
-                camera.SetPreAmpGain(localPreampGain);
-            }
-            
-            if (localAnalogGain != analogGain) {
-                localAnalogGain = analogGain;
-                camera.SetAnalogGain(analogGain);
-            }
-
+            // Record time of frame capture
             clock_gettime(CLOCK_MONOTONIC, &preExposure);
+            clock_gettime(CLOCK_REALTIME, &localCaptureTime);
 
             // Need to send timestamp of the next SAS solution *before* the exposure is taken
             // Conceptually this would be part of CommandPackagerThread, but the timing requirement is strict
@@ -400,7 +387,7 @@ void *CameraStreamThread( void * threadargs, int camera_id)
                 cm_packet_queue << cp;
             }
 
-            if(!camera.Snap(localFrame))
+            if(!camera.Snap(localFrame, frameRate))
             {
                 failcount = 0;
                 procReady[camera_id].raise();
@@ -420,6 +407,7 @@ void *CameraStreamThread( void * threadargs, int camera_id)
                 
                 // save data into the fits_header
                 fits_keys[camera_id].captureTime = localCaptureTime;
+                fits_keys[camera_id].captureTimeMono = preExposure;
                 fits_keys[camera_id].frameCount = frameCount[camera_id];
                 fits_keys[camera_id].exposure = exposure;
                 fits_keys[camera_id].preampGain = preampGain;
@@ -437,13 +425,13 @@ void *CameraStreamThread( void * threadargs, int camera_id)
                     camera.Disconnect();
                     cameraReady[camera_id] = false;
                     staleFrame[camera_id] = true;
+                    failCount = 0;
                     std::cout << "*********************** RESETTING CAMERA ***********************************" << std::endl;
                     continue;
                 }
             }
 
             //Make any changes to camera settings that happened since last exposure.
-            //This is weirdly duplicated from above
             if (localExposure != exposure) {
                 localExposure = exposure;
                 camera.SetExposure(localExposure);
