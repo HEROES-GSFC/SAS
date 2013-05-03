@@ -793,10 +793,10 @@ void *SaveTemperaturesThread(void *threadargs)
             time(&ltime);
             times = localtime(&ltime);
             strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %f, %d", current_time, camera_temperature[count % 2], sbc_temperature);
+            fprintf(file, "%s, %f, %d", current_time, camera_temperature[count % sas_id], sbc_temperature);
             for (int i=0; i<8; i++) fprintf(file, ", %d", i2c_temperatures[i]);
             fprintf(file, "\n");
-            printf("%s, %f, %d", current_time, camera_temperature[count % 2], sbc_temperature);
+            printf("%s, %f, %d", current_time, camera_temperature[count % sas_id], sbc_temperature);
             for (int i=0; i<8; i++) printf(", %d", i2c_temperatures[i]);
             printf("\n");
             count++;
@@ -915,8 +915,8 @@ void *TelemetryPackagerThread(void *threadargs)
 
         if(pthread_mutex_trylock(&mutexProcess) == 0)
         {
-            localMin = frameMin[tm_frame_sequence_number % 2];
-            localMax = frameMax[tm_frame_sequence_number % 2];
+            localMin = frameMin[tm_frame_sequence_number % sas_id];
+            localMax = frameMax[tm_frame_sequence_number % sas_id];
             localLimbs = limbs;
             localCenter = pixelCenter;
             localError = error;
@@ -939,7 +939,7 @@ void *TelemetryPackagerThread(void *threadargs)
         }
 
         //Housekeeping fields, two of them
-        tp << Float2B(camera_temperature[tm_frame_sequence_number % 2]);
+        tp << Float2B(camera_temperature[tm_frame_sequence_number % sas_id]);
         tp << (uint16_t)sbc_temperature;
 
         //Sun center and error
