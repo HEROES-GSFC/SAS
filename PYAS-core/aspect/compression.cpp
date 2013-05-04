@@ -84,7 +84,6 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
 
     long  fpixel(1);
     
-    timeKey = asctime(gmtime(&(keys.captureTime).tv_sec));
     //add keys to the primary header
     pFits->pHDU().addKey("TELESCOP",std::string("HEROES/SAS"),"Name of source telescope package");
 //    pFits->pHDU().addKey("SIMPLE",(int)1,"always T for True, if conforming FITS file");
@@ -136,8 +135,14 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("FILENAME", fileName , "Name of the data file");
     //pFits->pHDU().addKey("TIME", 0 , "Time of observation in seconds within a day");
     
+    timeKey = asctime(gmtime(&(keys.captureTime).tv_sec));
     pFits->pHDU().addKey("DAY AND TIME", timeKey , "Frame Capture Time (UTC)");
     pFits->pHDU().addKey("TIME-FRACTION", (long)(keys.captureTime).tv_nsec, "Frame capture fractional seconds");
+
+    timeKey = asctime(gmtime(&(keys.captureTimeMono).tv_sec));
+    pFits->pHDU().addKey("DAY AND TIME MONO", timeKey , "Frame Capture Time (UTC)");
+    pFits->pHDU().addKey("TIME-FRACTION MONO", (long)(keys.captureTimeMono).tv_nsec, "Frame capture fractional seconds");
+
     pFits->pHDU().addKey("EXPOSURE", (long)keys.exposure,"Exposure time in msec"); 
     pFits->pHDU().addKey("SUN-CENTER1", (float)keys.sunCenter[0], "Calculated sun center in x-pixel"); 
     pFits->pHDU().addKey("SUN-CENTER2", (float)keys.sunCenter[1], "Calculated sun center in y-pixel"); 

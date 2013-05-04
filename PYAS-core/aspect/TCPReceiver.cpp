@@ -41,7 +41,9 @@ unsigned int TCPReceiver::handle_tcpclient( int client_socket ){
     // clntSock is connected to a client!
     char sender_name[INET_ADDRSTRLEN]; // String to contain client address
     if (inet_ntop(AF_INET, &senderAddr.sin_addr.s_addr, sender_name, sizeof(sender_name)) != NULL)
-    { //printf("Handling client %s/%d\n", sender_name, ntohs(senderAddr.sin_port)); }
+    {
+        //printf("Handling client %s/%d\n", sender_name, ntohs(senderAddr.sin_port));
+    }
     else {printf("TCPReceiver: Unable to get client address\n");}
     
     numBytesRcvd = 0;
