@@ -79,18 +79,18 @@
 #define SKEY_STOP_OUTPUTTING     0x0040
 
 //Setting commands
-#define SKEY_SET_TARGET          0x0112
-#define SKEY_SET_IMAGESAVETOGGLE 0x0121
-#define SKEY_SET_EXPOSURE        0x0151
-#define SKEY_SET_ANALOGGAIN      0x0181
-#define SKEY_SET_PREAMPGAIN      0x0191
+#define SKEY_SET_TARGET          0x0412
+#define SKEY_SET_IMAGESAVETOGGLE 0x0421
+#define SKEY_SET_EXPOSURE        0x0451
+#define SKEY_SET_ANALOGGAIN      0x0481
+#define SKEY_SET_PREAMPGAIN      0x0491
 
 //Getting commands
-#define SKEY_REQUEST_IMAGE       0x0210
-#define SKEY_GET_EXPOSURE        0x0250
-#define SKEY_GET_ANALOGGAIN      0x0260
-#define SKEY_GET_PREAMPGAIN      0x0270
-#define SKEY_GET_DISKSPACE       0x0281
+#define SKEY_REQUEST_IMAGE       0x0810
+#define SKEY_GET_EXPOSURE        0x0850
+#define SKEY_GET_ANALOGGAIN      0x0860
+#define SKEY_GET_PREAMPGAIN      0x0870
+#define SKEY_GET_DISKSPACE       0x0881
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -1340,6 +1340,7 @@ void *commandHandlerThread(void *threadargs)
                 if( isSavingImages == false ){ std::cout << "Image saving is now turned off" << std::endl; }
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
+            break;
         case SKEY_SET_PREAMPGAIN:    // set preamp gain
             {
                 if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
@@ -1373,14 +1374,17 @@ void *commandHandlerThread(void *threadargs)
             {
                 queue_cmd_proc_ack_tmpacket( (uint16_t)exposure );
             }
+            break;
         case SKEY_GET_ANALOGGAIN:
             {
                 queue_cmd_proc_ack_tmpacket( (uint16_t)analogGain );
             }
+            break;
         case SKEY_GET_PREAMPGAIN:
             {
                 queue_cmd_proc_ack_tmpacket( (int16_t)preampGain );
             }
+            break;
         case SKEY_GET_DISKSPACE:
             {
                 if( my_data->command_num_vars == 1) {
@@ -1389,6 +1393,7 @@ void *commandHandlerThread(void *threadargs)
                 }
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
+            break;
         default:
             {
                 error_code = 0xffff;            // unknown command!
