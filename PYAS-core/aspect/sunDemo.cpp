@@ -17,16 +17,16 @@
 
 //Sleep settings (seconds)
 #define SLEEP_SOLUTION         1 // period for providing solutions to CTL
-#define SLEEP_SAVE             0 // period for saving full images locally (set USLEEP_SAVE to 0 if used)
+#define SLEEP_SAVE             5 // period for saving full images locally (set USLEEP_SAVE to 0 if used)
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 #define SLEEP_KILL             2 // waits when killing all threads
 
 //Sleep settings (microseconds)
-#define USLEEP_SAVE       250000 // period for saving full images locally (set SLEEP_SAVE to 0 if used)
+#define USLEEP_SAVE            0 // period for saving full images locally (set SLEEP_SAVE to 0 if used)
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
-#define USLEEP_TM_GENERIC 250000 // period for adding generic telemetry packets to queue
+#define USLEEP_TM_GENERIC 950000 // period for adding generic telemetry packets to queue
 #define USLEEP_UDP_LISTEN   1000 // safety measure in case UDP listening is changed to non-blocking
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
@@ -385,7 +385,7 @@ void *CameraStreamThread( void * threadargs, int camera_id)
                 cp << (uint16_t)HKEY_SAS_TIMESTAMP;
                 cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
                 cp << (double)(preExposure.tv_sec + (double)preExposure.tv_nsec/1e9);  // timestamp 
-                cm_packet_queue << cp;
+                //cm_packet_queue << cp;
             }
 
             if(!camera.Snap(localFrame, frameRate))
@@ -926,7 +926,7 @@ void *TelemetryPackagerThread(void *threadargs)
             localFiducials = pixelFiducials;
             localMapping = mapping;
             localOffset = offset;
-
+/*
             std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
             if(localMapping.size() == 4) {
                 std::cout << ", mapping is";
@@ -935,7 +935,7 @@ void *TelemetryPackagerThread(void *threadargs)
             std::cout << std::endl;
 
             std::cout << "Offset: " << localOffset << std::endl;
-
+*/
             pthread_mutex_unlock(&mutexProcess);
         } else {
             std::cout << "Using stale information for telemetry packet" << std::endl;
