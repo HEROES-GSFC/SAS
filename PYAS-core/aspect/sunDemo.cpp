@@ -1285,7 +1285,9 @@ uint16_t cmd_send_image_to_ground( int camera_id )
 
             //Add FITS header tags
             uint32_t temp = localKeys.exposure;
-            im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time (msec)");
+            im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time in msec");
+            im_packet_queue << ImageTagPacket(camera, (camera_id == 0 ? (sas_id == 1 ? "PYAS-F" : "PYAS-R") : "RAS"), TSTRING, "INSTRUME", "Name of instrument");
+            im_packet_queue << ImageTagPacket(camera, (sas_id == 1 ? "HEROES/SAS-1" : "HEROES/SAS-2"), TSTRING, "ORIGIN", "Location where file was made");
 
             //Make sure to synchronize all the timestamps
             im_packet_queue.synchronize();
