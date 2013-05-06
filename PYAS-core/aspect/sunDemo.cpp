@@ -86,11 +86,12 @@
 #define SKEY_SET_PREAMPGAIN      0x0491
 
 //Getting commands
-#define SKEY_REQUEST_IMAGE       0x0810
+#define SKEY_REQUEST_PYAS_IMAGE  0x0810
 #define SKEY_GET_EXPOSURE        0x0850
 #define SKEY_GET_ANALOGGAIN      0x0860
 #define SKEY_GET_PREAMPGAIN      0x0870
 #define SKEY_GET_DISKSPACE       0x0881
+#define SKEY_REQUEST_RAS_IMAGE   0x0910
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -1245,6 +1246,7 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 uint16_t cmd_send_image_to_ground( int camera_id )
 {
     // camera_id refers to 0 PYAS, 1 is RAS (if valid)
+    camera_id = camera_id % sas_id;
     uint16_t error_code = 0;
     cv::Mat localFrame;
     HeaderData localKeys;
@@ -1318,9 +1320,15 @@ void *commandHandlerThread(void *threadargs)
 
     switch( my_data->command_key & 0x0FFF)
     {
-        case SKEY_REQUEST_IMAGE:
+        case SKEY_REQUEST_PYAS_IMAGE:
             {
                 error_code = cmd_send_image_to_ground( 0 );
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_REQUEST_RAS_IMAGE:
+            {
+                error_code = cmd_send_image_to_ground( 1 );
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
