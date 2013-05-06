@@ -1,0 +1,8 @@
+# 
+# /etc/fstab: static file system information
+#
+# <file system>	<dir>	<type>	<options>	<dump>	<pass>
+# /dev/sda1
+UUID=321a1fcd-aebf-44f1-bbcb-c0509146ee7b	/         	ext4      	defaults,relatime	0 1
+UUID=79be77f5-abc1-4967-b618-6d5d9bed9eb5	/mnt/disk1	ext4	defaults	0 2
+UUID=02cbfdad-a9b3-4012-ac59-b9d642137f49	/mnt/disk2	ext4	defaults	0 2
