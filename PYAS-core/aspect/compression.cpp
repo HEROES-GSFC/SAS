@@ -100,7 +100,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
         pFits->pHDU().addKey("WAVELNTH", (long)6300, "Wavelength of observation (ang)");
         pFits->pHDU().addKey("WAVE_STR", std::string("630 Nm"), "Wavelength of observation string");
     }
-    if( keys.cameraID == 3 ){
+    if( keys.cameraID == 6 ){
         pFits->pHDU().addKey("INSTRUME",std::string("RAS"),"Name of instrument");
         pFits->pHDU().addKey("ORIGIN", std::string("HEROES/SAS-2") , "Location where file was made");
         pFits->pHDU().addKey("WAVELNTH", (long)6000, "Wavelength of observation (ang)");
