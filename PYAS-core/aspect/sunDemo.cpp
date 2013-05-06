@@ -33,8 +33,8 @@
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
 
 //IP addresses
-#define IP_FDR      "192.168.2.4"   // will be 192.168.1.1 in flight
-#define IP_CTL      "192.168.2.4"   // will be 192.168.1.2 in flight
+#define IP_FDR      "192.168.1.1"   // will be 192.168.1.1 in flight
+#define IP_CTL      "192.168.1.2"   // will be 192.168.1.2 in flight
 #define IP_PYAS     "192.168.4.4"   // not yet implemented
 #define IP_RAS      "192.168.8.8"   // not yet implemented
 
