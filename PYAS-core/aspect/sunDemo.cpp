@@ -17,24 +17,24 @@
 
 //Sleep settings (seconds)
 #define SLEEP_SOLUTION         1 // period for providing solutions to CTL
-#define SLEEP_SAVE             0 // period for saving full images locally (set USLEEP_SAVE to 0 if used)
+#define SLEEP_SAVE             5 // period for saving full images locally (set USLEEP_SAVE to 0 if used)
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 #define SLEEP_KILL             2 // waits when killing all threads
 
 //Sleep settings (microseconds)
-#define USLEEP_SAVE       250000 // period for saving full images locally (set SLEEP_SAVE to 0 if used)
+#define USLEEP_SAVE            0 // period for saving full images locally (set SLEEP_SAVE to 0 if used)
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
-#define USLEEP_TM_GENERIC 250000 // period for adding generic telemetry packets to queue
+#define USLEEP_TM_GENERIC 950000 // period for adding generic telemetry packets to queue
 #define USLEEP_UDP_LISTEN   1000 // safety measure in case UDP listening is changed to non-blocking
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
 
 //IP addresses
-#define IP_FDR      "192.168.2.4"   // will be 192.168.1.1 in flight
-#define IP_CTL      "192.168.2.4"   // will be 192.168.1.2 in flight
+#define IP_FDR      "192.168.1.1"   // will be 192.168.1.1 in flight
+#define IP_CTL      "192.168.1.2"   // will be 192.168.1.2 in flight
 #define IP_PYAS     "192.168.4.4"   // not yet implemented
 #define IP_RAS      "192.168.8.8"   // not yet implemented
 
@@ -86,11 +86,12 @@
 #define SKEY_SET_PREAMPGAIN      0x0491
 
 //Getting commands
-#define SKEY_REQUEST_IMAGE       0x0810
+#define SKEY_REQUEST_PYAS_IMAGE  0x0810
 #define SKEY_GET_EXPOSURE        0x0850
 #define SKEY_GET_ANALOGGAIN      0x0860
 #define SKEY_GET_PREAMPGAIN      0x0870
 #define SKEY_GET_DISKSPACE       0x0881
+#define SKEY_REQUEST_RAS_IMAGE   0x0910
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -384,7 +385,7 @@ void *CameraStreamThread( void * threadargs, int camera_id)
                 cp << (uint16_t)HKEY_SAS_TIMESTAMP;
                 cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
                 cp << (double)(preExposure.tv_sec + (double)preExposure.tv_nsec/1e9);  // timestamp 
-                cm_packet_queue << cp;
+                //cm_packet_queue << cp;
             }
 
             if(!camera.Snap(localFrame, frameRate))
@@ -925,7 +926,7 @@ void *TelemetryPackagerThread(void *threadargs)
             localFiducials = pixelFiducials;
             localMapping = mapping;
             localOffset = offset;
-
+/*
             std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
             if(localMapping.size() == 4) {
                 std::cout << ", mapping is";
@@ -934,7 +935,7 @@ void *TelemetryPackagerThread(void *threadargs)
             std::cout << std::endl;
 
             std::cout << "Offset: " << localOffset << std::endl;
-
+*/
             pthread_mutex_unlock(&mutexProcess);
         } else {
             std::cout << "Using stale information for telemetry packet" << std::endl;
@@ -1245,6 +1246,7 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 uint16_t cmd_send_image_to_ground( int camera_id )
 {
     // camera_id refers to 0 PYAS, 1 is RAS (if valid)
+    camera_id = camera_id % sas_id;
     uint16_t error_code = 0;
     cv::Mat localFrame;
     HeaderData localKeys;
@@ -1283,7 +1285,9 @@ uint16_t cmd_send_image_to_ground( int camera_id )
 
             //Add FITS header tags
             uint32_t temp = localKeys.exposure;
-            im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time (msec)");
+            im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time in msec");
+            im_packet_queue << ImageTagPacket(camera, (camera_id == 0 ? (sas_id == 1 ? "PYAS-F" : "PYAS-R") : "RAS"), TSTRING, "INSTRUME", "Name of instrument");
+            im_packet_queue << ImageTagPacket(camera, (sas_id == 1 ? "HEROES/SAS-1" : "HEROES/SAS-2"), TSTRING, "ORIGIN", "Location where file was made");
 
             //Make sure to synchronize all the timestamps
             im_packet_queue.synchronize();
@@ -1318,9 +1322,15 @@ void *commandHandlerThread(void *threadargs)
 
     switch( my_data->command_key & 0x0FFF)
     {
-        case SKEY_REQUEST_IMAGE:
+        case SKEY_REQUEST_PYAS_IMAGE:
             {
                 error_code = cmd_send_image_to_ground( 0 );
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_REQUEST_RAS_IMAGE:
+            {
+                error_code = cmd_send_image_to_ground( 1 );
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
@@ -1468,15 +1478,8 @@ uint16_t get_disk_usage( uint16_t disk ){
             return 0;
     }
 
-    unsigned long total = vfs.f_blocks * vfs.f_frsize / 1024;
-    unsigned long available = vfs.f_bavail * vfs.f_frsize / 1024;
-    unsigned long free = vfs.f_bfree * vfs.f_frsize / 1024;
-    unsigned long used = total - free;
-
-    uintmax_t u100 = used * 100;
-    uintmax_t nonroot_total = used + available;
-    uint16_t percent = u100 / nonroot_total + (u100 % nonroot_total != 0);
-    return( percent );
+    float fraction_used = 1-(double)vfs.f_bavail/vfs.f_blocks;
+    return( (uint16_t)(100*fraction_used) );
 }
 
 void cmd_process_sas_command(uint16_t sas_command, Command &command)

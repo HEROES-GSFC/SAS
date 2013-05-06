@@ -31,7 +31,7 @@ ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
 
-EXEC = sunDemo sbc_info sbc_info_reader CTLCommandSimulator CTLSimulator
+EXEC = sunDemo sbc_info sbc_info_reader CTLCommandSimulator CTLSimulator SRVSimulator
 
 default: sunDemo sbc_info
 
@@ -44,6 +44,9 @@ CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o Packet.o lib_
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
+SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
