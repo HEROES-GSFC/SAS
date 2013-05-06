@@ -1476,15 +1476,8 @@ uint16_t get_disk_usage( uint16_t disk ){
             return 0;
     }
 
-    unsigned long total = vfs.f_blocks * vfs.f_frsize / 1024;
-    unsigned long available = vfs.f_bavail * vfs.f_frsize / 1024;
-    unsigned long free = vfs.f_bfree * vfs.f_frsize / 1024;
-    unsigned long used = total - free;
-
-    uintmax_t u100 = used * 100;
-    uintmax_t nonroot_total = used + available;
-    uint16_t percent = u100 / nonroot_total + (u100 % nonroot_total != 0);
-    return( percent );
+    float fraction_used = 1-(double)vfs.f_bavail/vfs.f_blocks;
+    return( (uint16_t)(100*fraction_used) );
 }
 
 void cmd_process_sas_command(uint16_t sas_command, Command &command)
