@@ -146,9 +146,11 @@ int tid_listen = 0;
 pthread_attr_t attr;
 pthread_mutex_t mutexImage[2];  //Used to protect between CameraThread and sending image
 pthread_mutex_t mutexProcess;  //Used to protect among CameraThread, TelemetryPackagerThread, and sending image
+pthread_mutex_t mutexImageSave[2];  //Used to make sure that no more than one ImageSaveThread is running
 
 struct Thread_data{
-    int  thread_id;
+    int thread_id;
+    int camera_id;
     uint16_t command_key;
     uint8_t command_num_vars;
     uint16_t command_vars[15];
@@ -200,9 +202,9 @@ void *CameraThread( void * threadargs, int camera_id);
 void *PYASCameraThread( void * threadargs);
 void *RASCameraThread( void * threadargs);
 
-void image_process(int camera_id, cv::Mat &localFrame);
+void image_process(int camera_id, cv::Mat &argFrame);
 void image_queue_solution();
-void image_save(int camera_id, cv::Mat &localFrame);
+void *ImageSaveThread(void *threadargs);
 
 void *TelemetrySenderThread(void *threadargs);
 void *TelemetryPackagerThread(void *threadargs);
@@ -408,9 +410,15 @@ void *CameraThread( void * threadargs, int camera_id)
                 fits_keys[camera_id].analogGain = analogGain;
                 fits_keys[camera_id].cameraTemperature = camera_temperature[camera_id];
 
-                if (frameCount[camera_id] % MOD_PROCESS == 0) image_process(camera_id, localFrame);
-                if (frameCount[camera_id] % MOD_CTL == 0) image_queue_solution();
-                if (frameCount[camera_id] % MOD_SAVE == 0) image_save(camera_id, localFrame);
+                if(frameCount[camera_id] % MOD_PROCESS == 0) image_process(camera_id, localFrame);
+                if(frameCount[camera_id] % MOD_CTL == 0) image_queue_solution();
+                if(frameCount[camera_id] % MOD_SAVE == 0) {
+                    if(pthread_mutex_trylock(mutexImageSave+camera_id)) {
+                        Thread_data tdata;
+                        tdata.camera_id = camera_id;
+                        start_thread(ImageSaveThread(&tdata));
+                    }
+                }
             }
             else
             {
@@ -460,7 +468,7 @@ void *CameraThread( void * threadargs, int camera_id)
     }
 }
 
-void image_process(int camera_id, cv::Mat &localFrame)
+void image_process(int camera_id, cv::Mat &argFrame)
 {
     CoordList localLimbs, localPixelFiducials, localScreenFiducials;
     IndexList localIds;
@@ -735,8 +743,22 @@ void *SaveTemperaturesThread(void *threadargs)
     }
 }
 
-void image_save(int camera_id, cv::Mat &localFrame)
+void *ImageSaveThread(void *threadargs)
 {
+    long tid = (long)((struct Thread_data *)threadargs)->thread_id;
+    struct Thread_data *my_data;
+    my_data = (struct Thread_data *) threadargs;
+
+    int camera_id = my_data.camera_id;
+
+    cv::Mat localFrame;
+
+    pthread_mutex_lock(mutexImage+camera_id);
+
+    localFrame.copyTo(frame[camera_id]);
+
+    pthread_mutex_unlock(mutexImage+camera_id);
+
     if(!localFrame.empty())
     {
         fits_keys[camera_id].cpuTemperature = sbc_temperature;
@@ -766,6 +788,12 @@ void image_save(int camera_id, cv::Mat &localFrame)
     else
     {
     }
+
+    //This thread should only ever be started if the lock was set
+    pthread_mutex_unlock(mutexImageSave+camera_id);
+
+    started[tid] = false;
+    return NULL;
 }
 
 void *TelemetryPackagerThread(void *threadargs)
@@ -1414,6 +1442,8 @@ int main(void)
     pthread_mutex_init(mutexImage, NULL);
     pthread_mutex_init(mutexImage+1, NULL);
     pthread_mutex_init(&mutexProcess, NULL);
+    pthread_mutex_init(mutexImageSave, NULL);
+    pthread_mutex_init(mutexImageSave+1, NULL);
 
     /* Create worker threads */
     printf("In main: creating threads\n");
@@ -1452,6 +1482,8 @@ int main(void)
     pthread_mutex_destroy(mutexImage);
     pthread_mutex_destroy(mutexImage+1);
     pthread_mutex_destroy(&mutexProcess);
+    pthread_mutex_destroy(mutexImageSave);
+    pthread_mutex_destroy(mutexImageSave+1);
     pthread_exit(NULL);
 
     return 0;
