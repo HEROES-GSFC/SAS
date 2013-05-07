@@ -40,6 +40,8 @@
 #define IP_PYAS     "192.168.4.4"   // PYAS camera (same for both SAS-1 and SAS-2)
 #define IP_RAS      "192.168.8.8"   // RAS camera
 
+#define IP_LOOPBACK "127.0.0.1"
+
 //UDP ports, aside from PORT_IMAGE, which is TCP
 #define PORT_CMD      2000 // commands, FDR (receive) and CTL (send/receive)
 #define PORT_TM       2002 // send telemetry to FDR (except images)
@@ -389,8 +391,6 @@ void *CameraThread( void * threadargs, int camera_id)
             if(!camera.Snap(localFrame, frameRate))
             {
                 failcount = 0;
-                procReady[camera_id].raise();
-                saveReady[camera_id].raise();
 
                 pthread_mutex_lock(mutexImage+camera_id);
 
@@ -416,7 +416,7 @@ void *CameraThread( void * threadargs, int camera_id)
                     if(pthread_mutex_trylock(mutexImageSave+camera_id)) {
                         Thread_data tdata;
                         tdata.camera_id = camera_id;
-                        start_thread(ImageSaveThread(&tdata));
+                        start_thread(ImageSaveThread, &tdata);
                     }
                 }
             }
@@ -476,9 +476,9 @@ void image_process(int camera_id, cv::Mat &argFrame)
     std::vector<float> localMapping;
     cv::Point2f localPixelCenter, localScreenCenter, localError;
     
-    if((camera_id == 0) && localFrame.empty())
+    if((camera_id == 0) && !argFrame.empty())
     {
-        aspect.LoadFrame(localFrame);
+        aspect.LoadFrame(argFrame);
 
         runResult = aspect.Run();
 
@@ -593,7 +593,7 @@ void image_process(int camera_id, cv::Mat &argFrame)
         }
         pthread_mutex_unlock(&mutexProcess);
     }
-    else if((camera_id == 1) && !localFrame.empty()) {
+    else if((camera_id == 1) && !argFrame.empty()) {
         double min, max;
         cv::minMaxLoc(frame[1], &min, &max, NULL, NULL);
         frameMin[1] = (uint8_t)min;
@@ -749,13 +749,13 @@ void *ImageSaveThread(void *threadargs)
     struct Thread_data *my_data;
     my_data = (struct Thread_data *) threadargs;
 
-    int camera_id = my_data.camera_id;
+    int camera_id = my_data->camera_id;
 
     cv::Mat localFrame;
 
     pthread_mutex_lock(mutexImage+camera_id);
 
-    localFrame.copyTo(frame[camera_id]);
+    frame[camera_id].copyTo(localFrame);
 
     pthread_mutex_unlock(mutexImage+camera_id);
 
