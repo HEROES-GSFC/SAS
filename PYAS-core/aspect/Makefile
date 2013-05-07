@@ -66,10 +66,13 @@ sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 #This executable need to be copied to /usr/local/bin/ after it is built
-sbc_shutdown: sbc_shutdown.cpp Packet.o lib_crc.o UDPReceiver.o
+sbc_shutdown: sbc_shutdown.cpp UDPReceiver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 sbc_info_reader: sbc_info_reader.cpp UDPReceiver.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
+sbc_shutdown_sender: sbc_shutdown_sender.cpp Packet.o lib_crc.o UDPSender.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 #This pattern matching will catch all "simple" object dependencies

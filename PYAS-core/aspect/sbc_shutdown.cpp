@@ -30,7 +30,6 @@ int main()
             pclose(in);
         } else {
             printf("Invalid shutdown passphrase received: %s\n", array);
-            printf("%d %d\n", packet_length, strlen(PASSPHRASE));
         }
         delete array;
     }
