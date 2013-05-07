@@ -9,7 +9,7 @@
 //Frequency settings, do each per this many snaps (be mindful of non-multiples)
 #define MOD_PROCESS 1 //process the image
 #define MOD_CTL     4 //send the processing results to CTL
-#define MOD_SAVE    4 //save the image to a local FITS file
+#define MOD_SAVE    20 //save the image to a local FITS file
 
 //Default camera settings
 #define CAMERA_EXPOSURE 15000 // microseconds
@@ -413,10 +413,12 @@ void *CameraThread( void * threadargs, int camera_id)
                 if(frameCount[camera_id] % MOD_PROCESS == 0) image_process(camera_id, localFrame);
                 if(frameCount[camera_id] % MOD_CTL == 0) image_queue_solution();
                 if(frameCount[camera_id] % MOD_SAVE == 0) {
-                    if(pthread_mutex_trylock(mutexImageSave+camera_id)) {
+                    if(pthread_mutex_trylock(mutexImageSave+camera_id) == 0) {
                         Thread_data tdata;
                         tdata.camera_id = camera_id;
                         start_thread(ImageSaveThread, &tdata);
+                    } else {
+                        printf("Already saving a %s image\n", (camera_id == 0 ? "PYAS" : "RAS"));
                     }
                 }
             }
@@ -460,7 +462,7 @@ void *CameraThread( void * threadargs, int camera_id)
             //Calculate the time to wait for next exposure
             timeToWait.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
             timeToWait.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
-//            std::cout << timeElapsed.tv_sec << " " << timeElapsed.tv_nsec << "\n";
+            //std::cout << timeElapsed.tv_nsec << " " << timeToWait.tv_nsec << "\n";
 
             //Wait till next exposure time
             nanosleep(&timeToWait, NULL);
@@ -745,6 +747,10 @@ void *SaveTemperaturesThread(void *threadargs)
 
 void *ImageSaveThread(void *threadargs)
 {
+    timespec preSave, postSave, elapsedSave;
+
+    clock_gettime(CLOCK_MONOTONIC, &preSave);
+
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     struct Thread_data *my_data;
     my_data = (struct Thread_data *) threadargs;
@@ -791,6 +797,10 @@ void *ImageSaveThread(void *threadargs)
 
     //This thread should only ever be started if the lock was set
     pthread_mutex_unlock(mutexImageSave+camera_id);
+
+    clock_gettime(CLOCK_MONOTONIC, &postSave);
+    elapsedSave = TimespecDiff(preSave, postSave);
+    //std::cout << "Saving took: " << elapsedSave.tv_sec << " " << elapsedSave.tv_nsec << std::endl;
 
     started[tid] = false;
     return NULL;
