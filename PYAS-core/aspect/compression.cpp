@@ -151,8 +151,8 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("DATAMAX", (float)keys.imageMinMax[1], "Maximum value of data"); 
     pFits->pHDU().addKey("GAINPREAMP", (float)keys.preampGain, "Preamp gain of CCD");
     pFits->pHDU().addKey("GAINANALOG", (float)keys.analogGain, "Analog gain of CCD");
-    pFits->pHDU().addKey("CTLSOLUTION1", (float)keys.CTLsolution[0], "Command for CTL X value");
-    pFits->pHDU().addKey("CTLSOLUTION2", (float)keys.CTLsolution[1], "Command for CTL Y value");
+    pFits->pHDU().addKey("CTLSOLUTION1", (float)keys.CTLsolution[0], "Command for CTL X value in degrees");
+    pFits->pHDU().addKey("CTLSOLUTION2", (float)keys.CTLsolution[1], "Command for CTL Y value in degrees");
     pFits->pHDU().addKey("INTERCEPT1", (float)keys.XYinterceptslope[0], "");
     pFits->pHDU().addKey("INTERCEPT2", (float)keys.XYinterceptslope[1], "");
     pFits->pHDU().addKey("SLOPE1", (float)keys.XYinterceptslope[2], "");
