@@ -14,9 +14,9 @@ int main(int argc, char *argv[])
     UDPSender out(argv[1], PORT_SBC_SHUTDOWN);
 
     Packet pkt((const uint8_t *)PASSPHRASE, strlen(PASSPHRASE));
-    
+
     printf("Sending shutdown trigger to %s\n", argv[1]);
-    
+
     out.send(&pkt);
 
     return 0;
