@@ -894,6 +894,7 @@ void Aspect::FindPixelCenter()
             
             //If there seems to be a pair of crossings
             if (crossings.size() != 2) continue;
+            else if (isinf(crossings[0]) || isinf(crossings[1])) continue;
             else
             {
                 //Save the crossings

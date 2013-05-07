@@ -31,9 +31,9 @@ ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
 
-EXEC = sunDemo sbc_info sbc_info_reader CTLCommandSimulator CTLSimulator SRVSimulator
+EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
 
-default: sunDemo sbc_info
+default: sunDemo sbc_info sbc_shutdown
 
 all: $(EXEC)
 
@@ -65,7 +65,14 @@ AspectVideo: AspectVideo.cpp processing.o utilities.o compression.o
 sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sbc_info_reader: sbc_info_reader.cpp Packet.o lib_crc.o UDPReceiver.o
+#This executable need to be copied to /usr/local/bin/ after it is built
+sbc_shutdown: sbc_shutdown.cpp UDPReceiver.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
+sbc_info_reader: sbc_info_reader.cpp UDPReceiver.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
+sbc_shutdown_sender: sbc_shutdown_sender.cpp Packet.o lib_crc.o UDPSender.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 #This pattern matching will catch all "simple" object dependencies
@@ -81,11 +88,14 @@ lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
 Transform.o: Transform.cpp Transform.hpp spa/spa.c spa/spa.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
-install: sunDemo sbc_info
+install: sunDemo sbc_info sbc_shutdown
 	sudo systemctl stop sas
 	sudo systemctl stop sbc_info
+	sudo systemctl stop sbc_shutdown
 	sudo cp sunDemo /usr/local/bin/sunDemo.runtime
 	sudo cp sbc_info /usr/local/bin/sbc_info.runtime
+	sudo cp sbc_shutdown /usr/local/bin/sbc_shutdown.runtime
+	sudo systemctl start sbc_shutdown
 	sudo systemctl start sbc_info
 	sudo systemctl start sas
 
