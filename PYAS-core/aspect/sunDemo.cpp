@@ -48,6 +48,7 @@
 #define PORT_IMAGE    2013 // send images to FDR, TCP port
 #define PORT_SAS2     3000 // commands output from SAS2 to CTL are redirected here
 #define PORT_SBC_INFO 3456 //
+#define PORT_SBC_SHUTDOWN 3789 //
 
 //HEROES target ID for commands, source ID for telemetry
 #define TARGET_ID_CTL 0x01
@@ -79,6 +80,7 @@
 #define SKEY_RESTART_THREADS     0x0020
 #define SKEY_START_OUTPUTTING    0x0030
 #define SKEY_STOP_OUTPUTTING     0x0040
+#define SKEY_SHUTDOWN            0x00F0
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
@@ -94,6 +96,8 @@
 #define SKEY_GET_PREAMPGAIN      0x0870
 #define SKEY_GET_DISKSPACE       0x0881
 #define SKEY_REQUEST_RAS_IMAGE   0x0910
+
+#define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -226,6 +230,7 @@ void *SaveTemperaturesThread(void *threadargs);
 
 void identifySAS();
 uint16_t get_disk_usage( uint16_t disk );
+void send_shutdown();
 
 void sig_handler(int signum)
 {
@@ -1378,6 +1383,13 @@ uint16_t get_disk_usage( uint16_t disk )
     return( (uint16_t)(100*fraction_used) );
 }
 
+void send_shutdown()
+{
+    UDPSender out(IP_LOOPBACK, PORT_SBC_SHUTDOWN);
+    Packet pkt((const uint8_t *)PASSPHRASE, strlen(PASSPHRASE));
+    out.send(&pkt);
+}
+
 void cmd_process_sas_command(uint16_t sas_command, Command &command)
 {
     Thread_data tdata;
@@ -1413,6 +1425,13 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
                     queue_cmd_proc_ack_tmpacket( 0 );
                 }
                 break;
+            case SKEY_SHUTDOWN:
+                {
+                    kill_all_threads();
+                    queue_cmd_proc_ack_tmpacket( 0 );
+                    sleep(2);
+                    send_shutdown();
+                }
             default:
                 {
                     start_thread(CommandHandlerThread, &tdata);

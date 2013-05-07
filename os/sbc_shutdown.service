@@ -1,0 +1,13 @@
+[Unit]
+Description=SBC shutdown by Albert
+Requires=network.target
+After=network.target
+
+[Service]
+User=root
+Type=simple
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/sbc_shutdown.runtime
+
+[Install]
+WantedBy=multi-user.target
