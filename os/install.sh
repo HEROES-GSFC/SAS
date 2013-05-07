@@ -36,6 +36,7 @@ sudo cp 10-network-sas${sas_id}.rules /etc/udev/rules.d/10-network.rules
 echo "Setting up services..."
 sudo cp network-sas${sas_id}.service /etc/systemd/system/network.service
 sudo cp sbc_info.service /etc/systemd/system/sbc_info.service
+sudo cp sbc_shutdown.service /etc/systemd/system/sbc_shutdown.service
 sudo cp sas.service /etc/systemd/system/sas.service
 
 echo "Copying executable scripts..."
@@ -46,6 +47,7 @@ echo "Enabling services..."
 sudo systemctl enable network
 sudo systemctl enable lm_sensors
 sudo systemctl enable sbc_info
+sudo systemctl enable sbc_shutdown
 #sudo systemctl enable sas
 echo "    Note: you will also need to run 'make install' to install our compiled executables!"
 
