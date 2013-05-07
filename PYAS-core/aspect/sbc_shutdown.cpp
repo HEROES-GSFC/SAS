@@ -10,6 +10,8 @@
 
 int main()
 {
+    FILE *in;
+
     UDPReceiver receiver(PORT_SBC_SHUTDOWN);
     receiver.init_connection();
 
@@ -22,11 +24,15 @@ int main()
         array = new uint8_t[packet_length];
         receiver.get_packet(array);
 
-        if((packet_length == strlen(PASSPHRASE)+2) && strncmp((char *)array+2, PASSPHRASE, strlen(PASSPHRASE))) {
+        if((packet_length == strlen(PASSPHRASE)) && (strncmp((char *)array, PASSPHRASE, strlen(PASSPHRASE)) == 0)) {
             printf("Valid shutdown passphrase received\n");
+            in = popen("shutdown -h now", "r");
+            pclose(in);
         } else {
-            printf("Invalid shutdown passphrase received\n");
+            printf("Invalid shutdown passphrase received: %s\n", array);
+            printf("%d %d\n", packet_length, strlen(PASSPHRASE));
         }
+        delete array;
     }
 
     return 0;

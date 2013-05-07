@@ -1490,7 +1490,7 @@ uint16_t get_disk_usage( uint16_t disk ){
 void send_shutdown()
 {
     UDPSender out(IP_LOOPBACK, PORT_SBC_SHUTDOWN);
-    Packet pkt(PASSPHRASE, strlen(PASSPHRASE));
+    Packet pkt((const uint8_t *)PASSPHRASE, strlen(PASSPHRASE));
     out.send(&pkt);
 }
 
@@ -1532,7 +1532,8 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
             case SKEY_SHUTDOWN:
                 {
                     kill_all_threads();
-
+                    queue_cmd_proc_ack_tmpacket( 0 );
+                    sleep(2);
                     send_shutdown();
                 }
             default:
