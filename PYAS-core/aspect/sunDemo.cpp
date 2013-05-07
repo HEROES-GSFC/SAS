@@ -568,21 +568,21 @@ void image_process(int camera_id, cv::Mat &argFrame)
         }
         fits_keys[0].isTracking = isTracking;
 
-        for(uint8_t j = 0; j < 8; j++) {
+        for(uint8_t j = 0; j < 10; j++) {
             if (j < limbs.size()) {
-                    fits_keys[0].limbX[j] = limbs[j].x,
-                    fits_keys[0].limbY[j] = limbs[j].y;
-                } else {
-                    fits_keys[0].limbX[j] = 0,
-                    fits_keys[0].limbY[j] = 0;
-                }
+                fits_keys[0].limbX[j] = limbs[j].x;
+                fits_keys[0].limbY[j] = limbs[j].y;
+            } else {
+                fits_keys[0].limbX[j] = 0;
+                fits_keys[0].limbY[j] = 0;
+            }
         }
-        for(uint8_t j = 0; j < 8; j++) {
+        for(uint8_t j = 0; j < 10; j++) {
             if (j < ids.size()) {
-                fits_keys[0].fiducialIDX[j] = ids[j].x,
+                fits_keys[0].fiducialIDX[j] = ids[j].x;
                 fits_keys[0].fiducialIDY[j] = ids[j].y;
             } else {
-                fits_keys[0].fiducialIDX[j] = 0,
+                fits_keys[0].fiducialIDX[j] = 0;
                 fits_keys[0].fiducialIDY[j] = 0;
             }
             if (j < pixelFiducials.size()){
