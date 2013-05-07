@@ -60,7 +60,7 @@ int main()
         outb(0x24, EC_INDEX);
         p12v0 = (inb(EC_DATA)*1600)/255;
 
-	for (i=0;i<=7;i++)
+        for (i=0;i<=7;i++)
         {
             curaddr = I2C_ADDR + i;
             ctl_res = ioctl(file, I2C_SLAVE, curaddr);
