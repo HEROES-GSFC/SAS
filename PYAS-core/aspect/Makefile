@@ -65,6 +65,9 @@ sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
 sbc_info_reader: sbc_info_reader.cpp Packet.o lib_crc.o UDPReceiver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
+tmbin_reader: tmbin_reader.cpp Packet.o lib_crc.o Telemetry.o types.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
 #This pattern matching will catch all "simple" object dependencies
 %.o: %.cpp %.hpp
 	$(CC) -c $(CFLAGS) $< -o $@
