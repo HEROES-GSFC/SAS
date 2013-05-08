@@ -119,7 +119,8 @@ int main(int argc, char* argv[])
             
             cv::Mat list[] = {frame, frame, frame};
             cv::merge(list,3,image);
-/*            if(GeneralizeError(runResult) < CENTER_ERROR)
+
+            if(GeneralizeError(runResult) < CENTER_ERROR)
             {
                 rowRange = SafeRange(center.y-120, center.y+120, image.rows);
                 colRange = SafeRange(center.x-120, center.x+120, image.cols);
@@ -127,10 +128,8 @@ int main(int argc, char* argv[])
                 offset = cv::Point(colRange.start, rowRange.start);
             }
             else offset = cv::Point(0,0);
-*/
-            offset = cv::Point(0,0);
 
-            offset = cv::Point(0,0);
+//            offset = cv::Point(0,0);
 
             //Generate summary image with accurate data products marked.
             switch(GeneralizeError(runResult))

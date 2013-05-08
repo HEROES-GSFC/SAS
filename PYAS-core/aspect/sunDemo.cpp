@@ -182,11 +182,6 @@ Pair offset;
 
 HeaderData fits_keys[2];
 
-CameraSettings settings[2];
-settings.exposureTime = CAMERA_EXPOSURE;
-settings.analogGain = CAMERA_ANALOGGAIN;
-settings.preampGain = CAMERA_PREAMPGAIN;
-
 uint16_t exposure = CAMERA_EXPOSURE;
 uint16_t analogGain = CAMERA_ANALOGGAIN;
 int16_t preampGain = CAMERA_PREAMPGAIN;
