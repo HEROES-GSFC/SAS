@@ -10,6 +10,24 @@
 #include <string>
 #include <opencv.hpp>
 
+#include <stdint.h>
+
+struct CameraSettings
+{
+    CameraSettings(): exposureTime(15000), 
+                      size(1296, 966),
+                      offset(0,0),
+                      analogGain(400),
+                      preAmpGain(-3),
+                      blackLevel(0) {};
+    uint16_t exposureTime;
+    cv::Size size;
+    cv::Point offset;
+    uint16_t analogGain; 
+    int16_t preAmpGain; 
+    int blackLevel;
+};
+
 class ImperxStream
 {
 public:
