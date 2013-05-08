@@ -1,14 +1,13 @@
 [Unit]
-Description=SAS runtime
+Description=SBC shutdown by Albert
 Requires=network.target
 After=network.target
 
 [Service]
-User=ashih
+User=root
 Type=simple
 RemainAfterExit=yes
-Restart=always
-ExecStart=/usr/local/bin/sas
+ExecStart=/usr/local/bin/sbc_shutdown.runtime
 
 [Install]
 WantedBy=multi-user.target
