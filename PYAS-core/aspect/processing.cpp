@@ -1080,14 +1080,23 @@ void Aspect::FindFiducialIDs()
         for (l = k+1; l < K; l++)
         {
             rowDiff = pixelFiducials[k].y - pixelFiducials[l].y;
+            colDiff = pixelFiducials[k].x - pixelFiducials[l].x;
+
             if (fabs(rowDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
-                fabs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol)
+                fabs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol && 
+                fabs(colDiff) > (float) 43 - fiducialSpacingTol &&
+                fabs(colDiff) < (float) 84 + fiducialSpacingTol)
+
                 colPairs.push_back(cv::Point(k,l));
 
-            colDiff = pixelFiducials[k].x - pixelFiducials[l].x;
-            if (fabs(colDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
-                fabs(colDiff) < (float) fiducialSpacing + fiducialSpacingTol)
+            else if (fabs(colDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
+                     fabs(colDiff) < (float) fiducialSpacing + fiducialSpacingTol && 
+                     fabs(rowDiff) > (float) 43 - fiducialSpacingTol &&
+                     fabs(rowDiff) < (float) 84 + fiducialSpacingTol)
+                
                 rowPairs.push_back(cv::Point(k,l));
+            else
+                continue;
         }
     }
     
