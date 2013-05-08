@@ -49,7 +49,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     // declare auto-pointer to FITS at function scope. Ensures no resources
     // leaked if something fails in dynamic allocation.
     std::auto_ptr<FITS> pFits(0);
-      
+
     try
     {                
         pFits.reset(new FITS(fileName, BYTE_IMG, 0, 0));
@@ -61,12 +61,12 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     }
 
     long nelements(1); 
-    
+
     std::vector<long int> extAx;
     extAx.push_back(size.width);
     extAx.push_back(size.height);
     string newName ("Raw Frame");
-   
+
 //    pFits->setCompressionType(RICE_1);
 
     ExtHDU* imageExt;
@@ -79,15 +79,15 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     }
 
     nelements = size.width*size.height*sizeof(unsigned char);
-           
+
     std::valarray<unsigned char> array(image.data, nelements);
 
     long  fpixel(1);
-    
+
     //add keys to the primary header
     pFits->pHDU().addKey("TELESCOP",std::string("HEROES/SAS"),"Name of source telescope package");
 //    pFits->pHDU().addKey("SIMPLE",(int)1,"always T for True, if conforming FITS file");
-    
+
     if( keys.cameraID == 1 ){
         pFits->pHDU().addKey("INSTRUME",std::string("PYAS-F"),"Name of instrument");
         pFits->pHDU().addKey("ORIGIN", std::string("HEROES/SAS-1") , "Location where file was made");
@@ -100,7 +100,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
         pFits->pHDU().addKey("WAVELNTH", (long)6300, "Wavelength of observation (ang)");
         pFits->pHDU().addKey("WAVE_STR", std::string("630 Nm"), "Wavelength of observation string");
     }
-    if( keys.cameraID == 3 ){
+    if( keys.cameraID == 6 ){
         pFits->pHDU().addKey("INSTRUME",std::string("RAS"),"Name of instrument");
         pFits->pHDU().addKey("ORIGIN", std::string("HEROES/SAS-2") , "Location where file was made");
         pFits->pHDU().addKey("WAVELNTH", (long)6000, "Wavelength of observation (ang)");
@@ -115,7 +115,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("LVL_NUM", 0 , "Level of data");
 
     pFits->pHDU().addKey("RSUN_OBS", 0, "Units of WAVELNTH");
-     
+
     pFits->pHDU().addKey("CTYPE1", std::string("HPLN-TAN"), "A string value labeling each coordinate axis");
     pFits->pHDU().addKey("CTYPE2", std::string("HPLN-TAN"), "A string value labeling each coordinate axis");
     pFits->pHDU().addKey("CUNIT1", std::string("arcsec"), "Coordinate Units");
@@ -126,7 +126,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("CDELT2", (double)keys.XYinterceptslope[3] * ARCSEC_PER_MIL, "Plate scale");
     pFits->pHDU().addKey("CRPIX1", (double)keys.sunCenter[0]+1, "Reference pixel");
     pFits->pHDU().addKey("CRPIX2", (double)keys.sunCenter[1]+1, "Reference pixel");
-    
+
     pFits->pHDU().addKey("EXPTIME", (float)keys.exposure/1e6, "Exposure time in seconds"); 
     pFits->pHDU().addKey("DATE_OBS", timeKey , "Date and time when observation of this image started (UTC)");
     pFits->pHDU().addKey("TEMPCCD", keys.cameraTemperature, "Temperature of camera in celsius");
@@ -134,7 +134,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
 
     pFits->pHDU().addKey("FILENAME", fileName , "Name of the data file");
     //pFits->pHDU().addKey("TIME", 0 , "Time of observation in seconds within a day");
-    
+
     timeKey = asctime(gmtime(&(keys.captureTime).tv_sec));
     pFits->pHDU().addKey("DAY AND TIME", timeKey , "Frame Capture Time (UTC)");
     pFits->pHDU().addKey("TIME-FRACTION", (long)(keys.captureTime).tv_nsec, "Frame capture fractional seconds");
@@ -151,14 +151,14 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("DATAMAX", (float)keys.imageMinMax[1], "Maximum value of data"); 
     pFits->pHDU().addKey("GAINPREAMP", (float)keys.preampGain, "Preamp gain of CCD");
     pFits->pHDU().addKey("GAINANALOG", (float)keys.analogGain, "Analog gain of CCD");
-    pFits->pHDU().addKey("CTLSOLUTION1", (float)keys.CTLsolution[0], "Command for CTL X value");
-    pFits->pHDU().addKey("CTLSOLUTION2", (float)keys.CTLsolution[1], "Command for CTL Y value");
+    pFits->pHDU().addKey("CTLSOLUTION1", (float)keys.CTLsolution[0], "Command for CTL X value in degrees");
+    pFits->pHDU().addKey("CTLSOLUTION2", (float)keys.CTLsolution[1], "Command for CTL Y value in degrees");
     pFits->pHDU().addKey("INTERCEPT1", (float)keys.XYinterceptslope[0], "");
     pFits->pHDU().addKey("INTERCEPT2", (float)keys.XYinterceptslope[1], "");
     pFits->pHDU().addKey("SLOPE1", (float)keys.XYinterceptslope[2], "");
     pFits->pHDU().addKey("SLOPE2", (float)keys.XYinterceptslope[3], "");    
 
-    // fiducials X positiosn
+    // fiducials X positions
     pFits->pHDU().addKey("FIDUCIALX0", (float)keys.fiducialX[0], "");
     pFits->pHDU().addKey("FIDUCIALX1", (float)keys.fiducialX[1], "");
     pFits->pHDU().addKey("FIDUCIALX2", (float)keys.fiducialX[2], "");
@@ -180,7 +180,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("FIDUCIALY6", (float)keys.fiducialY[6], "");
     pFits->pHDU().addKey("FIDUCIALY7", (float)keys.fiducialY[7], "");    
     pFits->pHDU().addKey("FIDUCIALY8", (float)keys.fiducialY[8], "");
-    pFits->pHDU().addKey("FIDUCIALY9", (double)keys.fiducialY[9], "");
+    pFits->pHDU().addKey("FIDUCIALY9", (float)keys.fiducialY[9], "");
 
     // fiducials X IDs
     pFits->pHDU().addKey("FIDUCIALX0ID", (int)keys.fiducialIDX[0], "");
