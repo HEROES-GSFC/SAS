@@ -69,7 +69,7 @@ sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
 sbc_shutdown: sbc_shutdown.cpp UDPReceiver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sbc_info_reader: sbc_info_reader.cpp UDPReceiver.o
+sbc_info_reader: sbc_info_reader.cpp UDPReceiver.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 sbc_shutdown_sender: sbc_shutdown_sender.cpp Packet.o lib_crc.o UDPSender.o
