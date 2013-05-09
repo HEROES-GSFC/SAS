@@ -358,8 +358,8 @@ void *CameraThread( void * threadargs, int camera_id)
             {
                 camera.ConfigureSnap();
 
-                camera.SetROISize(CAMERA_XSIZE,CAMERA_YSIZE);
-                camera.SetROIOffset(CAMERA_XOFFSET,CAMERA_YOFFSET);
+                camera.SetROISize(settings[camera_id].size.width,settings[camera_id].size.height);
+                camera.SetROIOffset(settings[camera_id].offset.x,settings[camera_id].offset.y);
                 camera.SetExposure(localExposure);
                 camera.SetAnalogGain(localAnalogGain);
                 camera.SetPreAmpGain(localPreampGain);
