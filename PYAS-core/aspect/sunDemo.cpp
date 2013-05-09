@@ -826,9 +826,6 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << command_sequence_number;
         tp << latest_sas_command_key;
 
-        memset(&localHeaders[0], 0, sizeof(HeaderData));
-        memset(&localHeaders[1], 0, sizeof(HeaderData));
-
         if(pthread_mutex_trylock(&mutexHeader[0]) == 0) {
             localHeaders[0] = header[0];
             pthread_mutex_unlock(&mutexHeader[0]);
