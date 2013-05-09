@@ -158,6 +158,8 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("SLOPE1", (float)keys.XYinterceptslope[2], "");
     pFits->pHDU().addKey("SLOPE2", (float)keys.XYinterceptslope[3], "");    
 
+    pFits->pHDU().addKey("FIDUCIAL-COUNT", keys.fiducialCount, "Number of fiducials");
+
     // fiducials X positions
     pFits->pHDU().addKey("FIDUCIALX0", (float)keys.fiducialX[0], "");
     pFits->pHDU().addKey("FIDUCIALX1", (float)keys.fiducialX[1], "");
@@ -205,6 +207,8 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("FIDUCIALY7ID", (int)keys.fiducialIDY[7], "");    
     pFits->pHDU().addKey("FIDUCIALY8ID", (int)keys.fiducialIDY[8], "");
     pFits->pHDU().addKey("FIDUCIALY9ID", (int)keys.fiducialIDY[9], "");
+
+    pFits->pHDU().addKey("LIMB-COUNT", keys.limbCount, "Number of limbs");
 
     // Limb X
     pFits->pHDU().addKey("LIMBX0", (float)keys.limbX[0], "");

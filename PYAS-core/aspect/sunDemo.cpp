@@ -150,8 +150,7 @@ pthread_t threads[MAX_THREADS];
 bool started[MAX_THREADS];
 int tid_listen = 0;
 pthread_attr_t attr;
-pthread_mutex_t mutexImage[2];  //Used to protect between CameraThread and sending image
-pthread_mutex_t mutexProcess;  //Used to protect among CameraThread, TelemetryPackagerThread, and sending image
+pthread_mutex_t mutexHeader[2];  //Used to protect both the frame and header information
 pthread_mutex_t mutexImageSave[2];  //Used to make sure that no more than one ImageSaveThread is running
 
 struct Thread_data{
@@ -167,20 +166,12 @@ sig_atomic_t volatile g_running = 1;
 
 int sas_id;
 
-cv::Mat frame[2];
+cv::Mat frame[2]; //protected by mutexHeader
+HeaderData header[2]; //protected by mutexHeader
 
 Aspect aspect;
 AspectCode runResult;
 Transform solarTransform;
-
-uint8_t frameMin[2], frameMax[2];
-cv::Point2f pixelCenter, screenCenter, error;
-CoordList limbs, pixelFiducials, screenFiducials;
-IndexList ids;
-std::vector<float> mapping;
-Pair offset;
-
-HeaderData fits_keys[2];
 
 uint16_t exposure = CAMERA_EXPOSURE;
 uint16_t analogGain = CAMERA_ANALOGGAIN;
@@ -208,8 +199,8 @@ void *CameraThread( void * threadargs, int camera_id);
 void *PYASCameraThread( void * threadargs);
 void *RASCameraThread( void * threadargs);
 
-void image_process(int camera_id, cv::Mat &argFrame);
-void image_queue_solution();
+void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader);
+void image_queue_solution(HeaderData &argHeader);
 void *ImageSaveThread(void *threadargs);
 
 void *TelemetrySenderThread(void *threadargs);
@@ -326,6 +317,7 @@ void *CameraThread( void * threadargs, int camera_id)
     ImperxStream camera;
 
     cv::Mat localFrame;
+    HeaderData localHeader;
     timespec localCaptureTime, preExposure, postExposure, timeElapsed, timeToWait;
     int width, height;
     int failcount = 0;
@@ -395,28 +387,44 @@ void *CameraThread( void * threadargs, int camera_id)
 
             if(!camera.Snap(localFrame, frameRate))
             {
+                frameCount[camera_id]++;
                 failcount = 0;
 
-                pthread_mutex_lock(mutexImage+camera_id);
-
-                localFrame.copyTo(frame[camera_id]);
-                frameCount[camera_id]++;
-
-                pthread_mutex_unlock(mutexImage+camera_id);
-
                 camera_temperature[camera_id] = camera.getTemperature();
-                
-                // save data into the fits_header
-                fits_keys[camera_id].captureTime = localCaptureTime;
-                fits_keys[camera_id].captureTimeMono = preExposure;
-                fits_keys[camera_id].frameCount = frameCount[camera_id];
-                fits_keys[camera_id].exposure = exposure;
-                fits_keys[camera_id].preampGain = preampGain;
-                fits_keys[camera_id].analogGain = analogGain;
-                fits_keys[camera_id].cameraTemperature = camera_temperature[camera_id];
 
-                if(frameCount[camera_id] % MOD_PROCESS == 0) image_process(camera_id, localFrame);
-                if(frameCount[camera_id] % MOD_CTL == 0) image_queue_solution();
+                // save data into the fits_header
+                memset(&localHeader, 0, sizeof(HeaderData));
+
+                localHeader.cameraID = sas_id+4*camera_id;
+                localHeader.captureTime = localCaptureTime;
+                localHeader.captureTimeMono = preExposure;
+                localHeader.frameCount = frameCount[camera_id];
+                localHeader.exposure = exposure;
+                localHeader.preampGain = preampGain;
+                localHeader.analogGain = analogGain;
+
+                localHeader.cameraTemperature = camera_temperature[camera_id];
+                localHeader.cpuTemperature = sbc_temperature;
+
+                localHeader.cpuVoltage[0] = sbc_v105;
+                localHeader.cpuVoltage[1] = sbc_v25;
+                localHeader.cpuVoltage[2] = sbc_v33;
+                localHeader.cpuVoltage[3] = sbc_v50;
+                localHeader.cpuVoltage[4] = sbc_v120;
+
+                if(frameCount[camera_id] % MOD_PROCESS == 0) {
+                    image_process(camera_id, localFrame, localHeader);
+                }
+
+                pthread_mutex_lock(mutexHeader+camera_id);
+                localFrame.copyTo(frame[camera_id]);
+                header[camera_id] = localHeader;
+                pthread_mutex_unlock(mutexHeader+camera_id);
+
+                if(frameCount[camera_id] % MOD_CTL == 0) {
+                    if(camera_id == 0) image_queue_solution(localHeader);
+                }
+
                 if(frameCount[camera_id] % MOD_SAVE == 0) {
                     if(pthread_mutex_trylock(mutexImageSave+camera_id) == 0) {
                         Thread_data tdata;
@@ -475,13 +483,14 @@ void *CameraThread( void * threadargs, int camera_id)
     }
 }
 
-void image_process(int camera_id, cv::Mat &argFrame)
+void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
 {
     CoordList localLimbs, localPixelFiducials, localScreenFiducials;
     IndexList localIds;
     uint8_t localMin, localMax;
     std::vector<float> localMapping;
     cv::Point2f localPixelCenter, localScreenCenter, localError;
+    Pair localOffset;
     
     if((camera_id == 0) && !argFrame.empty())
     {
@@ -520,93 +529,86 @@ void image_process(int camera_id, cv::Mat &argFrame)
 
         //printf("Aspect result: %s\n", GetMessage(runResult));
 
-        pthread_mutex_lock(&mutexProcess);
         switch(GeneralizeError(runResult))
         {
             case NO_ERROR:
                 solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
-                offset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y));
+                localOffset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y));
 
-                screenFiducials = localScreenFiducials;
-                screenCenter = localScreenCenter;
-                mapping = localMapping;
+                argHeader.CTLsolution[0] = localOffset.x();
+                argHeader.CTLsolution[1] = localOffset.y();
+
+                argHeader.screenCenter[0] = localScreenCenter.x;
+                argHeader.screenCenter[1] = localScreenCenter.y;
+
+                if(localMapping.size() == 4){
+                    argHeader.XYinterceptslope[0] = localMapping[0];
+                    argHeader.XYinterceptslope[1] = localMapping[2];
+                    argHeader.XYinterceptslope[2] = localMapping[1];
+                    argHeader.XYinterceptslope[3] = localMapping[3];
+                }
+
             case MAPPING_ERROR:
-                ids = localIds;
+                argHeader.fiducialCount = localIds.size();
+                for(uint8_t j = 0; j < 10; j++) {
+                    if (j < localIds.size()) {
+                        argHeader.fiducialIDX[j] = localIds[j].x;
+                        argHeader.fiducialIDY[j] = localIds[j].y;
+                    } else {
+                        argHeader.fiducialIDX[j] = 0;
+                        argHeader.fiducialIDY[j] = 0;
+                    }
+                }
 
             case ID_ERROR:
-                pixelFiducials = localPixelFiducials;
+                argHeader.fiducialCount = localPixelFiducials.size();
+                for(uint8_t j = 0; j < 10; j++) {
+                    if (j < localPixelFiducials.size()){
+                        argHeader.fiducialX[j] = localPixelFiducials[j].x;
+                        argHeader.fiducialY[j] = localPixelFiducials[j].y;
+                    } else {
+                        argHeader.fiducialX[j] = 0;
+                        argHeader.fiducialY[j] = 0;
+                    }
+                }
 
             case FIDUCIAL_ERROR:
-                pixelCenter = localPixelCenter;
-                error = localError;
+                argHeader.sunCenter[0] = localPixelCenter.x;
+                argHeader.sunCenter[1] = localPixelCenter.y;
+
+                argHeader.screenCenterError[0] = localError.x;
+                argHeader.screenCenterError[1] = localError.y;
 
             case CENTER_ERROR:
-                limbs = localLimbs;
+                argHeader.limbCount = localLimbs.size();
+                for(uint8_t j = 0; j < 10; j++) {
+                    if (j < localLimbs.size()) {
+                        argHeader.limbX[j] = localLimbs[j].x;
+                        argHeader.limbY[j] = localLimbs[j].y;
+                    } else {
+                        argHeader.limbX[j] = 0;
+                        argHeader.limbY[j] = 0;
+                    }
+                }
 
             case LIMB_ERROR:
             case RANGE_ERROR:
-                frameMin[0] = localMin;
-                frameMax[0] = localMax;
+                argHeader.imageMinMax[0] = localMin;
+                argHeader.imageMinMax[1] = localMax;
                 break;
+
             default:
                 break;
         }
 
-        fits_keys[0].sunCenter[0] = pixelCenter.x;
-        fits_keys[0].sunCenter[1] = pixelCenter.y;
+        argHeader.isTracking = isTracking;
 
-        fits_keys[0].CTLsolution[0] = offset.x();
-        fits_keys[0].CTLsolution[1] = offset.y();
-
-        fits_keys[0].screenCenter[0] = screenCenter.x;
-        fits_keys[0].screenCenter[1] = screenCenter.y;
-        fits_keys[0].screenCenterError[0] = error.x;
-        fits_keys[0].screenCenterError[1] = error.y;
-        fits_keys[0].imageMinMax[0] = frameMin[0];
-        fits_keys[0].imageMinMax[1] = frameMax[1];
-
-        if(mapping.size() == 4){
-            fits_keys[0].XYinterceptslope[0] = mapping[0];
-            fits_keys[0].XYinterceptslope[1] = mapping[2];
-            fits_keys[0].XYinterceptslope[2] = mapping[1];
-            fits_keys[0].XYinterceptslope[3] = mapping[3];
-        }
-        fits_keys[0].isTracking = isTracking;
-
-        for(uint8_t j = 0; j < 10; j++) {
-            if (j < limbs.size()) {
-                fits_keys[0].limbX[j] = limbs[j].x;
-                fits_keys[0].limbY[j] = limbs[j].y;
-            } else {
-                fits_keys[0].limbX[j] = 0;
-                fits_keys[0].limbY[j] = 0;
-            }
-        }
-        for(uint8_t j = 0; j < 10; j++) {
-            if (j < ids.size()) {
-                fits_keys[0].fiducialIDX[j] = ids[j].x;
-                fits_keys[0].fiducialIDY[j] = ids[j].y;
-            } else {
-                fits_keys[0].fiducialIDX[j] = 0;
-                fits_keys[0].fiducialIDY[j] = 0;
-            }
-            if (j < pixelFiducials.size()){
-                fits_keys[0].fiducialX[j] = pixelFiducials[j].x;
-                fits_keys[0].fiducialY[j] = pixelFiducials[j].y;
-            } else {
-                fits_keys[0].fiducialX[j] = 0;
-                fits_keys[0].fiducialY[j] = 0;
-            }
-        }
-        pthread_mutex_unlock(&mutexProcess);
     }
     else if((camera_id == 1) && !argFrame.empty()) {
         double min, max;
         cv::minMaxLoc(frame[1], &min, &max, NULL, NULL);
-        frameMin[1] = (uint8_t)min;
-        frameMax[1] = (uint8_t)max;
-        fits_keys[1].imageMinMax[0] = frameMin[1];
-        fits_keys[1].imageMinMax[1] = frameMax[1];
+        argHeader.imageMinMax[0] = (uint8_t)min;
+        argHeader.imageMinMax[1] = (uint8_t)max;
     }
     else
     {
@@ -763,24 +765,15 @@ void *ImageSaveThread(void *threadargs)
     int camera_id = my_data->camera_id;
 
     cv::Mat localFrame;
+    HeaderData localHeader;
 
-    pthread_mutex_lock(mutexImage+camera_id);
-
+    pthread_mutex_lock(mutexHeader+camera_id);
     frame[camera_id].copyTo(localFrame);
-
-    pthread_mutex_unlock(mutexImage+camera_id);
+    localHeader = header[camera_id];
+    pthread_mutex_unlock(mutexHeader+camera_id);
 
     if(!localFrame.empty())
     {
-        fits_keys[camera_id].cpuTemperature = sbc_temperature;
-        fits_keys[camera_id].cameraID = sas_id+4*camera_id;
-
-        fits_keys[camera_id].cpuVoltage[0] = sbc_v105;
-        fits_keys[camera_id].cpuVoltage[1] = sbc_v25;
-        fits_keys[camera_id].cpuVoltage[2] = sbc_v33;
-        fits_keys[camera_id].cpuVoltage[3] = sbc_v50;
-        fits_keys[camera_id].cpuVoltage[4] = sbc_v120;
-
         char stringtemp[80];
         char obsfilespec[128];
         time_t ltime;
@@ -791,10 +784,10 @@ void *ImageSaveThread(void *threadargs)
         times = localtime(&ltime);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
 
-        sprintf(obsfilespec, "%s%s_%s_%06d.fits", SAVE_LOCATION, (camera_id == 1 ? "ras" : "pyas"), stringtemp, (int)fits_keys[camera_id].frameCount);
+        sprintf(obsfilespec, "%s%s_%s_%06d.fits", SAVE_LOCATION, (camera_id == 1 ? "ras" : "pyas"), stringtemp, (int)localHeader.frameCount);
 
         printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
-        writeFITSImage(localFrame, fits_keys[camera_id], obsfilespec);
+        writeFITSImage(localFrame, localHeader, obsfilespec);
     }
     else
     {
@@ -816,11 +809,11 @@ void *TelemetryPackagerThread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("TelemetryPackager thread #%ld!\n", tid);
 
-    unsigned char localMin, localMax;
     CoordList localLimbs, localFiducials;
     std::vector<float> localMapping;
     cv::Point2f localCenter, localError;
     Pair localOffset;
+    HeaderData localHeaders[2];
 
     while(1)    // run forever
     {
@@ -833,88 +826,68 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << command_sequence_number;
         tp << latest_sas_command_key;
 
-        if(pthread_mutex_trylock(&mutexProcess) == 0)
-        {
-            localMin = frameMin[tm_frame_sequence_number % sas_id];
-            localMax = frameMax[tm_frame_sequence_number % sas_id];
-            localLimbs = limbs;
-            localCenter = pixelCenter;
-            localError = error;
-            localFiducials = pixelFiducials;
-            localMapping = mapping;
-            localOffset = offset;
-/*
-            std::cout << "Telemetry packet with Sun center (pixels): " << localCenter;
-            if(localMapping.size() == 4) {
-                std::cout << ", mapping is";
-                for(uint8_t l = 0; l < 4; l++) std::cout << " " << localMapping[l];
-            }
-            std::cout << std::endl;
-
-            std::cout << "Offset: " << localOffset << std::endl;
-*/
-            pthread_mutex_unlock(&mutexProcess);
-        } else {
-            std::cerr << "Using stale information for telemetry packet" << std::endl;
+        if(pthread_mutex_trylock(&mutexHeader[0]) == 0) {
+            localHeaders[0] = header[0];
+            pthread_mutex_unlock(&mutexHeader[0]);
+        }
+        if(pthread_mutex_trylock(&mutexHeader[1]) == 0) {
+            localHeaders[1] = header[1];
+            pthread_mutex_unlock(&mutexHeader[1]);
         }
 
+        int camera_id = tm_frame_sequence_number % sas_id;
+
+/*
+        std::cout << "Telemetry packet with Sun center (pixels): " << Pair(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
+        std::cout << ", mapping is";
+        for(uint8_t l = 0; l < 4; l++) std::cout << " " << localHeaders[0].XYinterceptslope[l];
+        std::cout << std::endl;
+
+        std::cout << "Offset: " << Pair(localHeaders[0].offset[0], localHeaders[0].offset[1]) << std::endl;
+*/
+
         //Housekeeping fields, two of them
-        tp << Float2B(camera_temperature[tm_frame_sequence_number % sas_id]);
-        tp << (uint16_t)sbc_temperature;
+        tp << Float2B(localHeaders[camera_id].cameraTemperature);
+        tp << (uint16_t)localHeaders[0].cpuTemperature;
 
         //Sun center and error
-        tp << Pair3B(localCenter.x, localCenter.y);
-        tp << Pair3B(localError.x, localError.y);
+        tp << Pair3B(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
+        tp << Pair3B(localHeaders[0].sunCenterError[0], localHeaders[0].sunCenterError[1]);
 
         //Predicted Sun center and error
         tp << Pair3B(0, 0);
         tp << Pair3B(0, 0);
 
         //Number of limb crossings
-        tp << (uint16_t)localLimbs.size();
+        tp << (uint16_t)localHeaders[0].limbCount;
 
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
-            if (j < localLimbs.size()) {
-                uint8_t jp = (j+tm_frame_sequence_number) % localLimbs.size();
-                tp << Pair3B(localLimbs[jp].x, localLimbs[jp].y);
-            } else {
-                tp << Pair3B(0, 0);
-            }
+            uint8_t jp = (localHeaders[0].limbCount > 0 ? (j+tm_frame_sequence_number) % localHeaders[0].limbCount : 0);
+            tp << Pair3B(localHeaders[0].limbX[jp], localHeaders[0].limbY[jp]);
         }
 
         //Number of fiducials
-        tp << (uint16_t)localFiducials.size();
+        tp << (uint16_t)localHeaders[0].fiducialCount;
 
         //Fiduicals (currently 6)
-        for(uint8_t k = 0; k < 6; k++) {
-            if (k < localFiducials.size()) {
-                uint8_t kp = (k+tm_frame_sequence_number) % localFiducials.size();
-                tp << Pair3B(localFiducials[kp].x, localFiducials[kp].y);
-            } else {
-                tp << Pair3B(0, 0);
-            }
+        for(uint8_t j = 0; j < 6; j++) {
+            uint8_t jp = (localHeaders[0].fiducialCount > 0 ? (j+tm_frame_sequence_number) % localHeaders[0].fiducialCount : 0);
+            tp << Pair3B(localHeaders[0].fiducialX[jp], localHeaders[0].fiducialY[jp]);
         }
 
         //Pixel to screen conversion
-        if(localMapping.size() == 4) {
-            tp << localMapping[0]; //X intercept
-            tp << localMapping[1]; //X slope
-            tp << localMapping[2]; //Y intercept
-            tp << localMapping[3]; //Y slope
-        } else {
-            tp << (float)-3000; //X intercept
-            tp << (float)6; //X slope
-            tp << (float)3000; //Y intercept
-            tp << (float)-6; //Y slope
-        }
+        tp << localHeaders[0].XYinterceptslope[0]; //X intercept
+        tp << localHeaders[0].XYinterceptslope[1]; //X slope
+        tp << localHeaders[0].XYinterceptslope[2]; //Y intercept
+        tp << localHeaders[0].XYinterceptslope[3]; //Y slope
 
         //Image max and min
-        tp << (uint8_t) localMax; //max
-        tp << (uint8_t) localMin; //min
+        tp << (uint8_t) localHeaders[camera_id].imageMinMax[1]; //max
+        tp << (uint8_t) localHeaders[camera_id].imageMinMax[0]; //min
 
         //Tacking on the offset numbers intended for CTL
-        tp << localOffset;
+        tp << Pair(localHeaders[0].offset[0], localHeaders[0].offset[1]);
 
         //Tacking on I2C temperatures
         for (int i=0; i<8; i++) tp << i2c_temperatures[i];
@@ -1094,7 +1067,7 @@ void *CommandSenderThread( void *threadargs )
     }
 }
 
-void image_queue_solution()
+void image_queue_solution(HeaderData &argHeader)
 {
     if (isOutputting) {
         ctl_sequence_number++;
@@ -1105,20 +1078,13 @@ void image_queue_solution()
                 cp << (uint16_t)HKEY_SAS_TRACKING_IS_ON;
                 acknowledgedCTL = true;
             } else {
-                if(pthread_mutex_trylock(&mutexProcess) == 0)
-                {
-                    cp << (uint16_t)HKEY_SAS_SOLUTION;
-                    cp << (double)fits_keys[0].CTLsolution[0]; // azimuth offset
-                    cp << (double)fits_keys[0].CTLsolution[1]; // elevation offset
-                    cp << (double)0; // roll offset
-                    cp << (double)0.003; // error
-                    cp << (uint32_t)fits_keys[0].captureTime.tv_sec; //seconds
-                    cp << (uint16_t)(fits_keys[0].captureTime.tv_nsec/1000000); //milliseconds
-
-                    pthread_mutex_unlock(&mutexProcess);
-                } else {
-                    std::cerr << "Could not send a new solution packet\n";
-                }
+                cp << (uint16_t)HKEY_SAS_SOLUTION;
+                cp << (double)argHeader.CTLsolution[0]; // azimuth offset
+                cp << (double)argHeader.CTLsolution[1]; // elevation offset
+                cp << (double)0; // roll offset
+                cp << (double)0.003; // error
+                cp << (uint32_t)argHeader.captureTime.tv_sec; //seconds
+                cp << (uint16_t)(argHeader.captureTime.tv_nsec/1000000); //milliseconds
             }
         } else { // isTracking is false
             if (!acknowledgedCTL) {
@@ -1149,17 +1115,17 @@ uint16_t cmd_send_image_to_ground( int camera_id )
     camera_id = camera_id % sas_id;
     uint16_t error_code = 0;
     cv::Mat localFrame;
-    HeaderData localKeys;
+    HeaderData localHeader;
 
     TCPSender tcpSndr(IP_FDR, (unsigned short) PORT_IMAGE);
     int ret = tcpSndr.init_connection();
     if (ret > 0){
-        if (pthread_mutex_trylock(mutexImage+camera_id) == 0){
+        if (pthread_mutex_trylock(mutexHeader+camera_id) == 0){
             if( !frame[camera_id].empty() ){
                 frame[camera_id].copyTo(localFrame);
-                localKeys = fits_keys[camera_id];
+                localHeader = header[camera_id];
             }
-            pthread_mutex_unlock(mutexImage+camera_id);
+            pthread_mutex_unlock(mutexHeader+camera_id);
         }
         if( !localFrame.empty() ){
             //1 for SAS-1/PYAS, 2 for SAS-2/PYAS, 6 for SAS-2/RAS
@@ -1184,7 +1150,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             delete array;
 
             //Add FITS header tags
-            uint32_t temp = localKeys.exposure;
+            uint32_t temp = localHeader.exposure;
             im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time in msec");
             im_packet_queue << ImageTagPacket(camera, (camera_id == 0 ? (sas_id == 1 ? "PYAS-F" : "PYAS-R") : "RAS"), TSTRING, "INSTRUME", "Name of instrument");
             im_packet_queue << ImageTagPacket(camera, (sas_id == 1 ? "HEROES/SAS-1" : "HEROES/SAS-2"), TSTRING, "ORIGIN", "Location where file was made");
@@ -1468,9 +1434,8 @@ int main(void)
     identifySAS();
     if (sas_id == 1) isOutputting = true;
 
-    pthread_mutex_init(mutexImage, NULL);
-    pthread_mutex_init(mutexImage+1, NULL);
-    pthread_mutex_init(&mutexProcess, NULL);
+    pthread_mutex_init(mutexHeader, NULL);
+    pthread_mutex_init(mutexHeader+1, NULL);
     pthread_mutex_init(mutexImageSave, NULL);
     pthread_mutex_init(mutexImageSave+1, NULL);
 
@@ -1508,9 +1473,8 @@ int main(void)
     printf("Quitting and cleaning up.\n");
     /* wait for threads to finish */
     kill_all_threads();
-    pthread_mutex_destroy(mutexImage);
-    pthread_mutex_destroy(mutexImage+1);
-    pthread_mutex_destroy(&mutexProcess);
+    pthread_mutex_destroy(mutexHeader);
+    pthread_mutex_destroy(mutexHeader+1);
     pthread_mutex_destroy(mutexImageSave);
     pthread_mutex_destroy(mutexImageSave+1);
     pthread_exit(NULL);
