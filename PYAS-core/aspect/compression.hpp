@@ -21,8 +21,10 @@ struct HeaderData
     double CTLsolution[2];
     float screenCenter[2];
     float screenCenterError[2];
+    int fiducialCount;
     float fiducialX[10];
     float fiducialY[10];
+    int limbCount;
     float limbX[10];
     float limbY[10];
     //float limbXerror[10];
