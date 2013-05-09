@@ -883,8 +883,8 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Pixel to screen conversion
         tp << localHeaders[0].XYinterceptslope[0]; //X intercept
-        tp << localHeaders[0].XYinterceptslope[1]; //X slope
-        tp << localHeaders[0].XYinterceptslope[2]; //Y intercept
+        tp << localHeaders[0].XYinterceptslope[2]; //X slope
+        tp << localHeaders[0].XYinterceptslope[1]; //Y intercept
         tp << localHeaders[0].XYinterceptslope[3]; //Y slope
 
         //Image max and min
