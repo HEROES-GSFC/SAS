@@ -2,6 +2,8 @@
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
+#define USE_MOCK_PYAS_IMAGE false
+#define MOCK_PYAS_IMAGE "/mnt/disk1/130421/image_130421_153000_45361.fits"
 
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
@@ -387,6 +389,9 @@ void *CameraThread( void * threadargs, int camera_id)
 
             if(!camera.Snap(localFrame, frameRate))
             {
+                if((camera_id == 0) && USE_MOCK_PYAS_IMAGE) {
+                    readFITSImage(MOCK_PYAS_IMAGE, localFrame);
+                }
                 frameCount[camera_id]++;
                 failcount = 0;
 
