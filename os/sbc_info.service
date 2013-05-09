@@ -6,7 +6,7 @@ After=network.target
 [Service]
 User=root
 Type=simple
-RemainAfterExit=yes
+Restart=always
 ExecStart=/usr/local/bin/sbc_info.runtime
 
 [Install]

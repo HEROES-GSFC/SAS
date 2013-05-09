@@ -6,7 +6,6 @@ After=network.target
 [Service]
 User=ashih
 Type=simple
-RemainAfterExit=yes
 Restart=always
 ExecStart=/usr/local/bin/sas
 
