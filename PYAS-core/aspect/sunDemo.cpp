@@ -13,15 +13,6 @@
 #define MOD_CTL     4 //send the processing results to CTL
 #define MOD_SAVE    20 //save the image to a local FITS file
 
-//Default camera settings
-#define CAMERA_EXPOSURE 15000 // microseconds
-#define CAMERA_ANALOGGAIN 400 // camera defaults to 143, but we are changing it
-#define CAMERA_PREAMPGAIN -3 // camera defaults to +6, but we are changing it
-#define CAMERA_XSIZE 1296 // full frame is 1296
-#define CAMERA_YSIZE 966 //full frame is 966
-#define CAMERA_XOFFSET 0
-#define CAMERA_YOFFSET 0
-
 //Sleep settings (seconds)
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
@@ -86,18 +77,24 @@
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
-#define SKEY_SET_IMAGESAVETOGGLE 0x0421
-#define SKEY_SET_EXPOSURE        0x0451
-#define SKEY_SET_ANALOGGAIN      0x0481
-#define SKEY_SET_PREAMPGAIN      0x0491
+#define SKEY_SET_IMAGESAVEFLAG   0x0421
+#define SKEY_SET_PYAS_EXPOSURE   0x0451
+#define SKEY_SET_PYAS_ANALOGGAIN 0x0481
+#define SKEY_SET_PYAS_PREAMPGAIN 0x0491
+#define SKEY_SET_RAS_EXPOSURE    0x0551
+#define SKEY_SET_RAS_ANALOGGAIN  0x0581
+#define SKEY_SET_RAS_PREAMPGAIN  0x0591
 
 //Getting commands
 #define SKEY_REQUEST_PYAS_IMAGE  0x0810
-#define SKEY_GET_EXPOSURE        0x0850
-#define SKEY_GET_ANALOGGAIN      0x0860
-#define SKEY_GET_PREAMPGAIN      0x0870
+#define SKEY_GET_PYAS_EXPOSURE   0x0850
+#define SKEY_GET_PYAS_ANALOGGAIN 0x0860
+#define SKEY_GET_PYAS_PREAMPGAIN 0x0870
 #define SKEY_GET_DISKSPACE       0x0881
 #define SKEY_REQUEST_RAS_IMAGE   0x0910
+#define SKEY_GET_RAS_EXPOSURE    0x0950
+#define SKEY_GET_RAS_ANALOGGAIN  0x0960
+#define SKEY_GET_RAS_PREAMPGAIN  0x0970
 
 #define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 
@@ -175,9 +172,7 @@ Aspect aspect;
 AspectCode runResult;
 Transform solarTransform;
 
-uint16_t exposure = CAMERA_EXPOSURE;
-uint16_t analogGain = CAMERA_ANALOGGAIN;
-int16_t preampGain = CAMERA_PREAMPGAIN;
+CameraSettings settings[2];
 
 timespec frameRate = {0,FRAME_CADENCE*1000};
 bool cameraReady[2] = {false, false};
@@ -225,12 +220,24 @@ void identifySAS();
 uint16_t get_disk_usage( uint16_t disk );
 void send_shutdown();
 
+template <class T>
+bool set_if_different(T& variable, T value); //returns true if the value is different
+
 void sig_handler(int signum)
 {
     if (signum == SIGINT)
     {
         g_running = 0;
     }
+}
+
+template <class T>
+bool set_if_different(T& variable, T value)
+{
+    if(variable != value) {
+        variable = value;
+        return true;
+    } else return false;
 }
 
 void kill_all_workers()
@@ -324,9 +331,9 @@ void *CameraThread( void * threadargs, int camera_id)
     int width, height;
     int failcount = 0;
 
-    uint16_t localExposure = exposure;
-    int16_t localPreampGain = preampGain;
-    uint16_t localAnalogGain = analogGain;
+    uint16_t localExposure = settings[camera_id].exposure;
+    int16_t localPreampGain = settings[camera_id].preampGain;
+    uint16_t localAnalogGain = settings[camera_id].analogGain;
 
     cameraReady[camera_id] = false;
     while(1)
@@ -404,9 +411,9 @@ void *CameraThread( void * threadargs, int camera_id)
                 localHeader.captureTime = localCaptureTime;
                 localHeader.captureTimeMono = preExposure;
                 localHeader.frameCount = frameCount[camera_id];
-                localHeader.exposure = exposure;
-                localHeader.preampGain = preampGain;
-                localHeader.analogGain = analogGain;
+                localHeader.exposure = localExposure;
+                localHeader.preampGain = localPreampGain;
+                localHeader.analogGain = localAnalogGain;
 
                 localHeader.cameraTemperature = camera_temperature[camera_id];
                 localHeader.cpuTemperature = sbc_temperature;
@@ -456,20 +463,9 @@ void *CameraThread( void * threadargs, int camera_id)
             }
 
             //Make any changes to camera settings that happened since last exposure.
-            if (localExposure != exposure) {
-                localExposure = exposure;
-                camera.SetExposure(localExposure);
-            }
-            
-            if (localPreampGain != preampGain) {
-                localPreampGain = preampGain;
-                camera.SetPreAmpGain(localPreampGain);
-            }
-            
-            if (localAnalogGain != analogGain) {
-                localAnalogGain = analogGain;
-                camera.SetAnalogGain(analogGain);
-            }
+            if(set_if_different(localExposure, settings[camera_id].exposure)) camera.SetExposure(localExposure);
+            if(set_if_different(localPreampGain, settings[camera_id].preampGain)) camera.SetPreAmpGain(localPreampGain);
+            if(set_if_different(localAnalogGain, settings[camera_id].analogGain)) camera.SetAnalogGain(localAnalogGain);
 
             //Record time that camera exposure finished. As little as possible should happen between this call and the call to nanosleep()
             clock_gettime(CLOCK_MONOTONIC, &postExposure);
@@ -791,7 +787,7 @@ void *ImageSaveThread(void *threadargs)
 
         sprintf(obsfilespec, "%s%s_%s_%06d.fits", SAVE_LOCATION, (camera_id == 1 ? "ras" : "pyas"), stringtemp, (int)localHeader.frameCount);
 
-        printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
+        printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, localHeader.exposure, localHeader.analogGain, localHeader.preampGain);
         writeFITSImage(localFrame, localHeader, obsfilespec);
     }
     else
@@ -1205,15 +1201,7 @@ void *CommandHandlerThread(void *threadargs)
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case SKEY_SET_EXPOSURE:    // set exposure time
-            {
-                if(my_data->command_num_vars == 1) exposure = my_data->command_vars[0];
-                if( exposure == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Requested exposure time is: " << exposure << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_IMAGESAVETOGGLE:
+        case SKEY_SET_IMAGESAVEFLAG:
             {
                 if(my_data->command_num_vars == 1) isSavingImages = (my_data->command_vars[0] > 0);
                 if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
@@ -1222,19 +1210,51 @@ void *CommandHandlerThread(void *threadargs)
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case SKEY_SET_PREAMPGAIN:    // set preamp gain
+        case SKEY_SET_PYAS_EXPOSURE:    // set exposure time
             {
-                if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
-                if( preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Requested preamp gain is: " << preampGain << std::endl;
+                if(my_data->command_num_vars == 1) settings[0].exposure = my_data->command_vars[0];
+                if( settings[0].exposure == my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current exposure time is: " << settings[0].exposure << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case SKEY_SET_ANALOGGAIN:    // set analog gain
+        case SKEY_SET_PYAS_PREAMPGAIN:    // set preamp gain
             {
-                if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
-                if( analogGain == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Requested analog gain is: " << analogGain << std::endl;
+                if( my_data->command_num_vars == 1) settings[0].preampGain = (int16_t)my_data->command_vars[0];
+                if( settings[0].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current preamp gain is: " << settings[0].preampGain << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_PYAS_ANALOGGAIN:    // set analog gain
+            {
+                if( my_data->command_num_vars == 1) settings[0].analogGain = my_data->command_vars[0];
+                if( settings[0].analogGain == my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current analog gain is: " << settings[0].analogGain << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_RAS_EXPOSURE:    // set exposure time
+            {
+                if(my_data->command_num_vars == 1) settings[1].exposure = my_data->command_vars[0];
+                if( settings[1].exposure == my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current exposure time is: " << settings[1].exposure << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_RAS_PREAMPGAIN:    // set preamp gain
+            {
+                if( my_data->command_num_vars == 1) settings[1].preampGain = (int16_t)my_data->command_vars[0];
+                if( settings[1].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current preamp gain is: " << settings[1].preampGain << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_RAS_ANALOGGAIN:    // set analog gain
+            {
+                if( my_data->command_num_vars == 1) settings[1].analogGain = my_data->command_vars[0];
+                if( settings[1].analogGain == my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current analog gain is: " << settings[1].analogGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
@@ -1251,19 +1271,34 @@ void *CommandHandlerThread(void *threadargs)
                 isOutputting = false;
             }
             break;
-        case SKEY_GET_EXPOSURE:
+        case SKEY_GET_PYAS_EXPOSURE:
             {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)exposure );
+                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[0].exposure );
             }
             break;
-        case SKEY_GET_ANALOGGAIN:
+        case SKEY_GET_PYAS_ANALOGGAIN:
             {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)analogGain );
+                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[0].analogGain );
             }
             break;
-        case SKEY_GET_PREAMPGAIN:
+        case SKEY_GET_PYAS_PREAMPGAIN:
             {
-                queue_cmd_proc_ack_tmpacket( (int16_t)preampGain );
+                queue_cmd_proc_ack_tmpacket( (int16_t)settings[0].preampGain );
+            }
+            break;
+        case SKEY_GET_RAS_EXPOSURE:
+            {
+                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[1].exposure );
+            }
+            break;
+        case SKEY_GET_RAS_ANALOGGAIN:
+            {
+                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[1].analogGain );
+            }
+            break;
+        case SKEY_GET_RAS_PREAMPGAIN:
+            {
+                queue_cmd_proc_ack_tmpacket( (int16_t)settings[1].preampGain );
             }
             break;
         case SKEY_GET_DISKSPACE:

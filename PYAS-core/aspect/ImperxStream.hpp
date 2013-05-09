@@ -14,17 +14,17 @@
 
 struct CameraSettings
 {
-    CameraSettings(): exposureTime(15000), 
+    CameraSettings(): exposure(15000),
                       size(1296, 966),
                       offset(0,0),
                       analogGain(400),
-                      preAmpGain(-3),
+                      preampGain(-3),
                       blackLevel(0) {};
-    uint16_t exposureTime;
+    uint16_t exposure;
     cv::Size size;
     cv::Point offset;
-    uint16_t analogGain; 
-    int16_t preAmpGain; 
+    uint16_t analogGain;
+    int16_t preampGain;
     int blackLevel;
 };
 
