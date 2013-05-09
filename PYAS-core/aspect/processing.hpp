@@ -150,8 +150,6 @@ private:
     void FindFiducialIDs();
     void FindMapping();
     cv::Point2f PixelToScreen(cv::Point2f point);
-    
-//    void LoadKernel();
 
     cv::Mat frame;
     cv::Size frameSize;
@@ -177,18 +175,12 @@ private:
     std::list<float> slopes;
 };
 
-
-int matchFindFiducials(cv::InputArray, cv::InputArray, int , cv::Point2f*, int);
-void matchKernel(cv::OutputArray);
-
 cv::Range SafeRange(int start, int stop, int size);
 
 void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::vector<float> &fit);
 
-void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int method, Circle &fit);
-void CircleFit(const CoordList &points, int method, Circle &fit);
-void BullockCircleFit(const CoordList &points, Circle &fit);
-void CoopeCircleFit(const CoordList &points, Circle &fit);
+void CircleFit(const std::vector<float> &x, const std::vector<float> &y, Circle &fit);
+void CircleFit(const CoordList &points, Circle &fit);
 
 cv::Point2f VectorToCircle(Circle circle, cv::Point2f point);
 void VectorToCircle(Circle circle, CoordList points, CoordList vectors); 

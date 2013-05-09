@@ -172,10 +172,9 @@ Aspect::Aspect()
     fiducialWidth = 2; 
     fiducialThreshold = 5;
 
-    fiducialNeighborhood = 2;
     numFiducials = 12;
 
-    fiducialSpacing = 15.7;
+    fiducialSpacing = 15.5;
     fiducialSpacingTol = 1.5;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
@@ -272,7 +271,7 @@ AspectCode Aspect::Run()
             state = MIN_MAX_BAD;
             return state;
         }
-        else if(max - min < 64)
+        else if(max - min < 32)
         {
             state = DYNAMIC_RANGE_LOW;
             return state;
@@ -304,28 +303,29 @@ AspectCode Aspect::Run()
             state = CENTER_OUT_OF_BOUNDS;
             return state;
         }
-/*        else if (pixelError.x > 1.5*solarRadius || pixelError.x < .5*solarRadius|| 
-          std::isnan(pixelError.x))
-*/
-/*
-        else if (pixelError.x > solarRadius*1.2 || pixelError.x < solarRadius*.8 || 
+        else if (pixelError.x > 50 || pixelError.y > 50 || 
                  std::isnan(pixelError.x) || std::isnan(pixelError.y))
         {
-            //std::cout << "Aspect: Radius off from expected by 10%" << pixelError << std::endl;
+            //std::cout << "Aspect: Pixel Error is above an arbitrary threshold: << pixelError << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
             state = CENTER_ERROR_LARGE;
             return state;
         }
-*/
+
 
         //Find solar subImage
         //std::cout << "Aspect: Finding solar subimage" << std::endl;
-
         int subimageSize = solarRadius*radiusTol;
-        rowRange = SafeRange(pixelCenter.y-subimageSize, pixelCenter.y+subimageSize, frameSize.height);
-        colRange = SafeRange(pixelCenter.x-subimageSize, pixelCenter.x+subimageSize, frameSize.width);
+
+        rowRange = SafeRange(pixelCenter.y-subimageSize, 
+                             pixelCenter.y+subimageSize, 
+                             frameSize.height);
+        colRange = SafeRange(pixelCenter.x-subimageSize, 
+                             pixelCenter.x+subimageSize, 
+                             frameSize.width);
 
         solarImage = frame(rowRange, colRange);
+
         if (solarImage.empty())
         {
             //std::cout << "Aspect: Solar Image too empty." << std::endl;
@@ -575,8 +575,6 @@ int Aspect::GetInteger(IntParameter variable)
         return fiducialLength;
     case FIDUCIAL_WIDTH:
         return fiducialWidth;
-    case FIDUCIAL_NEIGHBORHOOD:
-        return fiducialNeighborhood;
     case NUM_FIDUCIALS:
         return numFiducials;
     default:
@@ -627,9 +625,6 @@ void Aspect::SetInteger(IntParameter variable, int value)
         break;
     case FIDUCIAL_WIDTH:
         fiducialWidth = value;
-        break;
-    case FIDUCIAL_NEIGHBORHOOD:
-        fiducialNeighborhood = value;
         break;
     case NUM_FIDUCIALS:
         numFiducials = value;
@@ -903,7 +898,7 @@ void Aspect::FindPixelCenter()
                     if (dim) limbCrossings.add(crossings[l], rows[k]);
                     else limbCrossings.add(cols[k], crossings[l]);
                 }
-                midpoints.push_back((crossings[0]+crossings[1])/2.);
+                midpoints.push_back((crossings[0]+crossings[1])/2.0);
             }
         }
 //Determine the mean of the midpoints for this dimension
@@ -945,16 +940,15 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
     cv::Size imageSize;
     cv::Mat correlation, nbhd;
     cv::Range rowRange, colRange;
-    float threshold, thisValue, thatValue, minValue;
+    double threshold, thisValue, thatValue, minValue;
     double Cm, Cn, average;
     int minIndex;
     bool redundant;
 
     pixelFiducials.clear();
-    imageSize = image.size();
 
     //cv::namedWindow("Correlation", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
-    cv::filter2D(image, correlation, CV_32FC1, kernel, cv::Point(-1,-1));
+    cv::filter2D(image, correlation, CV_64FC1, kernel, cv::Point(-1,-1));
     cv::normalize(correlation,correlation,0,1,cv::NORM_MINMAX);
     //cv::imshow("Correlation", kernel);
     //cv::waitKey(0);
@@ -962,17 +956,17 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 
     threshold = mean[0] + fiducialThreshold*stddev[0];
         
-    for (int m = 1; m < imageSize.height-1; m++)
+    for (int m = 1; m < correlation.rows-1; m++)
     {
-        for (int n = 1; n < imageSize.width-1; n++)
+        for (int n = 1; n < correlation.cols-1; n++)
         {        
-            thisValue = correlation.at<float>(m,n);
+            thisValue = correlation.at<double>(m,n);
             if(thisValue > threshold)
             {
-                if((thisValue > correlation.at<float>(m, n+1)) &
-                   (thisValue > correlation.at<float>(m, n- 1)) &
-                   (thisValue > correlation.at<float>(m+1, n)) &
-                   (thisValue > correlation.at<float>(m-1, n)))
+                if((thisValue > correlation.at<double>(m, n + 1)) &
+                   (thisValue > correlation.at<double>(m, n - 1)) &
+                   (thisValue > correlation.at<double>(m + 1, n)) &
+                   (thisValue > correlation.at<double>(m - 1, n)))
                 {
                     redundant = false;
                     for (unsigned int k = 0; k <  pixelFiducials.size(); k++)
@@ -981,7 +975,7 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
                             abs(pixelFiducials[k].x - n) < fiducialLength*2)
                         {
                             redundant = true;
-                            thatValue = correlation.at<float>((int) pixelFiducials[k].y,
+                            thatValue = correlation.at<double>((int) pixelFiducials[k].y,
                                                               (int) pixelFiducials[k].x);
                             if ( thisValue > thatValue)
                             {
@@ -1003,12 +997,12 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
                         minIndex = -1;
                         for (int k = 0; k < numFiducials; k++)
                         {
-                            if (correlation.at<float>((int) pixelFiducials[k].y,
+                            if (correlation.at<double>((int) pixelFiducials[k].y,
                                                       (int) pixelFiducials[k].x) 
                                 < minValue)
                             {
                                 minIndex = k;
-                                minValue = correlation.at<float>((int) pixelFiducials[k].y,
+                                minValue = correlation.at<double>((int) pixelFiducials[k].y,
                                                                  (int) pixelFiducials[k].x);
                             }   
                         }
@@ -1027,24 +1021,29 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
     for (unsigned int k = 0; k <  pixelFiducials.size(); k++)
     {
         //Get safe ranges for for the neighborhood around the fiducial
-        rowRange = SafeRange(round(pixelFiducials[k].y) - fiducialNeighborhood,
-                             round(pixelFiducials[k].y) + fiducialNeighborhood,
-                             imageSize.height);
+        rowRange = SafeRange(round(pixelFiducials[k].y) - fiducialWidth,
+                             round(pixelFiducials[k].y) + fiducialWidth + 1,
+                             correlation.rows);
 
-        colRange = SafeRange(round(pixelFiducials[k].x) - fiducialNeighborhood,
-                             round(pixelFiducials[k].x) + fiducialNeighborhood,
-                             imageSize.width);
+        colRange = SafeRange(round(pixelFiducials[k].x) - fiducialWidth,
+                             round(pixelFiducials[k].x) + fiducialWidth + 1,
+                             correlation.cols);
+
         //Compute the centroid of the region around the local max
         //in the correlation image
         Cm = 0.0; Cn = 0.0; average = 0.0;
+        threshold = mean[0] + (fiducialThreshold/2)*stddev[0];
         for (int m = rowRange.start; m < rowRange.end; m++)
         {
             for (int n = colRange.start; n < colRange.end; n++)
             {
-                thisValue = correlation.at<float>(m,n);
-                Cm += m*thisValue;
-                Cn += n*thisValue;
-                average += thisValue;
+                thisValue = correlation.at<double>(m,n);
+                if (thisValue > threshold)
+                {
+                    Cm += ((double) m)*thisValue;
+                    Cn += ((double) n)*thisValue;
+                    average += thisValue;
+                }
             }
         }
 
@@ -1081,14 +1080,23 @@ void Aspect::FindFiducialIDs()
         for (l = k+1; l < K; l++)
         {
             rowDiff = pixelFiducials[k].y - pixelFiducials[l].y;
+            colDiff = pixelFiducials[k].x - pixelFiducials[l].x;
+
             if (fabs(rowDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
-                fabs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol)
+                fabs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol && 
+                fabs(colDiff) > (float) 43 - fiducialSpacingTol &&
+                fabs(colDiff) < (float) 84 + fiducialSpacingTol)
+
                 colPairs.push_back(cv::Point(k,l));
 
-            colDiff = pixelFiducials[k].x - pixelFiducials[l].x;
-            if (fabs(colDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
-                fabs(colDiff) < (float) fiducialSpacing + fiducialSpacingTol)
+            else if (fabs(colDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
+                     fabs(colDiff) < (float) fiducialSpacing + fiducialSpacingTol && 
+                     fabs(rowDiff) > (float) 43 - fiducialSpacingTol &&
+                     fabs(rowDiff) < (float) 84 + fiducialSpacingTol)
+                
                 rowPairs.push_back(cv::Point(k,l));
+            else
+                continue;
         }
     }
     
@@ -1366,7 +1374,7 @@ void LinearFit(const std::vector<float> &x, const std::vector<float> &y, std::ve
     fit[1] = X.at<float>(0); //slope
 }
 
-void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int method, Circle& fit)
+void CircleFit(const std::vector<float> &x, const std::vector<float> &y, Circle& fit)
 {
     if (x.size() != y.size())
     {
@@ -1376,95 +1384,10 @@ void CircleFit(const std::vector<float> &x, const std::vector<float> &y, int met
     CoordList points;
     for (unsigned int k = 0; k < x.size(); k++)
         points.add(x[k], y[k]);
-    return CircleFit(points, method, fit);
+    return CircleFit(points, fit);
 }
 
-void CircleFit(const CoordList& points, int method, Circle& fit)
-{
-    switch(method)
-    {
-    case 0:
-        return BullockCircleFit(points, fit);
-    case 1:
-        return CoopeCircleFit(points, fit);
-    default:
-        std::cout << "Unrecognized circle fitting method" << std::endl;
-        return;
-    }
-}
-
-void BullockCircleFit(const CoordList& inPoints, Circle& fit)
-{
-    CoordList points;
-    cv::Point2f offset = Mean(inPoints);
-    for (unsigned int k = 0; k < inPoints.size(); k++)
-        points.push_back((inPoints[k] - offset));
-
-    float Sxx, Sxy, Syy, Sxxx, Sxxy, Sxyy, Syyy;
-    float xx, xy, yy;
-    cv::Mat A, B, X;
-    cv::Point2f center;
-    float radius;
-
-    CoordList biasVectors;
-    cv::Point biasVector;
-    float bias;
-    
-    Sxx = Sxy = Syy = Sxxx = Sxxy = Sxyy = Syyy = 0;
-    
-    for (unsigned int k = 0; k < points.size(); k++)
-    {
-        xx = std::pow(points[k].x,2);
-        xy = points[k].x*points[k].y;
-        yy = std::pow(points[k].y,2);
-        
-        Sxx += xx;
-        Sxy += xy;
-        Syy += yy;
-
-        Sxxx += xx*points[k].x;
-        Sxxy += xx*points[k].y;
-        Sxyy += yy*points[k].x;
-        Syyy += yy*points[k].y;
-    }
-    float a[2][2] = {{Sxx, Sxy}, {Sxy, Syy}};
-    float b[2][1] = {{-(Sxxx + Sxyy)/2}, {-(Sxxy + Syyy)/2}};
-    A = cv::Mat(2, 2, CV_32F, a);
-    B = cv::Mat(2, 1, CV_32F, b);
-
-    cv::solve((A.t()*A), (A.t()*B), X, cv::DECOMP_CHOLESKY);
-    
-    center.x = X.at<float>(0);
-    center.y = X.at<float>(1);
-    radius = sqrt(pow(center.x,2) + pow(center.y,2) + (Sxx + Syy)/(float) points.size());
-    center = center + offset;
-
-//UNTESTED
-/*
-  
-//Adjust for bias from unbalanced points
-fit[0] = center.x;
-fit[1] = center.y;
-fit[2] = radius;
-    
-do
-{
-VectorToCircle(fit, inPoints, biasVectors);
-center = center - Mean(biasVectors);
-bias = Euclidian(Mean(biasVectors));
-std::cout << "Bias was: " << bias << std::endl;
-} while(bias > 1);
-*/
-
-        
-    fit[0] = center.x;
-    fit[1] = center.y;
-    fit[2] = radius;
-
-    return;
-}
-
-void CoopeCircleFit(const CoordList& points, Circle& fit)
+void CircleFit(const CoordList& points, Circle& fit)
 {
     cv::Mat B, D, Y;
     float x, y;
@@ -1518,7 +1441,7 @@ void CoopeCircleFit(const CoordList& points, Circle& fit)
     if (CookPoints.size() < points.size() && CookPoints.size() > 4)
     {
         std::cout << "Go again with " << CookPoints.size() << " points" << std::endl;
-        CoopeCircleFit(CookPoints, fit);
+        CircleFit(CookPoints, fit);
     }
 
     fit[0] = center.x;
@@ -1584,37 +1507,6 @@ float Euclidian(cv::Point2f d)
 float Euclidian(cv::Point2f p1, cv::Point2f p2)
 {
     return Euclidian(p1-p2);
-}
-
-void matchKernel(cv::OutputArray _kernel)
-{
-    cv::Mat temp;
-    temp = cv::imread("./Mask.png",0);
-        
-    _kernel.create(temp.size(), CV_32FC1);
-    cv::Mat kernel = _kernel.getMat();
-    cv::Size kerSize = kernel.size();
-    for (int m = 0; m < kerSize.height; m++)
-    {
-        for (int n = 0; n < kerSize.width; n++)
-        {
-            if(temp.at<unsigned char>(cv::Point(n,m)) == 0x80)
-            {
-                kernel.at<float>(cv::Point(n,m)) = 0.0;
-            }
-            else
-            {
-                if(temp.at<unsigned char>(cv::Point(n,m)) > 0x80)
-                {
-                    kernel.at<float>(cv::Point(n,m)) = 1.0;
-                }
-                else
-                {
-                    kernel.at<float>(cv::Point(n,m)) = -1.0;
-                }
-            }
-        }       
-    }
 }
 
 template <class T>
