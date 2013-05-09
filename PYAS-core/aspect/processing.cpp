@@ -162,7 +162,7 @@ Aspect::Aspect()
     
     initialNumChords = 30;
     chordsPerAxis = 10;
-    chordThreshold = .25;
+    chordThreshold = .2;
 
     solarRadius = 98;
     radiusTol = 1.5;
@@ -693,14 +693,14 @@ void Aspect::GenerateKernel()
 
     cv::normalize(kernel, kernel, -1, 1,cv::NORM_MINMAX);
 /*
-    for (int m = 0; m < shape.rows; m++)
-    {
-        for (int n = 0; n < shape.cols; n++)
-        {
-            std::cout << kernel.at<float>(m,n) << " ";
-        }
-        std::cout << std::endl;
-    }
+  for (int m = 0; m < shape.rows; m++)
+  {
+  for (int n = 0; n < shape.cols; n++)
+  {
+  std::cout << kernel.at<float>(m,n) << " ";
+  }
+  std::cout << std::endl;
+  }
 */
     return;
 }
@@ -763,51 +763,65 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
     //for (int i=0; i<edges.size(); i++) std::cout << edges[i] << " ";
     //std::cout << std::endl;
 
-    //if we still have anything other than a single edge pair, ignore the chord
-    if ( edges.size() != 2)
+    //Going to accept three cases: Either we have 
+    // -a pair with a rising edge followed by a falling edge,
+    // -a single edge falling within a solar radius of the start of the image strip
+    // -a single edge rising within a solar radius of the end of the strip
+    
+    // To handle the second two cases, we'll add an artificial crossing at the image edge.
+    if (edges.size() == 1 && abs(edges[0]) < solarRadius && edges[0] < 0)
     {
-        return -1;
+        edge = abs(edges[0]);
+        edges.resize(2);
+        edges[0] = 0;
+        edges[1] = -edge;
     }
-    // if the pair isn't a rising edge followed by a falling edge, ignore the chord.
-    else if(!(edges[0] > 0  && edges[1] < 0))
+    else if (edges.size() == 1 && abs(edges[0]) > K-solarRadius && edges[0] > 0)
     {
-        return -1;
+        edge = abs(edges[0]);
+        edges.resize(2);
+        edges[0] = edge;
+        edges[1] = -(K-1);
     }
-    else
-    {
-        // at this point we're reasonably certain we've found a valid chord
 
-        // for each edge, perform a fit to find the limb crossing
-        crossings.clear();
-        for (int k = 0; k < 2; k++)
-        {
-            //take a neighborhood around the edge
-            edge = abs(edges[k]);
-            if ((edge-limbWidth) < 0) min = 0;
-            else min = edge-limbWidth;
+    if ((edges.size() == 2 && edges[0] >= 0  && edges[1] < 0))
+    {
+        
+
+       // at this point we're reasonably certain we've found a valid chord
+
+       // for each edge, perform a fit to find the limb crossing
+       crossings.clear();
+       for (int k = 0; k < 2; k++)
+       {
+           //take a neighborhood around the edge
+           edge = abs(edges[k]);
+           if ((edge-limbWidth) < 0) min = 0;
+           else min = edge-limbWidth;
             
-            if ((edge+limbWidth) > K) max = K;
-            else max = edge+limbWidth;
+           if ((edge+limbWidth) > K) max = K;
+           else max = edge+limbWidth;
             
-            //if that neighborhood is large enough
-            N = max-min+1;
-            if (N < 2)
-            {
-                return -1;
-            }
-            //compute fit to neighborhood
-            x.clear(); y.clear();
-            for (int l = min; l <= max; l++)
-            {
-                x.push_back(l);
-                y.push_back((float) chord.at<unsigned char>(l));
-            }
-            LinearFit(x,y,fit);
-            crossings.push_back((threshold - fit[0])/fit[1]);
-            slopes.push_back(fabs(fit[1]));
-        }
-    }
-    return 0; 
+           //if that neighborhood is large enough
+           N = max-min+1;
+           if (N < 2)
+           {
+               return -1;
+           }
+           //compute fit to neighborhood
+           x.clear(); y.clear();
+           for (int l = min; l <= max; l++)
+           {
+               x.push_back(l);
+               y.push_back((float) chord.at<unsigned char>(l));
+           }
+           LinearFit(x,y,fit);
+           crossings.push_back((threshold - fit[0])/fit[1]);
+           slopes.push_back(fabs(fit[1]));
+       }
+       return 0;
+    }   
+    return -1;
 }
 
 void Aspect::FindPixelCenter()
@@ -977,7 +991,7 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
                         {
                             redundant = true;
                             thatValue = correlation.at<double>((int) pixelFiducials[k].y,
-                                                              (int) pixelFiducials[k].x);
+                                                               (int) pixelFiducials[k].x);
                             if ( thisValue > thatValue)
                             {
                                 pixelFiducials[k] = cv::Point2f(n,m);
@@ -999,12 +1013,12 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
                         for (int k = 0; k < numFiducials; k++)
                         {
                             if (correlation.at<double>((int) pixelFiducials[k].y,
-                                                      (int) pixelFiducials[k].x) 
+                                                       (int) pixelFiducials[k].x) 
                                 < minValue)
                             {
                                 minIndex = k;
                                 minValue = correlation.at<double>((int) pixelFiducials[k].y,
-                                                                 (int) pixelFiducials[k].x);
+                                                                  (int) pixelFiducials[k].x);
                             }   
                         }
                         if (thisValue > minValue)
