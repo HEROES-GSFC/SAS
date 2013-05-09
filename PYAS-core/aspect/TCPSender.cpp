@@ -74,9 +74,9 @@ void TCPSender::send_packet( ImagePacket *packet )
         bytesSent = send(sock, payload, packet->getLength(), 0);
         
         if (bytesSent != packet->getLength()){
-            printf("CommandSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
+            printf("TCPSender: sendto() sent a different number of bytes (%u)than expected\n", bytesSent);
         }
-        if (bytesSent == -1){ printf("CommandSender: sendto() failed!\n"); }
+        if (bytesSent == -1){ printf("TCPSender: sendto() failed!\n"); }
         delete payload;
     }
 }

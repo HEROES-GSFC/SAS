@@ -629,7 +629,7 @@ void *TelemetrySenderThread(void *threadargs)
     char filename[128];
     time_t ltime;
     struct tm *times;
-    std::ofstream log; 
+    std::ofstream log;
 
     if (LOG_PACKETS) {
         time(&ltime);
@@ -653,17 +653,18 @@ void *TelemetrySenderThread(void *threadargs)
             telSender.send( &tp );
             //std::cout << "TelemetrySender:" << tp << std::endl;
             if (LOG_PACKETS) {
-                uint8_t length = tp.getLength();
+                uint16_t length = tp.getLength();
                 uint8_t *payload = new uint8_t[length];
                 tp.outputTo(payload);
                 log.write((char *)payload, length);
                 delete payload;
-                log.flush();
+                //log.flush();
             }
         }
 
         if (stop_message[tid] == 1){
             printf("TelemetrySender thread #%ld exiting\n", tid);
+            if (LOG_PACKETS) log.close();
             started[tid] = false;
             pthread_exit( NULL );
         }
@@ -1028,7 +1029,7 @@ void *CommandSenderThread( void *threadargs )
     char filename[128];
     time_t ltime;
     struct tm *times;
-    std::ofstream log; 
+    std::ofstream log;
 
     if (LOG_PACKETS) {
         time(&ltime);
@@ -1057,12 +1058,13 @@ void *CommandSenderThread( void *threadargs )
                 cp.outputTo(payload);
                 log.write((char *)payload, length);
                 delete payload;
-                log.flush();
+                //log.flush();
             }
         }
 
         if (stop_message[tid] == 1){
             printf("CommandSender thread #%ld exiting\n", tid);
+            if (LOG_PACKETS) log.close();
             started[tid] = false;
             pthread_exit( NULL );
         }
@@ -1119,6 +1121,22 @@ uint16_t cmd_send_image_to_ground( int camera_id )
     cv::Mat localFrame;
     HeaderData localHeader;
 
+    char stringtemp[80];
+    char filename[128];
+    time_t ltime;
+    struct tm *times;
+    std::ofstream log;
+
+    if (LOG_PACKETS) {
+        time(&ltime);
+        times = localtime(&ltime);
+        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+        sprintf(filename, "%slog_sc_%s.bin", SAVE_LOCATION, stringtemp);
+        filename[128 - 1] = '\0';
+        printf("Creating science log file %s \n",filename);
+        log.open(filename, std::ofstream::binary);
+    }
+
     TCPSender tcpSndr(IP_FDR, (unsigned short) PORT_IMAGE);
     int ret = tcpSndr.init_connection();
     if (ret > 0){
@@ -1166,12 +1184,21 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             while(!im_packet_queue.empty()) {
                 im_packet_queue >> im;
                 tcpSndr.send_packet( &im );
+                if (LOG_PACKETS) {
+                    uint16_t length = im.getLength();
+                    uint8_t *payload = new uint8_t[length];
+                    im.outputTo(payload);
+                    log.write((char *)payload, length);
+                    delete payload;
+                    //log.flush();
+                }
             }
-
         }
         tcpSndr.close_connection();
         error_code = 1;
     } else { error_code = 2; }
+
+    if (LOG_PACKETS) log.close();
     return error_code;
 }
         
