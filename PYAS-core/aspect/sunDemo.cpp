@@ -385,7 +385,7 @@ void *CameraThread( void * threadargs, int camera_id)
             clock_gettime(CLOCK_REALTIME, &localCaptureTime);
 
             // Need to send timestamp of the next SAS solution *before* the exposure is taken
-            if(isOutputting && isTracking && acknowledgedCTL && (frameCount[camera_id] % MOD_CTL == 0)) {
+            if((camera_id == 0) && isOutputting && isTracking && acknowledgedCTL && (frameCount[camera_id] % MOD_CTL == 0)) {
                 ctl_sequence_number++;
                 CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
                 cp << (uint16_t)HKEY_SAS_TIMESTAMP;
