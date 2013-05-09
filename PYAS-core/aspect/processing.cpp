@@ -889,10 +889,10 @@ void Aspect::FindPixelCenter()
             
             //If there seems to be a pair of crossings
             if (crossings.size() != 2) continue;
-            else if (isinf(crossings[0]) || isinf(crossings[1])) continue;
-            else
+
+            //Save the crossings if they're finite
+            else if (std::isfinite(crossings[0]) && std::isfinite(crossings[1]))
             {
-                //Save the crossings
                 for (unsigned int l = 0; l < crossings.size(); l++)
                 {
                     if (dim) limbCrossings.add(crossings[l], rows[k]);
@@ -901,7 +901,8 @@ void Aspect::FindPixelCenter()
                 midpoints.push_back((crossings[0]+crossings[1])/2.0);
             }
         }
-//Determine the mean of the midpoints for this dimension
+
+        //Determine the mean of the midpoints for this dimension
         mean = 0;
         M =  midpoints.size();
         for (int m = 0; m < M; m++)
@@ -1051,6 +1052,13 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
         //to convert from the solar subimage to the original frame
         pixelFiducials[k].y = (float) (Cm/average + ((double) offset.y));
         pixelFiducials[k].x = (float) (Cn/average + ((double) offset.x));
+    }
+
+    for (int k = 0; k < pixelFiducials.size(); k++)
+    {
+        if(!std::isfinite(pixelFiducials[k].x) || !std::isfinite(pixelFiducials[k].y))
+            pixelFiducials.erase(pixelFiducials.begin() + k);
+
     }
     return;
 }
