@@ -173,6 +173,7 @@ Aspect::Aspect()
 
     solarRadius = 98;
     radiusTol = 1.5;
+    errorLimit = 50;
 
     limbWidth = 2;
     fiducialLength = 15;
@@ -313,7 +314,7 @@ AspectCode Aspect::Run()
             state = CENTER_OUT_OF_BOUNDS;
             return state;
         }
-        else if (pixelError.x > 50 || pixelError.y > 50 || 
+        else if (pixelError.x > errorLimit || pixelError.y > errorLimit || 
                  !std::isfinite(pixelError.x) || !std::isfinite(pixelError.y))
         {
             //std::cout << "Aspect: Pixel Error is above an arbitrary threshold: << pixelError << std::endl;
@@ -558,6 +559,10 @@ float Aspect::GetFloat(FloatParameter variable)
     {
     case CHORD_THRESHOLD:
         return chordThreshold;
+    case ERROR_LIMIT:
+        return errorLimit;
+    case RADIUS_TOL:
+        return radiusTol;
     case FIDUCIAL_THRESHOLD:
         return fiducialThreshold;
     case FIDUCIAL_SPACING:
@@ -598,6 +603,12 @@ void Aspect::SetFloat(FloatParameter variable, float value)
     {
     case CHORD_THRESHOLD:
         chordThreshold = value;
+        break;
+    case ERROR_LIMIT:
+        errorLimit = value;
+        break;
+    case RADIUS_TOL:
+        radiusTol = value;
         break;
     case FIDUCIAL_THRESHOLD:
         fiducialThreshold = value;

@@ -61,6 +61,9 @@ AspectTest: AspectTest.cpp processing.o utilities.o compression.o
 AspectVideo: AspectVideo.cpp processing.o utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
+MeasureScreen: MeasureScreen.cpp processing.o utilities.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
+
 #This executable need to be copied to /usr/local/bin/ after it is built
 sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)

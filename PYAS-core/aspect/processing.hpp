@@ -50,6 +50,8 @@ enum IntParameter
 enum FloatParameter
 {
     CHORD_THRESHOLD = 0,
+    ERROR_LIMIT,
+    RADIUS_TOL,
     FIDUCIAL_THRESHOLD,
     FIDUCIAL_SPACING,
     FIDUCIAL_SPACING_TOL,
@@ -127,6 +129,7 @@ private:
     int chordsPerAxis;
     float chordThreshold;
     int limbWidth;
+    float errorLimit;
 
     int solarRadius;
     float radiusTol;
