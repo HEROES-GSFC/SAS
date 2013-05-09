@@ -126,14 +126,14 @@ int main(int argc, char* argv[])
                     DrawCross(image, fiducials[k], fiducialColor, 15, 1, 8);
 
                     cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
-                    std::cout << "[" << label << "] ";
+                    std::cout << IDs[k];
                 }
                 std::cout << std::endl;
-
 
                 float rowDiff, colDiff;
                 std::cout << "Pair distances: \n";
                 crap.clear();
+                pairs.clear();
                 for (int d = 0; d < 2; d++)
                 {
                     pairs = d ? rowPairs : colPairs;
@@ -146,7 +146,8 @@ int main(int argc, char* argv[])
                         rowDiff = fiducials[pairs[k].y].y - 
                             fiducials[pairs[k].x].y;
                         colDiff = fiducials[pairs[k].y].x - 
-                            fiducials[rowPairs[k].x].x;
+                            fiducials[pairs[k].x].x;
+
                         std::cout << " | " << rowDiff << " " << colDiff << std::endl;
                         if (fabs(rowDiff - 15.7) < 1.5)
                             crap.push_back(rowDiff);
@@ -163,13 +164,6 @@ int main(int argc, char* argv[])
                 break;
             }            
 
-            for (int d = 0; d < 2; d++)
-            {
-                for (int k = 0; k < pairs.size(); k++)
-                {
-                    
-                }
-            }
             std::cout << "Mean whatever bullshit is: " << Mean(crap) << std::endl;
 
             cv::putText(image, filename, cv::Point(0,(frame.size()).height-20), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
