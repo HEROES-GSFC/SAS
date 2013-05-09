@@ -296,15 +296,15 @@ AspectCode Aspect::Run()
 
         if (pixelCenter.x < 0 || pixelCenter.x >= frameSize.width ||
             pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
-            std::isnan(pixelCenter.x) || std::isnan(pixelCenter.y))
+            !std::isfinite(pixelCenter.x) || !std::isfinite(pixelCenter.y))
         {
-            //std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
+            std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
             state = CENTER_OUT_OF_BOUNDS;
             return state;
         }
         else if (pixelError.x > 50 || pixelError.y > 50 || 
-                 std::isnan(pixelError.x) || std::isnan(pixelError.y))
+                 !std::isfinite(pixelError.x) || !std::isfinite(pixelError.y))
         {
             //std::cout << "Aspect: Pixel Error is above an arbitrary threshold: << pixelError << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
@@ -714,6 +714,7 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
     int edgeSpread;
     int edge, min, max;
     int N;
+    double fittedEdge;
 
     float threshold = frameMin + chordThreshold*(frameMax-frameMin);
     pixelThreshold = (unsigned char) threshold;
@@ -784,40 +785,50 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
         edges[1] = -(K-1);
     }
 
+    // at this point we're reasonably certain we've found a valid chord
     if ((edges.size() == 2 && edges[0] >= 0  && edges[1] < 0))
     {
-        
-
-       // at this point we're reasonably certain we've found a valid chord
-
        // for each edge, perform a fit to find the limb crossing
        crossings.clear();
        for (int k = 0; k < 2; k++)
        {
            //take a neighborhood around the edge
            edge = abs(edges[k]);
-           if ((edge-limbWidth) < 0) min = 0;
-           else min = edge-limbWidth;
-            
-           if ((edge+limbWidth) > K) max = K;
-           else max = edge+limbWidth;
-            
-           //if that neighborhood is large enough
-           N = max-min+1;
-           if (N < 2)
+           if (edge == 0 || edge == K-1)
            {
-               return -1;
+               crossings.push_back(fittedEdge);
            }
-           //compute fit to neighborhood
-           x.clear(); y.clear();
-           for (int l = min; l <= max; l++)
+           else
            {
-               x.push_back(l);
-               y.push_back((float) chord.at<unsigned char>(l));
+               if ((edge-limbWidth) < 0) min = 0;
+               else min = edge-limbWidth;
+               
+               if ((edge+limbWidth) > K) max = K;
+               else max = edge+limbWidth;
+               
+               //if that neighborhood is large enough
+               N = max-min+1;
+               if (N < 2)
+               {
+                   return -1;
+               }
+               //compute fit to neighborhood
+               x.clear(); y.clear();
+               for (int l = min; l <= max; l++)
+               {
+                   x.push_back(l);
+                   y.push_back((float) chord.at<unsigned char>(l));
+               }
+               LinearFit(x,y,fit);
+               fittedEdge = (threshold - fit[0])/fit[1];
+               if (std::isfinite(fittedEdge))
+               {
+                   crossings.push_back(fittedEdge);
+                   slopes.push_back(fabs(fit[1]));
+               }
+               else
+                   return -1;
            }
-           LinearFit(x,y,fit);
-           crossings.push_back((threshold - fit[0])/fit[1]);
-           slopes.push_back(fabs(fit[1]));
        }
        return 0;
     }   
@@ -839,7 +850,7 @@ void Aspect::FindPixelCenter()
     //If the past center was invalid, search the whole frame
     if(pixelCenter.x < 0 || pixelCenter.x >= frameSize.width ||
        pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
-       std::isnan(pixelCenter.x) || std::isnan(pixelCenter.y))
+       !std::isfinite(pixelCenter.x) || !std::isfinite(pixelCenter.y))
     {
         ////std::cout << "Aspect: Finding new center" << std::endl;
         limit = initialNumChords;
@@ -863,8 +874,8 @@ void Aspect::FindPixelCenter()
                              pixelCenter.x + solarRadius, 
                              frameSize.width);
 
-        rowStep = (rowRange.end - rowRange.start + 1)/limit;
-        colStep = (colRange.end - colRange.start + 1)/limit;
+        rowStep = (rowRange.end - rowRange.start)/limit;
+        colStep = (colRange.end - colRange.start)/limit;
 
         rowStart = rowRange.start + rowStep/2;
         colStart = colRange.start + colStep/2;
@@ -874,6 +885,7 @@ void Aspect::FindPixelCenter()
     //std::cout << "Aspect: Generating chord location list" << std::endl;
     for (int k = 0; k < limit; k++)
     {
+        //std::cout << rowStart + k*rowStep << " " << colStart + k*colStep << std::endl;
         rows.push_back(rowStart + k*rowStep);
         cols.push_back(colStart + k*colStep);
     }
