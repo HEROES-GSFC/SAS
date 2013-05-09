@@ -95,15 +95,18 @@ ImageSectionPacket::ImageSectionPacket(uint8_t camera,
 {
     uint32_t data_offset = 0, image_format = 0;
 
-    bitwrite(&data_offset, 0, 24, offset);
-    bitwrite(&data_offset, 31, 1, (last ? 1 : 0));
+    //The bit positions are all subtracted from 31 because
+    //  In bitread/bitwrite, bit #0 is the least-significant bit
+    //  In HEROES, bit #0 is the most-significant bit
+    bitwrite(&data_offset, 32-0-24, 24, offset);
+    bitwrite(&data_offset, 32-31-1, 1, (last ? 1 : 0));
     *this << data_offset;
 
-    bitwrite(&image_format, 0, 12, xpixels);
-    bitwrite(&image_format, 12, 12, ypixels);
-    bitwrite(&image_format, 24, 4, camera);
-    bitwrite(&image_format, 28, 3, 3); //3 is for 8 bits/pixel
-    bitwrite(&image_format, 31, 1, 0); //0 is for non-central-quadrant image
+    bitwrite(&image_format, 32-0-12, 12, xpixels);
+    bitwrite(&image_format, 32-12-12, 12, ypixels);
+    bitwrite(&image_format, 32-24-4, 4, camera);
+    bitwrite(&image_format, 32-28-3, 3, 3); //3 is for 8 bits/pixel
+    bitwrite(&image_format, 32-31-1, 1, 0); //0 is for non-central-quadrant image
     *this << image_format;
 }
 
@@ -117,35 +120,35 @@ uint8_t ImageSectionPacket::getCamera()
 {
     uint32_t image_format;
     this->readAtTo(INDEX_IMAGE_FORMAT_FIELD, image_format);
-    return (uint8_t)bitread(&image_format, 24, 4);
+    return (uint8_t)bitread(&image_format, 32-24-4, 4);
 }
 
 uint16_t ImageSectionPacket::getXPixels()
 {
     uint32_t image_format;
     this->readAtTo(INDEX_IMAGE_FORMAT_FIELD, image_format);
-    return (uint16_t)bitread(&image_format, 0, 12);
+    return (uint16_t)bitread(&image_format, 32-0-12, 12);
 }
 
 uint16_t ImageSectionPacket::getYPixels()
 {
     uint32_t image_format;
     this->readAtTo(INDEX_IMAGE_FORMAT_FIELD, image_format);
-    return (uint16_t)bitread(&image_format, 12, 12);
+    return (uint16_t)bitread(&image_format, 32-12-12, 12);
 }
 
 uint32_t ImageSectionPacket::getOffset()
 {
     uint32_t data_offset;
     this->readAtTo(INDEX_DATA_OFFSET_FIELD, data_offset);
-    return (uint32_t)bitread(&data_offset, 0, 24);
+    return (uint32_t)bitread(&data_offset, 32-0-24, 24);
 }
 
 bool ImageSectionPacket::last()
 {
     uint32_t data_offset;
     this->readAtTo(INDEX_DATA_OFFSET_FIELD, data_offset);
-    return (bool)bitread(&data_offset, 31, 1);
+    return (bool)bitread(&data_offset, 32-31-1, 1);
 }
 
 ImageTagPacket::ImageTagPacket(uint8_t camera, const void *data, uint8_t type,
