@@ -586,7 +586,7 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
                 argHeader.limbCount = localLimbs.size();
                 for(uint8_t j = 0; j < 10; j++) {
                     if (j < argHeader.limbCount) {
-                        uint8_t jp = (j+argHeader.frameCount+(j % 2)*(int)(argHeader.limbCount/2)) % argHeader.limbCount;
+                        uint8_t jp = ((int)(j/2)+argHeader.frameCount+(j % 2)*(int)(argHeader.limbCount/2)) % argHeader.limbCount;
                         argHeader.limbX[j] = localLimbs[jp].x;
                         argHeader.limbY[j] = localLimbs[jp].y;
                     } else {
