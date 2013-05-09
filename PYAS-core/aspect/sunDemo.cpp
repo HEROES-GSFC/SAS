@@ -552,9 +552,10 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
             case MAPPING_ERROR:
                 argHeader.fiducialCount = localIds.size();
                 for(uint8_t j = 0; j < 10; j++) {
-                    if (j < localIds.size()) {
-                        argHeader.fiducialIDX[j] = localIds[j].x;
-                        argHeader.fiducialIDY[j] = localIds[j].y;
+                    if (j < argHeader.fiducialCount) {
+                        uint8_t jp = (j+argHeader.frameCount) % argHeader.fiducialCount;
+                        argHeader.fiducialIDX[j] = localIds[jp].x;
+                        argHeader.fiducialIDY[j] = localIds[jp].y;
                     } else {
                         argHeader.fiducialIDX[j] = 0;
                         argHeader.fiducialIDY[j] = 0;
@@ -564,9 +565,10 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
             case ID_ERROR:
                 argHeader.fiducialCount = localPixelFiducials.size();
                 for(uint8_t j = 0; j < 10; j++) {
-                    if (j < localPixelFiducials.size()){
-                        argHeader.fiducialX[j] = localPixelFiducials[j].x;
-                        argHeader.fiducialY[j] = localPixelFiducials[j].y;
+                    if (j < argHeader.fiducialCount){
+                        uint8_t jp = (j+argHeader.frameCount) % argHeader.fiducialCount;
+                        argHeader.fiducialX[j] = localPixelFiducials[jp].x;
+                        argHeader.fiducialY[j] = localPixelFiducials[jp].y;
                     } else {
                         argHeader.fiducialX[j] = 0;
                         argHeader.fiducialY[j] = 0;
@@ -583,9 +585,10 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
             case CENTER_ERROR:
                 argHeader.limbCount = localLimbs.size();
                 for(uint8_t j = 0; j < 10; j++) {
-                    if (j < localLimbs.size()) {
-                        argHeader.limbX[j] = localLimbs[j].x;
-                        argHeader.limbY[j] = localLimbs[j].y;
+                    if (j < argHeader.limbCount) {
+                        uint8_t jp = (j+argHeader.frameCount+(j % 2)*(int)(argHeader.limbCount/2)) % argHeader.limbCount;
+                        argHeader.limbX[j] = localLimbs[jp].x;
+                        argHeader.limbY[j] = localLimbs[jp].y;
                     } else {
                         argHeader.limbX[j] = 0;
                         argHeader.limbY[j] = 0;
@@ -864,8 +867,7 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
-            uint8_t jp = (localHeaders[0].limbCount > 0 ? (j+tm_frame_sequence_number) % localHeaders[0].limbCount : 0);
-            tp << Pair3B(localHeaders[0].limbX[jp], localHeaders[0].limbY[jp]);
+            tp << Pair3B(localHeaders[0].limbX[j], localHeaders[0].limbY[j]);
         }
 
         //Number of fiducials
@@ -873,8 +875,7 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Fiduicals (currently 6)
         for(uint8_t j = 0; j < 6; j++) {
-            uint8_t jp = (localHeaders[0].fiducialCount > 0 ? (j+tm_frame_sequence_number) % localHeaders[0].fiducialCount : 0);
-            tp << Pair3B(localHeaders[0].fiducialX[jp], localHeaders[0].fiducialY[jp]);
+            tp << Pair3B(localHeaders[0].fiducialX[j], localHeaders[0].fiducialY[j]);
         }
 
         //Pixel to screen conversion
