@@ -188,7 +188,7 @@ void TelemetryPacketQueue::add_file(const char* file)
 
     std::ifstream ifs(file);
 
-    while (!ifs.eof()) {
+    while (ifs.good()) {
 
         if(ifs.get() == 0x9a) {
             if(ifs.peek() == 0xc3) {
