@@ -157,11 +157,18 @@ const char * GetMessage(const AspectCode& code)
 
 Aspect::Aspect()
 {
+    // Initialize min and max values for the image
     frameMin = 255;
     frameMax = 0;
     
+    // InitialNumChords is the number of chords per axis
+    // to use when searching for the sun
     initialNumChords = 30;
+
+    // chordsPerAxis is the number of chords per axis to use
+    // when the sun has been found
     chordsPerAxis = 10;
+
     chordThreshold = .2;
 
     solarRadius = 98;
@@ -173,8 +180,11 @@ Aspect::Aspect()
     fiducialThreshold = 5;
 
     numFiducials = 12;
-
-    fiducialSpacing = 15.5;
+    
+    // fiducialSpacing is how far apart fiducial pairs are in one axis.
+    // fiducialSpacingTol is how much slack to allow on this distance
+    // Value measured in lab for fiducialSpacing is 15.7
+    fiducialSpacing = 15.7;
     fiducialSpacingTol = 1.5;
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
@@ -766,38 +776,42 @@ int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
 
     //Going to accept three cases: Either we have 
     // -a pair with a rising edge followed by a falling edge,
-    // -a single edge falling within a solar radius of the start of the image strip
-    // -a single edge rising within a solar radius of the end of the strip
+    // -a single edge falling within a solar diameter of the start of the image strip
+    // -a single edge rising within a solar diameter of the end of the strip
     
     // To handle the second two cases, we'll add an artificial crossing at the image edge.
-    if (edges.size() == 1 && abs(edges[0]) < solarRadius && edges[0] < 0)
+    if ((edges.size() == 1) && (abs(edges[0]) < 2*solarRadius) && (edges[0] < 0))
     {
         edge = abs(edges[0]);
+        //std::cout << "Special falling edge for " << edge << std::endl;
         edges.resize(2);
         edges[0] = 0;
         edges[1] = -edge;
     }
-    else if (edges.size() == 1 && abs(edges[0]) > K-solarRadius && edges[0] > 0)
+    else if ((edges.size() == 1) && (abs(edges[0]) > K-2*solarRadius) && (edges[0] > 0))
     {
         edge = abs(edges[0]);
+        //std::cout << "Special rising edge for " << edge << std::endl;
         edges.resize(2);
         edges[0] = edge;
         edges[1] = -(K-1);
     }
 
     // at this point we're reasonably certain we've found a valid chord
-    if ((edges.size() == 2 && edges[0] >= 0  && edges[1] < 0))
+    if ((edges.size() == 2) && (edges[0] >= 0)  && (edges[1] < 0))
     {
        // for each edge, perform a fit to find the limb crossing
        crossings.clear();
        for (int k = 0; k < 2; k++)
        {
-           //take a neighborhood around the edge
+           // Throw away slope information, use just edge
            edge = abs(edges[k]);
+           // If the edge was artificially added, proceed without fitting
            if (edge == 0 || edge == K-1)
            {
-               crossings.push_back(fittedEdge);
+               crossings.push_back(edge);
            }
+           // Otherwise, fit a line to the edge to refine its position
            else
            {
                if ((edge-limbWidth) < 0) min = 0;
