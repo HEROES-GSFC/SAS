@@ -3,6 +3,6 @@
 #
 # <file system>	<dir>	<type>	<options>	<dump>	<pass>
 # /dev/sdb1
-UUID=8ad27e80-d856-430e-b98c-2a1eb3064765	/         	ext4      	rw,relatime,data=ordered	0 1
+UUID=57b9980a-8ec7-449e-a925-83f740334b73	/         	ext4      	defaults,relatime	0 1
 UUID=a6b863fc-bea7-469f-b0d4-54d05b7af1c6	/mnt/disk1	ext4	defaults	0 2
 UUID=60122e8b-5d58-4ed5-8f42-32654e75ac93	/mnt/disk2	ext4	defaults	0 2
