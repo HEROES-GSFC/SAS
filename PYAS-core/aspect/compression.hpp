@@ -7,7 +7,7 @@ struct HeaderData
 {
     timespec captureTime, captureTimeMono;
     int cameraID;
-    int cameraTemperature;
+    float cameraTemperature;
     int cpuTemperature;
     long frameCount;
     int exposure;

@@ -538,22 +538,22 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
                 argHeader.CTLsolution[0] = localOffset.x();
                 argHeader.CTLsolution[1] = localOffset.y();
 
-                argHeader.screenCenter[0] = screenCenter.x;
-                argHeader.screenCenter[1] = screenCenter.y;
+                argHeader.screenCenter[0] = localScreenCenter.x;
+                argHeader.screenCenter[1] = localScreenCenter.y;
 
-                if(mapping.size() == 4){
-                    argHeader.XYinterceptslope[0] = mapping[0];
-                    argHeader.XYinterceptslope[1] = mapping[2];
-                    argHeader.XYinterceptslope[2] = mapping[1];
-                    argHeader.XYinterceptslope[3] = mapping[3];
+                if(localMapping.size() == 4){
+                    argHeader.XYinterceptslope[0] = localMapping[0];
+                    argHeader.XYinterceptslope[1] = localMapping[2];
+                    argHeader.XYinterceptslope[2] = localMapping[1];
+                    argHeader.XYinterceptslope[3] = localMapping[3];
                 }
 
             case MAPPING_ERROR:
                 argHeader.fiducialCount = localIds.size();
                 for(uint8_t j = 0; j < 10; j++) {
                     if (j < localIds.size()) {
-                        argHeader.fiducialIDX[j] = ids[j].x;
-                        argHeader.fiducialIDY[j] = ids[j].y;
+                        argHeader.fiducialIDX[j] = localIds[j].x;
+                        argHeader.fiducialIDY[j] = localIds[j].y;
                     } else {
                         argHeader.fiducialIDX[j] = 0;
                         argHeader.fiducialIDY[j] = 0;
@@ -561,11 +561,11 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
                 }
 
             case ID_ERROR:
-                argHeader.fiducialCount = localIds.size();
+                argHeader.fiducialCount = localPixelFiducials.size();
                 for(uint8_t j = 0; j < 10; j++) {
                     if (j < localPixelFiducials.size()){
-                        argHeader.fiducialX[j] = pixelFiducials[j].x;
-                        argHeader.fiducialY[j] = pixelFiducials[j].y;
+                        argHeader.fiducialX[j] = localPixelFiducials[j].x;
+                        argHeader.fiducialY[j] = localPixelFiducials[j].y;
                     } else {
                         argHeader.fiducialX[j] = 0;
                         argHeader.fiducialY[j] = 0;
@@ -573,18 +573,18 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
                 }
 
             case FIDUCIAL_ERROR:
-                argHeader.sunCenter[0] = pixelCenter.x;
-                argHeader.sunCenter[1] = pixelCenter.y;
+                argHeader.sunCenter[0] = localPixelCenter.x;
+                argHeader.sunCenter[1] = localPixelCenter.y;
 
-                argHeader.screenCenterError[0] = error.x;
-                argHeader.screenCenterError[1] = error.y;
+                argHeader.screenCenterError[0] = localError.x;
+                argHeader.screenCenterError[1] = localError.y;
 
             case CENTER_ERROR:
                 argHeader.limbCount = localLimbs.size();
                 for(uint8_t j = 0; j < 10; j++) {
                     if (j < localLimbs.size()) {
-                        argHeader.limbX[j] = limbs[j].x;
-                        argHeader.limbY[j] = limbs[j].y;
+                        argHeader.limbX[j] = localLimbs[j].x;
+                        argHeader.limbY[j] = localLimbs[j].y;
                     } else {
                         argHeader.limbX[j] = 0;
                         argHeader.limbY[j] = 0;
@@ -809,7 +809,6 @@ void *TelemetryPackagerThread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("TelemetryPackager thread #%ld!\n", tid);
 
-    unsigned char localMin, localMax;
     CoordList localLimbs, localFiducials;
     std::vector<float> localMapping;
     cv::Point2f localCenter, localError;
@@ -839,7 +838,7 @@ void *TelemetryPackagerThread(void *threadargs)
             pthread_mutex_unlock(&mutexHeader[1]);
         }
 
-        camera_id = tm_frame_sequence_number % sas_id;
+        int camera_id = tm_frame_sequence_number % sas_id;
 
 /*
         std::cout << "Telemetry packet with Sun center (pixels): " << Pair(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
@@ -851,7 +850,7 @@ void *TelemetryPackagerThread(void *threadargs)
 */
 
         //Housekeeping fields, two of them
-        tp << Float2B(localHeaders[camera_id].camera_temperature);
+        tp << Float2B(localHeaders[camera_id].cameraTemperature);
         tp << (uint16_t)localHeaders[0].cpuTemperature;
 
         //Sun center and error
@@ -867,7 +866,7 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
-            uint8_t jp = (j+tm_frame_sequence_number) % localHeaders[0].limbCount;
+            uint8_t jp = (localHeaders[0].limbCount > 0 ? (j+tm_frame_sequence_number) % localHeaders[0].limbCount : 0);
             tp << Pair3B(localHeaders[0].limbX[jp], localHeaders[0].limbY[jp]);
         }
 
@@ -876,7 +875,7 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Fiduicals (currently 6)
         for(uint8_t j = 0; j < 6; j++) {
-            uint8_t jp = (j+tm_frame_sequence_number) % localHeaders[0].fiducialCount;
+            uint8_t jp = (localHeaders[0].fiducialCount > 0 ? (j+tm_frame_sequence_number) % localHeaders[0].fiducialCount : 0);
             tp << Pair3B(localHeaders[0].fiducialX[jp], localHeaders[0].fiducialY[jp]);
         }
 
