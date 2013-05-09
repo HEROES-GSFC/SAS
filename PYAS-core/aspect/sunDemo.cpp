@@ -385,12 +385,12 @@ void *CameraThread( void * threadargs, int camera_id)
             clock_gettime(CLOCK_REALTIME, &localCaptureTime);
 
             // Need to send timestamp of the next SAS solution *before* the exposure is taken
-            if((camera_id == 0) && isOutputting && isTracking && acknowledgedCTL && (frameCount[camera_id] % MOD_CTL == 0)) {
+            if((camera_id == 0) && isOutputting && isTracking && acknowledgedCTL && ((frameCount[camera_id]+1) % MOD_CTL == 0)) {
                 ctl_sequence_number++;
                 CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
                 cp << (uint16_t)HKEY_SAS_TIMESTAMP;
                 cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
-                cp << (double)(preExposure.tv_sec + (double)preExposure.tv_nsec/1e9);  // timestamp 
+                cp << (double)(localCaptureTime.tv_sec + (double)localCaptureTime.tv_nsec/1e9);  // timestamp 
                 cm_packet_queue << cp;
             }
 
@@ -912,7 +912,7 @@ void *TelemetryPackagerThread(void *threadargs)
 void *CommandListenerThread(void *threadargs)
 {  
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
-    printf("listenForCommands thread #%ld!\n", tid);
+    printf("CommandListener thread #%ld!\n", tid);
 
     tid_listen = tid;
 
@@ -925,7 +925,7 @@ void *CommandListenerThread(void *threadargs)
 
         usleep(USLEEP_UDP_LISTEN);
         packet_length = comReceiver.listen( );
-        printf("listenForCommandsThread: %i\n", packet_length);
+        printf("CommandListenerThread: %i bytes\n", packet_length);
         uint8_t *packet;
         packet = new uint8_t[packet_length];
         comReceiver.get_packet( packet );
@@ -933,7 +933,7 @@ void *CommandListenerThread(void *threadargs)
         CommandPacket command_packet( packet, packet_length );
 
         if (command_packet.valid()){
-            printf("listenForCommandsThread: good command packet\n");
+            printf("CommandListenerThread: good command packet\n");
 
             command_sequence_number = command_packet.getSequenceNumber();
 
@@ -955,13 +955,13 @@ void *CommandListenerThread(void *threadargs)
             }
 
         } else {
-            printf("listenForCommandsThread: bad command packet\n");
+            printf("CommandListenerThread: bad command packet\n");
         }
 
         delete packet;
 
         if (stop_message[tid] == 1){
-            printf("listenForCommands thread #%ld exiting\n", tid);
+            printf("CommandListener thread #%ld exiting\n", tid);
             comReceiver.close_connection();
             started[tid] = false;
             pthread_exit( NULL );
@@ -1088,7 +1088,7 @@ void image_queue_solution(HeaderData &argHeader)
                 cp << (double)0; // roll offset
                 cp << (double)0.003; // error
                 cp << (uint32_t)argHeader.captureTime.tv_sec; //seconds
-                cp << (uint16_t)(argHeader.captureTime.tv_nsec/1000000); //milliseconds
+                cp << (uint16_t)(argHeader.captureTime.tv_nsec/1e6+0.5); //milliseconds, rounded
             }
         } else { // isTracking is false
             if (!acknowledgedCTL) {
