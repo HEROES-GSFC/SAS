@@ -843,7 +843,7 @@ void *TelemetryPackagerThread(void *threadargs)
         for(uint8_t l = 0; l < 4; l++) std::cout << " " << localHeaders[0].XYinterceptslope[l];
         std::cout << std::endl;
 
-        std::cout << "Offset: " << Pair(localHeaders[0].offset[0], localHeaders[0].offset[1]) << std::endl;
+        std::cout << "Offset: " << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]) << std::endl;
 */
 
         //Housekeeping fields, two of them
@@ -887,7 +887,7 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << (uint8_t) localHeaders[camera_id].imageMinMax[0]; //min
 
         //Tacking on the offset numbers intended for CTL
-        tp << Pair(localHeaders[0].offset[0], localHeaders[0].offset[1]);
+        tp << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]);
 
         //Tacking on I2C temperatures
         for (int i=0; i<8; i++) tp << i2c_temperatures[i];
