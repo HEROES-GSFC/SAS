@@ -33,7 +33,6 @@ struct HeaderData
     int fiducialIDY[10];
     float cpuVoltage[5];
     int isTracking;
-    float offset[2];
 };
 
 int writePNGImage(cv::InputArray _image, const std::string fileName);
