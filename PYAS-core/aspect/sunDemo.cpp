@@ -1148,8 +1148,14 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             pthread_mutex_unlock(mutexHeader+camera_id);
         }
         if( !localFrame.empty() ){
-            //1 for SAS-1/PYAS, 2 for SAS-2/PYAS, 6 for SAS-2/RAS
+            //1 for SAS-1/PYAS-F, 2 for SAS-2/PYAS-R, 6 for SAS-2/RAS
             uint8_t camera = sas_id+4*camera_id;
+
+            //First add FITS header tags
+            uint32_t temp = localHeader.exposure;
+            im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time in msec");
+            im_packet_queue << ImageTagPacket(camera, (camera_id == 0 ? (sas_id == 1 ? "PYAS-F" : "PYAS-R") : "RAS"), TSTRING, "INSTRUME", "Name of instrument");
+            im_packet_queue << ImageTagPacket(camera, (sas_id == 1 ? "HEROES/SAS-1" : "HEROES/SAS-2"), TSTRING, "ORIGIN", "Location where file was made");
 
             uint16_t numXpixels = localFrame.cols;
             uint16_t numYpixels = localFrame.rows;
@@ -1168,12 +1174,6 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             im_packet_queue.add_array(camera, numXpixels, numYpixels, array);
 
             delete array;
-
-            //Add FITS header tags
-            uint32_t temp = localHeader.exposure;
-            im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time in msec");
-            im_packet_queue << ImageTagPacket(camera, (camera_id == 0 ? (sas_id == 1 ? "PYAS-F" : "PYAS-R") : "RAS"), TSTRING, "INSTRUME", "Name of instrument");
-            im_packet_queue << ImageTagPacket(camera, (sas_id == 1 ? "HEROES/SAS-1" : "HEROES/SAS-2"), TSTRING, "ORIGIN", "Location where file was made");
 
             //Make sure to synchronize all the timestamps
             im_packet_queue.synchronize();
