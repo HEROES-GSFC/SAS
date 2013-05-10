@@ -128,7 +128,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("CRPIX2", (double)keys.sunCenter[1]+1, "Reference pixel");
 
     timeKey = asctime(gmtime(&(keys.captureTime).tv_sec));
-    pFits->pHDU().addKey("EXPTIME", (float)keys.exposure/1e6, "Exposure time in seconds"); 
+    pFits->pHDU().addKey("EXPTIME", (float)keys.exposure/1e6, "Exposure time in seconds");
     pFits->pHDU().addKey("DATE_OBS", timeKey , "Date and time when observation of this image started (UTC)");
     pFits->pHDU().addKey("TEMPCCD", (float)keys.cameraTemperature, "Temperature of camera in Celsius");
     pFits->pHDU().addKey("TEMPCPU", (int)keys.cpuTemperature, "Temperature of cpu in Celsius");
@@ -144,14 +144,17 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("MON_OBS", timeKey , "Frame Capture Time (UTC)");
     pFits->pHDU().addKey("MON_NANO", (long)(keys.captureTimeMono).tv_nsec, "Frame capture fractional seconds");
 
-    pFits->pHDU().addKey("EXPOSURE", (long)keys.exposure,"Exposure time in msec"); 
-    pFits->pHDU().addKey("GAIN_PRE", (float)keys.preampGain, "Preamp gain of CCD");
-    pFits->pHDU().addKey("GAIN_ANA", (float)keys.analogGain, "Analog gain of CCD");
-    pFits->pHDU().addKey("FRAMENUM", (float)keys.frameCount, "Frame number"); 
+    pFits->pHDU().addKey("EXPOSURE", (int)keys.exposure,"Exposure time in msec");
+    pFits->pHDU().addKey("GAIN_PRE", (int)keys.preampGain, "Preamp gain of CCD");
+    pFits->pHDU().addKey("GAIN_ANA", (int)keys.analogGain, "Analog gain of CCD");
+    pFits->pHDU().addKey("FRAMENUM", (long)keys.frameCount, "Frame number");
     pFits->pHDU().addKey("DATAMIN", (float)keys.imageMinMax[0], "Minimum value of data"); 
     pFits->pHDU().addKey("DATAMAX", (float)keys.imageMinMax[1], "Maximum value of data"); 
 
     if ((keys.cameraID == 1) || (keys.cameraID == 2)) {
+        pFits->pHDU().addKey("F_TRACK", (bool)keys.isTracking, "Is SAS currently tracking?");
+        pFits->pHDU().addKey("F_OUTPUT", (bool)keys.isOutputting, "Is this SAS outputting to CTL?");
+
         pFits->pHDU().addKey("SUNCENT1", (float)keys.sunCenter[0], "Calculated sun center in x-pixel"); 
         pFits->pHDU().addKey("SUNCENT2", (float)keys.sunCenter[1], "Calculated sun center in y-pixel"); 
         pFits->pHDU().addKey("CTL_AZIM", (double)keys.CTLsolution[0], "Azimuth offset for CTL (deg)");
@@ -178,9 +181,9 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
             char tag[9];
             sprintf(tag, "FID%1dID_-", j);
             tag[7] = 'X';
-            pFits->pHDU().addKey(tag, (float)keys.fiducialX[j], "");
+            pFits->pHDU().addKey(tag, (int)keys.fiducialX[j], "");
             tag[7] = 'Y';
-        pFits->pHDU().addKey(tag, (float)keys.fiducialY[j], "");
+        pFits->pHDU().addKey(tag, (int)keys.fiducialY[j], "");
         }
 
         pFits->pHDU().addKey("LIMB_NUM", keys.limbCount, "Number of limbs");
@@ -223,6 +226,8 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
 
 int readFITSImage(const std::string fileName, cv::OutputArray _image)
 {
+    try {
+
     cv::Size frameSize;
     std::auto_ptr<FITS> pInfile(new FITS(fileName,Read,true));
         
@@ -238,5 +243,12 @@ int readFITSImage(const std::string fileName, cv::OutputArray _image)
     cv::Mat frame(frameSize, CV_8UC1, &contents[0]);
 
     frame.copyTo(_image);
+
+    } catch (FitsError fe) {
+        std::cout << "Exception somewhere else in readFITSImage()\n";
+        std::cout << fe.message() << std::endl;
+        //throw fe;
+    }
+
     return 0;   
 }

@@ -476,7 +476,7 @@ void *CameraThread( void * threadargs, int camera_id)
             //Calculate the time to wait for next exposure
             timeToWait.tv_sec = frameRate.tv_sec - timeElapsed.tv_sec;
             timeToWait.tv_nsec = frameRate.tv_nsec - timeElapsed.tv_nsec;
-            //std::cout << timeElapsed.tv_nsec << " " << timeToWait.tv_nsec << "\n";
+            //std::cout << camera_id << " " << timeElapsed.tv_nsec << " " << timeToWait.tv_nsec << "\n";
 
             //Wait till next exposure time
             nanosleep(&timeToWait, NULL);
@@ -606,7 +606,7 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
         }
 
         argHeader.isTracking = isTracking;
-
+        argHeader.isOutputting = isOutputting;
     }
     else if((camera_id == 1) && !argFrame.empty()) {
         double min, max;
@@ -814,10 +814,6 @@ void *TelemetryPackagerThread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("TelemetryPackager thread #%ld!\n", tid);
 
-    CoordList localLimbs, localFiducials;
-    std::vector<float> localMapping;
-    cv::Point2f localCenter, localError;
-    Pair localOffset;
     HeaderData localHeaders[2];
 
     while(1)    // run forever
@@ -1148,6 +1144,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             pthread_mutex_unlock(mutexHeader+camera_id);
         }
         if( !localFrame.empty() ){
+            bool tlogical;
             int tint;
             long tlong;
             float tfloat;
@@ -1211,14 +1208,17 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             im_packet_queue << ImageTagPacket(localHeader.cameraID, asctime(gmtime(&(localHeader.captureTimeMono).tv_sec)), TSTRING, "MON_OBS", "Monotonic clock");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = (localHeader.captureTimeMono).tv_nsec), TLONG, "MON_NANO", "Monotonic clock nanoseconds");
 
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.exposure), TLONG, "EXPOSURE", "Exposure time in msec");
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.preampGain), TFLOAT, "GAIN_PRE", "Preamp gain of CCD");
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.analogGain), TFLOAT, "GAIN_ANA", "Analog gain of CCD");
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.frameCount), TFLOAT, "FRAMENUM", "Frame number");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.exposure), TINT, "EXPOSURE", "Exposure time in msec");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.preampGain), TINT, "GAIN_PRE", "Preamp gain of CCD");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.analogGain), TINT, "GAIN_ANA", "Analog gain of CCD");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.frameCount), TLONG, "FRAMENUM", "Frame number");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.imageMinMax[0]), TFLOAT, "DATAMIN", "Minimum value of data");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.imageMinMax[1]), TFLOAT, "DATAMAX", "Maximum value of data");
 
             if((localHeader.cameraID == 1) || (localHeader.cameraID == 2)) {
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlogical = localHeader.isTracking), TLOGICAL, "F_TRACK", "Is SAS currently tracking?");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlogical = localHeader.isOutputting), TLOGICAL, "F_OUTPUT", "Is this SAS outputting to CTL?");
+
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.sunCenter[0]), TFLOAT, "SUNCENT1", "Calculated Sun center in x-pixel");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.sunCenter[1]), TFLOAT, "SUNCENT2", "Calculated Sun center in y-pixel");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = localHeader.CTLsolution[0]), TDOUBLE, "CTL_AZIM", "Azimuth offset for CTL (deg)");
@@ -1243,9 +1243,9 @@ uint16_t cmd_send_image_to_ground( int camera_id )
                     char tag[9];
                     sprintf(tag, "FID%1dID_-", j);
                     tag[7] = 'X';
-                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.fiducialIDX[j]), TFLOAT, tag, "");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.fiducialIDX[j]), TINT, tag, "");
                     tag[7] = 'Y';
-                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.fiducialIDY[j]), TFLOAT, tag, "");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.fiducialIDY[j]), TINT, tag, "");
                 }
 
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.limbCount), TINT, "LIMB_NUM", "Number of limbs");
