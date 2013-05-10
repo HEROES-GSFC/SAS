@@ -1077,7 +1077,7 @@ void image_queue_solution(HeaderData &argHeader)
             if (!acknowledgedCTL) {
                 cp << (uint16_t)HKEY_SAS_TRACKING_IS_ON;
                 acknowledgedCTL = true;
-            } else {
+            } else if (check_solution(argHeader)) {
                 cp << (uint16_t)HKEY_SAS_SOLUTION;
                 cp << (double)argHeader.CTLsolution[0]; // azimuth offset
                 cp << (double)argHeader.CTLsolution[1]; // elevation offset
@@ -1098,6 +1098,17 @@ void image_queue_solution(HeaderData &argHeader)
             cm_packet_queue << cp;
         }
     } // isOutputting
+}
+
+bool check_solution(HeaderData &argHeader)
+{
+    //Do some basic checking to see whether a valid solution was found
+    if ((fabs(argHeader.XYinterceptslope[2]) < 5.5) ||
+        (fabs(argHeader.XYinterceptslope[2]) > 6)) return false;
+    if ((fabs(argHeader.XYinterceptslope[3]) < 5.5) ||
+        (fabs(argHeader.XYinterceptslope[3]) > 6)) return false;
+
+    return true;
 }
 
 void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
