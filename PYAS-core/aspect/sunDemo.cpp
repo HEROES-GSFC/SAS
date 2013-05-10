@@ -2,6 +2,8 @@
 #define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
+#define USE_MOCK_PYAS_IMAGE false
+#define MOCK_PYAS_IMAGE "/mnt/disk1/130421/image_130421_153000_45361.fits"
 
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
@@ -10,15 +12,6 @@
 #define MOD_PROCESS 1 //process the image
 #define MOD_CTL     4 //send the processing results to CTL
 #define MOD_SAVE    20 //save the image to a local FITS file
-
-//Default camera settings
-#define CAMERA_EXPOSURE 15000 // microseconds
-#define CAMERA_ANALOGGAIN 400 // camera defaults to 143, but we are changing it
-#define CAMERA_PREAMPGAIN -3 // camera defaults to +6, but we are changing it
-#define CAMERA_XSIZE 1296 // full frame is 1296
-#define CAMERA_YSIZE 966 //full frame is 966
-#define CAMERA_XOFFSET 0
-#define CAMERA_YOFFSET 0
 
 //Sleep settings (seconds)
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
@@ -84,18 +77,24 @@
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
-#define SKEY_SET_IMAGESAVETOGGLE 0x0421
-#define SKEY_SET_EXPOSURE        0x0451
-#define SKEY_SET_ANALOGGAIN      0x0481
-#define SKEY_SET_PREAMPGAIN      0x0491
+#define SKEY_SET_IMAGESAVEFLAG   0x0421
+#define SKEY_SET_PYAS_EXPOSURE   0x0451
+#define SKEY_SET_PYAS_ANALOGGAIN 0x0481
+#define SKEY_SET_PYAS_PREAMPGAIN 0x0491
+#define SKEY_SET_RAS_EXPOSURE    0x0551
+#define SKEY_SET_RAS_ANALOGGAIN  0x0581
+#define SKEY_SET_RAS_PREAMPGAIN  0x0591
 
 //Getting commands
 #define SKEY_REQUEST_PYAS_IMAGE  0x0810
-#define SKEY_GET_EXPOSURE        0x0850
-#define SKEY_GET_ANALOGGAIN      0x0860
-#define SKEY_GET_PREAMPGAIN      0x0870
+#define SKEY_GET_PYAS_EXPOSURE   0x0850
+#define SKEY_GET_PYAS_ANALOGGAIN 0x0860
+#define SKEY_GET_PYAS_PREAMPGAIN 0x0870
 #define SKEY_GET_DISKSPACE       0x0881
 #define SKEY_REQUEST_RAS_IMAGE   0x0910
+#define SKEY_GET_RAS_EXPOSURE    0x0950
+#define SKEY_GET_RAS_ANALOGGAIN  0x0960
+#define SKEY_GET_RAS_PREAMPGAIN  0x0970
 
 #define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 
@@ -173,9 +172,7 @@ Aspect aspect;
 AspectCode runResult;
 Transform solarTransform;
 
-uint16_t exposure = CAMERA_EXPOSURE;
-uint16_t analogGain = CAMERA_ANALOGGAIN;
-int16_t preampGain = CAMERA_PREAMPGAIN;
+CameraSettings settings[2];
 
 timespec frameRate = {0,FRAME_CADENCE*1000};
 bool cameraReady[2] = {false, false};
@@ -223,12 +220,24 @@ void identifySAS();
 uint16_t get_disk_usage( uint16_t disk );
 void send_shutdown();
 
+template <class T>
+bool set_if_different(T& variable, T value); //returns true if the value is different
+
 void sig_handler(int signum)
 {
     if (signum == SIGINT)
     {
         g_running = 0;
     }
+}
+
+template <class T>
+bool set_if_different(T& variable, T value)
+{
+    if(variable != value) {
+        variable = value;
+        return true;
+    } else return false;
 }
 
 void kill_all_workers()
@@ -322,9 +331,9 @@ void *CameraThread( void * threadargs, int camera_id)
     int width, height;
     int failcount = 0;
 
-    uint16_t localExposure = exposure;
-    int16_t localPreampGain = preampGain;
-    uint16_t localAnalogGain = analogGain;
+    uint16_t localExposure = settings[camera_id].exposure;
+    int16_t localPreampGain = settings[camera_id].preampGain;
+    uint16_t localAnalogGain = settings[camera_id].analogGain;
 
     cameraReady[camera_id] = false;
     while(1)
@@ -349,8 +358,8 @@ void *CameraThread( void * threadargs, int camera_id)
             {
                 camera.ConfigureSnap();
 
-                camera.SetROISize(CAMERA_XSIZE,CAMERA_YSIZE);
-                camera.SetROIOffset(CAMERA_XOFFSET,CAMERA_YOFFSET);
+                camera.SetROISize(settings[camera_id].size.width,settings[camera_id].size.height);
+                camera.SetROIOffset(settings[camera_id].offset.x,settings[camera_id].offset.y);
                 camera.SetExposure(localExposure);
                 camera.SetAnalogGain(localAnalogGain);
                 camera.SetPreAmpGain(localPreampGain);
@@ -376,17 +385,20 @@ void *CameraThread( void * threadargs, int camera_id)
             clock_gettime(CLOCK_REALTIME, &localCaptureTime);
 
             // Need to send timestamp of the next SAS solution *before* the exposure is taken
-            if(isOutputting && isTracking && acknowledgedCTL && (frameCount[camera_id] % MOD_CTL == 0)) {
+            if((camera_id == 0) && isOutputting && isTracking && acknowledgedCTL && ((frameCount[camera_id]+1) % MOD_CTL == 0)) {
                 ctl_sequence_number++;
                 CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
                 cp << (uint16_t)HKEY_SAS_TIMESTAMP;
                 cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
-                cp << (double)(preExposure.tv_sec + (double)preExposure.tv_nsec/1e9);  // timestamp 
+                cp << (double)(localCaptureTime.tv_sec + (double)localCaptureTime.tv_nsec/1e9);  // timestamp 
                 cm_packet_queue << cp;
             }
 
             if(!camera.Snap(localFrame, frameRate))
             {
+                if((camera_id == 0) && USE_MOCK_PYAS_IMAGE) {
+                    readFITSImage(MOCK_PYAS_IMAGE, localFrame);
+                }
                 frameCount[camera_id]++;
                 failcount = 0;
 
@@ -399,9 +411,9 @@ void *CameraThread( void * threadargs, int camera_id)
                 localHeader.captureTime = localCaptureTime;
                 localHeader.captureTimeMono = preExposure;
                 localHeader.frameCount = frameCount[camera_id];
-                localHeader.exposure = exposure;
-                localHeader.preampGain = preampGain;
-                localHeader.analogGain = analogGain;
+                localHeader.exposure = localExposure;
+                localHeader.preampGain = localPreampGain;
+                localHeader.analogGain = localAnalogGain;
 
                 localHeader.cameraTemperature = camera_temperature[camera_id];
                 localHeader.cpuTemperature = sbc_temperature;
@@ -451,20 +463,9 @@ void *CameraThread( void * threadargs, int camera_id)
             }
 
             //Make any changes to camera settings that happened since last exposure.
-            if (localExposure != exposure) {
-                localExposure = exposure;
-                camera.SetExposure(localExposure);
-            }
-            
-            if (localPreampGain != preampGain) {
-                localPreampGain = preampGain;
-                camera.SetPreAmpGain(localPreampGain);
-            }
-            
-            if (localAnalogGain != analogGain) {
-                localAnalogGain = analogGain;
-                camera.SetAnalogGain(analogGain);
-            }
+            if(set_if_different(localExposure, settings[camera_id].exposure)) camera.SetExposure(localExposure);
+            if(set_if_different(localPreampGain, settings[camera_id].preampGain)) camera.SetPreAmpGain(localPreampGain);
+            if(set_if_different(localAnalogGain, settings[camera_id].analogGain)) camera.SetAnalogGain(localAnalogGain);
 
             //Record time that camera exposure finished. As little as possible should happen between this call and the call to nanosleep()
             clock_gettime(CLOCK_MONOTONIC, &postExposure);
@@ -551,9 +552,10 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
             case MAPPING_ERROR:
                 argHeader.fiducialCount = localIds.size();
                 for(uint8_t j = 0; j < 10; j++) {
-                    if (j < localIds.size()) {
-                        argHeader.fiducialIDX[j] = localIds[j].x;
-                        argHeader.fiducialIDY[j] = localIds[j].y;
+                    if (j < argHeader.fiducialCount) {
+                        uint8_t jp = (j+argHeader.frameCount) % argHeader.fiducialCount;
+                        argHeader.fiducialIDX[j] = localIds[jp].x;
+                        argHeader.fiducialIDY[j] = localIds[jp].y;
                     } else {
                         argHeader.fiducialIDX[j] = 0;
                         argHeader.fiducialIDY[j] = 0;
@@ -563,9 +565,10 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
             case ID_ERROR:
                 argHeader.fiducialCount = localPixelFiducials.size();
                 for(uint8_t j = 0; j < 10; j++) {
-                    if (j < localPixelFiducials.size()){
-                        argHeader.fiducialX[j] = localPixelFiducials[j].x;
-                        argHeader.fiducialY[j] = localPixelFiducials[j].y;
+                    if (j < argHeader.fiducialCount){
+                        uint8_t jp = (j+argHeader.frameCount) % argHeader.fiducialCount;
+                        argHeader.fiducialX[j] = localPixelFiducials[jp].x;
+                        argHeader.fiducialY[j] = localPixelFiducials[jp].y;
                     } else {
                         argHeader.fiducialX[j] = 0;
                         argHeader.fiducialY[j] = 0;
@@ -582,9 +585,10 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
             case CENTER_ERROR:
                 argHeader.limbCount = localLimbs.size();
                 for(uint8_t j = 0; j < 10; j++) {
-                    if (j < localLimbs.size()) {
-                        argHeader.limbX[j] = localLimbs[j].x;
-                        argHeader.limbY[j] = localLimbs[j].y;
+                    if (j < argHeader.limbCount) {
+                        uint8_t jp = ((int)(j/2)+argHeader.frameCount+(j % 2)*(int)(argHeader.limbCount/2)) % argHeader.limbCount;
+                        argHeader.limbX[j] = localLimbs[jp].x;
+                        argHeader.limbY[j] = localLimbs[jp].y;
                     } else {
                         argHeader.limbX[j] = 0;
                         argHeader.limbY[j] = 0;
@@ -625,7 +629,7 @@ void *TelemetrySenderThread(void *threadargs)
     char filename[128];
     time_t ltime;
     struct tm *times;
-    std::ofstream log; 
+    std::ofstream log;
 
     if (LOG_PACKETS) {
         time(&ltime);
@@ -649,17 +653,18 @@ void *TelemetrySenderThread(void *threadargs)
             telSender.send( &tp );
             //std::cout << "TelemetrySender:" << tp << std::endl;
             if (LOG_PACKETS) {
-                uint8_t length = tp.getLength();
+                uint16_t length = tp.getLength();
                 uint8_t *payload = new uint8_t[length];
                 tp.outputTo(payload);
                 log.write((char *)payload, length);
                 delete payload;
-                log.flush();
+                //log.flush();
             }
         }
 
         if (stop_message[tid] == 1){
             printf("TelemetrySender thread #%ld exiting\n", tid);
+            if (LOG_PACKETS) log.close();
             started[tid] = false;
             pthread_exit( NULL );
         }
@@ -786,7 +791,7 @@ void *ImageSaveThread(void *threadargs)
 
         sprintf(obsfilespec, "%s%s_%s_%06d.fits", SAVE_LOCATION, (camera_id == 1 ? "ras" : "pyas"), stringtemp, (int)localHeader.frameCount);
 
-        printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, exposure, analogGain, preampGain);
+        printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, localHeader.exposure, localHeader.analogGain, localHeader.preampGain);
         writeFITSImage(localFrame, localHeader, obsfilespec);
     }
     else
@@ -843,7 +848,7 @@ void *TelemetryPackagerThread(void *threadargs)
         for(uint8_t l = 0; l < 4; l++) std::cout << " " << localHeaders[0].XYinterceptslope[l];
         std::cout << std::endl;
 
-        std::cout << "Offset: " << Pair(localHeaders[0].offset[0], localHeaders[0].offset[1]) << std::endl;
+        std::cout << "Offset: " << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]) << std::endl;
 */
 
         //Housekeeping fields, two of them
@@ -863,8 +868,7 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
-            uint8_t jp = (localHeaders[0].limbCount > 0 ? (j+tm_frame_sequence_number) % localHeaders[0].limbCount : 0);
-            tp << Pair3B(localHeaders[0].limbX[jp], localHeaders[0].limbY[jp]);
+            tp << Pair3B(localHeaders[0].limbX[j], localHeaders[0].limbY[j]);
         }
 
         //Number of fiducials
@@ -872,14 +876,13 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Fiduicals (currently 6)
         for(uint8_t j = 0; j < 6; j++) {
-            uint8_t jp = (localHeaders[0].fiducialCount > 0 ? (j+tm_frame_sequence_number) % localHeaders[0].fiducialCount : 0);
-            tp << Pair3B(localHeaders[0].fiducialX[jp], localHeaders[0].fiducialY[jp]);
+            tp << Pair3B(localHeaders[0].fiducialX[j], localHeaders[0].fiducialY[j]);
         }
 
         //Pixel to screen conversion
         tp << localHeaders[0].XYinterceptslope[0]; //X intercept
-        tp << localHeaders[0].XYinterceptslope[1]; //X slope
-        tp << localHeaders[0].XYinterceptslope[2]; //Y intercept
+        tp << localHeaders[0].XYinterceptslope[2]; //X slope
+        tp << localHeaders[0].XYinterceptslope[1]; //Y intercept
         tp << localHeaders[0].XYinterceptslope[3]; //Y slope
 
         //Image max and min
@@ -887,7 +890,7 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << (uint8_t) localHeaders[camera_id].imageMinMax[0]; //min
 
         //Tacking on the offset numbers intended for CTL
-        tp << Pair(localHeaders[0].offset[0], localHeaders[0].offset[1]);
+        tp << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]);
 
         //Tacking on I2C temperatures
         for (int i=0; i<8; i++) tp << i2c_temperatures[i];
@@ -909,7 +912,7 @@ void *TelemetryPackagerThread(void *threadargs)
 void *CommandListenerThread(void *threadargs)
 {  
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
-    printf("listenForCommands thread #%ld!\n", tid);
+    printf("CommandListener thread #%ld!\n", tid);
 
     tid_listen = tid;
 
@@ -922,7 +925,7 @@ void *CommandListenerThread(void *threadargs)
 
         usleep(USLEEP_UDP_LISTEN);
         packet_length = comReceiver.listen( );
-        printf("listenForCommandsThread: %i\n", packet_length);
+        printf("CommandListenerThread: %i bytes\n", packet_length);
         uint8_t *packet;
         packet = new uint8_t[packet_length];
         comReceiver.get_packet( packet );
@@ -930,7 +933,7 @@ void *CommandListenerThread(void *threadargs)
         CommandPacket command_packet( packet, packet_length );
 
         if (command_packet.valid()){
-            printf("listenForCommandsThread: good command packet\n");
+            printf("CommandListenerThread: good command packet\n");
 
             command_sequence_number = command_packet.getSequenceNumber();
 
@@ -952,13 +955,13 @@ void *CommandListenerThread(void *threadargs)
             }
 
         } else {
-            printf("listenForCommandsThread: bad command packet\n");
+            printf("CommandListenerThread: bad command packet\n");
         }
 
         delete packet;
 
         if (stop_message[tid] == 1){
-            printf("listenForCommands thread #%ld exiting\n", tid);
+            printf("CommandListener thread #%ld exiting\n", tid);
             comReceiver.close_connection();
             started[tid] = false;
             pthread_exit( NULL );
@@ -1026,7 +1029,7 @@ void *CommandSenderThread( void *threadargs )
     char filename[128];
     time_t ltime;
     struct tm *times;
-    std::ofstream log; 
+    std::ofstream log;
 
     if (LOG_PACKETS) {
         time(&ltime);
@@ -1055,12 +1058,13 @@ void *CommandSenderThread( void *threadargs )
                 cp.outputTo(payload);
                 log.write((char *)payload, length);
                 delete payload;
-                log.flush();
+                //log.flush();
             }
         }
 
         if (stop_message[tid] == 1){
             printf("CommandSender thread #%ld exiting\n", tid);
+            if (LOG_PACKETS) log.close();
             started[tid] = false;
             pthread_exit( NULL );
         }
@@ -1084,7 +1088,7 @@ void image_queue_solution(HeaderData &argHeader)
                 cp << (double)0; // roll offset
                 cp << (double)0.003; // error
                 cp << (uint32_t)argHeader.captureTime.tv_sec; //seconds
-                cp << (uint16_t)(argHeader.captureTime.tv_nsec/1000000); //milliseconds
+                cp << (uint16_t)(argHeader.captureTime.tv_nsec/1e6+0.5); //milliseconds, rounded
             }
         } else { // isTracking is false
             if (!acknowledgedCTL) {
@@ -1116,6 +1120,22 @@ uint16_t cmd_send_image_to_ground( int camera_id )
     uint16_t error_code = 0;
     cv::Mat localFrame;
     HeaderData localHeader;
+
+    char stringtemp[80];
+    char filename[128];
+    time_t ltime;
+    struct tm *times;
+    std::ofstream log;
+
+    if (LOG_PACKETS) {
+        time(&ltime);
+        times = localtime(&ltime);
+        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+        sprintf(filename, "%slog_sc_%s.bin", SAVE_LOCATION, stringtemp);
+        filename[128 - 1] = '\0';
+        printf("Creating science log file %s \n",filename);
+        log.open(filename, std::ofstream::binary);
+    }
 
     TCPSender tcpSndr(IP_FDR, (unsigned short) PORT_IMAGE);
     int ret = tcpSndr.init_connection();
@@ -1164,12 +1184,21 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             while(!im_packet_queue.empty()) {
                 im_packet_queue >> im;
                 tcpSndr.send_packet( &im );
+                if (LOG_PACKETS) {
+                    uint16_t length = im.getLength();
+                    uint8_t *payload = new uint8_t[length];
+                    im.outputTo(payload);
+                    log.write((char *)payload, length);
+                    delete payload;
+                    //log.flush();
+                }
             }
-
         }
         tcpSndr.close_connection();
         error_code = 1;
     } else { error_code = 2; }
+
+    if (LOG_PACKETS) log.close();
     return error_code;
 }
         
@@ -1200,15 +1229,7 @@ void *CommandHandlerThread(void *threadargs)
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case SKEY_SET_EXPOSURE:    // set exposure time
-            {
-                if(my_data->command_num_vars == 1) exposure = my_data->command_vars[0];
-                if( exposure == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Requested exposure time is: " << exposure << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_IMAGESAVETOGGLE:
+        case SKEY_SET_IMAGESAVEFLAG:
             {
                 if(my_data->command_num_vars == 1) isSavingImages = (my_data->command_vars[0] > 0);
                 if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
@@ -1217,19 +1238,51 @@ void *CommandHandlerThread(void *threadargs)
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case SKEY_SET_PREAMPGAIN:    // set preamp gain
+        case SKEY_SET_PYAS_EXPOSURE:    // set exposure time
             {
-                if( my_data->command_num_vars == 1) preampGain = (int16_t)my_data->command_vars[0];
-                if( preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Requested preamp gain is: " << preampGain << std::endl;
+                if(my_data->command_num_vars == 1) settings[0].exposure = my_data->command_vars[0];
+                if( settings[0].exposure == my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current exposure time is: " << settings[0].exposure << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
-        case SKEY_SET_ANALOGGAIN:    // set analog gain
+        case SKEY_SET_PYAS_PREAMPGAIN:    // set preamp gain
             {
-                if( my_data->command_num_vars == 1) analogGain = my_data->command_vars[0];
-                if( analogGain == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Requested analog gain is: " << analogGain << std::endl;
+                if( my_data->command_num_vars == 1) settings[0].preampGain = (int16_t)my_data->command_vars[0];
+                if( settings[0].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current preamp gain is: " << settings[0].preampGain << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_PYAS_ANALOGGAIN:    // set analog gain
+            {
+                if( my_data->command_num_vars == 1) settings[0].analogGain = my_data->command_vars[0];
+                if( settings[0].analogGain == my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current analog gain is: " << settings[0].analogGain << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_RAS_EXPOSURE:    // set exposure time
+            {
+                if(my_data->command_num_vars == 1) settings[1].exposure = my_data->command_vars[0];
+                if( settings[1].exposure == my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current exposure time is: " << settings[1].exposure << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_RAS_PREAMPGAIN:    // set preamp gain
+            {
+                if( my_data->command_num_vars == 1) settings[1].preampGain = (int16_t)my_data->command_vars[0];
+                if( settings[1].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current preamp gain is: " << settings[1].preampGain << std::endl;
+                queue_cmd_proc_ack_tmpacket( error_code );
+            }
+            break;
+        case SKEY_SET_RAS_ANALOGGAIN:    // set analog gain
+            {
+                if( my_data->command_num_vars == 1) settings[1].analogGain = my_data->command_vars[0];
+                if( settings[1].analogGain == my_data->command_vars[0] ) error_code = 0;
+                std::cout << "Current analog gain is: " << settings[1].analogGain << std::endl;
                 queue_cmd_proc_ack_tmpacket( error_code );
             }
             break;
@@ -1246,19 +1299,34 @@ void *CommandHandlerThread(void *threadargs)
                 isOutputting = false;
             }
             break;
-        case SKEY_GET_EXPOSURE:
+        case SKEY_GET_PYAS_EXPOSURE:
             {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)exposure );
+                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[0].exposure );
             }
             break;
-        case SKEY_GET_ANALOGGAIN:
+        case SKEY_GET_PYAS_ANALOGGAIN:
             {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)analogGain );
+                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[0].analogGain );
             }
             break;
-        case SKEY_GET_PREAMPGAIN:
+        case SKEY_GET_PYAS_PREAMPGAIN:
             {
-                queue_cmd_proc_ack_tmpacket( (int16_t)preampGain );
+                queue_cmd_proc_ack_tmpacket( (int16_t)settings[0].preampGain );
+            }
+            break;
+        case SKEY_GET_RAS_EXPOSURE:
+            {
+                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[1].exposure );
+            }
+            break;
+        case SKEY_GET_RAS_ANALOGGAIN:
+            {
+                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[1].analogGain );
+            }
+            break;
+        case SKEY_GET_RAS_PREAMPGAIN:
+            {
+                queue_cmd_proc_ack_tmpacket( (int16_t)settings[1].preampGain );
             }
             break;
         case SKEY_GET_DISKSPACE:
