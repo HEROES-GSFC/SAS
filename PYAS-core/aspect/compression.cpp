@@ -38,14 +38,21 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
 {
     try {
 
+        double min, max;
     cv::Mat image = _image.getMat();
     cv::Size size = image.size();
     std::string timeKey;
+
+    cv::minMaxLoc(image, &min, &max, NULL, NULL);
     if (size.width == 0 || size.height == 0)
     {
         std::cout << "Image dimension is 0. Not saving." << std::endl;
         return -1;
-    }    
+    }
+    else if (min == max)
+    {
+        std::cout << "writeFITSImage: Saving an image that's all zeros" << std::endl;
+    }
     // declare auto-pointer to FITS at function scope. Ensures no resources
     // leaked if something fails in dynamic allocation.
     std::auto_ptr<FITS> pFits(0);
@@ -286,19 +293,38 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
 int readFITSImage(const std::string fileName, cv::OutputArray _image)
 {
     cv::Size frameSize;
-    std::auto_ptr<FITS> pInfile(new FITS(fileName,Read,true));
+    std::auto_ptr<FITS> pInfile(NULL);
+    try 
+    {
+        pInfile.reset(new FITS(fileName,Read,true));
+    } 
+    catch (FitsError fe) 
+    {
+        std::cout << "Exception in readFITSImage declaring file pointer\n";
+        std::cout << fe.message() << std::endl;
+        //throw fe;
+    }
         
 //    PHDU& fileHeader = pInfile->pHDU();
-    ExtHDU& image = pInfile->extension("Raw Frame");
 
+    ExtHDU& image = pInfile->extension("Raw Frame");
     frameSize.height = image.axis(1);
     frameSize.width = image.axis(0);
 
     std::valarray<unsigned char> contents;
-    image.read(contents);
-            
-    cv::Mat frame(frameSize, CV_8UC1, &contents[0]);
 
+    try
+    {
+        image.read(contents);
+    }
+    catch (FitsError fe) 
+    {
+        std::cout << "Exception in readFITSImage reading image extension\n";
+        std::cout << fe.message() << std::endl;
+        //throw fe;
+    }  
+    cv::Mat frame(frameSize, CV_8UC1, &contents[0]);
+    
     frame.copyTo(_image);
     return 0;   
 }
