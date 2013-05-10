@@ -1148,14 +1148,123 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             pthread_mutex_unlock(mutexHeader+camera_id);
         }
         if( !localFrame.empty() ){
-            //1 for SAS-1/PYAS-F, 2 for SAS-2/PYAS-R, 6 for SAS-2/RAS
-            uint8_t camera = sas_id+4*camera_id;
+            int tint;
+            long tlong;
+            float tfloat;
+            double tdouble;
 
             //First add FITS header tags
-            uint32_t temp = localHeader.exposure;
-            im_packet_queue << ImageTagPacket(camera, &temp, TLONG, "EXPOSURE", "Exposure time in msec");
-            im_packet_queue << ImageTagPacket(camera, (camera_id == 0 ? (sas_id == 1 ? "PYAS-F" : "PYAS-R") : "RAS"), TSTRING, "INSTRUME", "Name of instrument");
-            im_packet_queue << ImageTagPacket(camera, (sas_id == 1 ? "HEROES/SAS-1" : "HEROES/SAS-2"), TSTRING, "ORIGIN", "Location where file was made");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, "HEROES/SAS", TSTRING, "TELESCOP", "Name of source telescope package");
+
+            switch(localHeader.cameraID) {
+                case 1:
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, "PYAS-F", TSTRING, "INSTRUME", "Name of instrument");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, "HEROES/SAS-1", TSTRING, "ORIGIN", "Location where file was made");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = 6300), TLONG, "WAVELNTH", "Wavelength of observation (ang)");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, "630 nm", TSTRING, "WAVE_STR", "Wavelength of observation");
+                    break;
+                case 2:
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, "PYAS-R", TSTRING, "INSTRUME", "Name of instrument");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, "HEROES/SAS-2", TSTRING, "ORIGIN", "Location where file was made");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = 6300), TLONG, "WAVELNTH", "Wavelength of observation (ang)");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, "630 nm", TSTRING, "WAVE_STR", "Wavelength of observation");
+                    break;
+                case 6:
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, "RAS", TSTRING, "INSTRUME", "Name of instrument");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, "HEROES/SAS-2", TSTRING, "ORIGIN", "Location where file was made");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = 6300), TLONG, "WAVELNTH", "Wavelength of observation (ang)");
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, "600 nm", TSTRING, "WAVE_STR", "Wavelength of observation");
+                    break;
+            }
+
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = 8), TLONG, "BITPIX", "Bit depth of image");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, "angstrom", TSTRING, "WAVEUNIT", "Units of WAVELNTH");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, "DN", TSTRING, "PIXLUNIT", "Pixel units");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, "LIGHT", TSTRING, "IMG_TYPE", "Image type");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = 6.96e8), TDOUBLE, "RSUN_REF", "");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, "LIGHT", TSTRING, "CTLMODE", "Image type");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = 0), TINT, "LVL_NUM", "Level of data");
+
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = 0), TDOUBLE, "RSUN_OBS", "");
+
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, "HPLN-TAN", TSTRING, "CTYPE1", "Coordinate axis system");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, "HPLN-TAN", TSTRING, "CTYPE2", "Coordinate axis system");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, "arcsec", TSTRING, "CUNIT1", "Coordinate Units");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, "arcsec", TSTRING, "CUNIT2", "Coordinate Units");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = 0.0), TDOUBLE, "CRVAL1", "Reference pixel coordinate");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = 0.0), TDOUBLE, "CRVAL2", "Reference pixel coordinate");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = localHeader.XYinterceptslope[2] * 1.72), TDOUBLE, "CDELT1", "Plate scale");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = localHeader.XYinterceptslope[3] * 1.72), TDOUBLE, "CDELT2", "Plate scale");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = localHeader.sunCenter[0]+1), TDOUBLE, "CRPIX1", "Reference pixel");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = localHeader.sunCenter[1]+1), TDOUBLE, "CRPIX2", "Reference pixel");
+
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.exposure/1e6), TFLOAT, "EXPTIME", "Exposure time in seconds");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, asctime(gmtime(&(localHeader.captureTime).tv_sec)), TSTRING, "DATE_OBS", "Date of observation (UTC)");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.cameraTemperature), TFLOAT, "TEMPCCD", "Temperature of camera (deg C)");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.cpuTemperature), TINT, "TEMPCPU", "Temperature of cpu (deg C)");
+
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, "N/A", TSTRING, "FILENAME", "Name of the data file");
+
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, asctime(gmtime(&(localHeader.captureTime).tv_sec)), TSTRING, "RT_OBS", "Realtime clock");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTime.tv_nsec), TLONG, "RT_NANO", "Realtime clock nanoseconds");
+
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, asctime(gmtime(&(localHeader.captureTimeMono).tv_sec)), TSTRING, "MON_OBS", "Monotonic clock");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = (localHeader.captureTimeMono).tv_nsec), TLONG, "MON_NANO", "Monotonic clock nanoseconds");
+
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.exposure), TLONG, "EXPOSURE", "Exposure time in msec");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.preampGain), TFLOAT, "GAIN_PRE", "Preamp gain of CCD");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.analogGain), TFLOAT, "GAIN_ANA", "Analog gain of CCD");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.frameCount), TFLOAT, "FRAMENUM", "Frame number");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.imageMinMax[0]), TFLOAT, "DATAMIN", "Minimum value of data");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.imageMinMax[1]), TFLOAT, "DATAMAX", "Maximum value of data");
+
+            if((localHeader.cameraID == 1) || (localHeader.cameraID == 2)) {
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.sunCenter[0]), TFLOAT, "SUNCENT1", "Calculated Sun center in x-pixel");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.sunCenter[1]), TFLOAT, "SUNCENT2", "Calculated Sun center in y-pixel");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = localHeader.CTLsolution[0]), TDOUBLE, "CTL_AZIM", "Azimuth offset for CTL (deg)");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = localHeader.CTLsolution[1]), TDOUBLE, "CTL_ELEV", "Elevation offset for CTL (deg)");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.XYinterceptslope[0]), TFLOAT, "INTRCPT1", "");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.XYinterceptslope[1]), TFLOAT, "INTRCPT2", "");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.XYinterceptslope[2]), TFLOAT, "SLOPE1", "");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.XYinterceptslope[3]), TFLOAT, "SLOPE2", "");
+
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.fiducialCount), TINT, "FID_NUM", "Number of fiducials");
+
+                for (int j = 0; j < 10; j++) {
+                    char tag[9];
+                    sprintf(tag, "FID%1d_-", j);
+                    tag[5] = 'X';
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.fiducialX[j]), TFLOAT, tag, "");
+                    tag[5] = 'Y';
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.fiducialY[j]), TFLOAT, tag, "");
+                }
+
+                for (int j = 0; j < 10; j++) {
+                    char tag[9];
+                    sprintf(tag, "FID%1dID_-", j);
+                    tag[7] = 'X';
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.fiducialIDX[j]), TFLOAT, tag, "");
+                    tag[7] = 'Y';
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.fiducialIDY[j]), TFLOAT, tag, "");
+                }
+
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.limbCount), TINT, "LIMB_NUM", "Number of limbs");
+
+                for (int j = 0; j < 10; j++) {
+                    char tag[9];
+                    sprintf(tag, "LIMB%1d_-", j);
+                    tag[6] = 'X';
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.limbX[j]), TFLOAT, tag, "");
+                    tag[6] = 'Y';
+                    im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.limbY[j]), TFLOAT, tag, "");
+                }
+            }
+
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.cpuVoltage[0]), TFLOAT, "SBC_V105", "");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.cpuVoltage[1]), TFLOAT, "SBC_V25", "");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.cpuVoltage[2]), TFLOAT, "SBC_V33", "");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.cpuVoltage[3]), TFLOAT, "SBC_V50", "");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.cpuVoltage[4]), TFLOAT, "SBC_V120", "");
 
             uint16_t numXpixels = localFrame.cols;
             uint16_t numYpixels = localFrame.rows;
@@ -1171,7 +1280,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
                 memcpy(array+j*cols, localFrame.ptr<uint8_t>(j), cols);
             }
 
-            im_packet_queue.add_array(camera, numXpixels, numYpixels, array);
+            im_packet_queue.add_array(localHeader.cameraID, numXpixels, numYpixels, array);
 
             delete array;
 
