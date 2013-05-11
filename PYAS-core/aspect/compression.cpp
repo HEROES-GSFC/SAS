@@ -137,13 +137,11 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("FILENAME", fileName , "Name of the data file");
     //pFits->pHDU().addKey("TIME", 0 , "Time of observation in seconds within a day");
 
-    timeKey = asctime(gmtime(&(keys.captureTime).tv_sec));
-    pFits->pHDU().addKey("RT_OBS", timeKey , "Frame Capture Time (UTC)");
-    pFits->pHDU().addKey("RT_NANO", (long)(keys.captureTime).tv_nsec, "Frame capture fractional seconds");
+    pFits->pHDU().addKey("RT_SEC", (long)keys.captureTime.tv_sec , "Realtime clock, seconds");
+    pFits->pHDU().addKey("RT_NSEC", (long)keys.captureTime.tv_nsec, "Realtime clock, nanoseconds");
 
-    timeKey = asctime(gmtime(&(keys.captureTimeMono).tv_sec));
-    pFits->pHDU().addKey("MON_OBS", timeKey , "Frame Capture Time (UTC)");
-    pFits->pHDU().addKey("MON_NANO", (long)(keys.captureTimeMono).tv_nsec, "Frame capture fractional seconds");
+    pFits->pHDU().addKey("MON_SEC", (long)keys.captureTimeMono.tv_sec , "Monotonic clock, seconds");
+    pFits->pHDU().addKey("MON_NSEC", (long)keys.captureTimeMono.tv_nsec, "Monotonic clock, nanoseconds");
 
     pFits->pHDU().addKey("EXPOSURE", (int)keys.exposure,"Exposure time in msec");
     pFits->pHDU().addKey("GAIN_PRE", (int)keys.preampGain, "Preamp gain of CCD");

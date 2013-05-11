@@ -1217,11 +1217,11 @@ uint16_t cmd_send_image_to_ground( int camera_id )
 
             im_packet_queue << ImageTagPacket(localHeader.cameraID, "N/A", TSTRING, "FILENAME", "Name of the data file");
 
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, asctime(gmtime(&(localHeader.captureTime).tv_sec)), TSTRING, "RT_OBS", "Realtime clock");
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTime.tv_nsec), TLONG, "RT_NANO", "Realtime clock nanoseconds");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTime.tv_sec), TLONG, "RT_SEC", "Realtime clock, seconds");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTime.tv_nsec), TLONG, "RT_NSEC", "Realtime clock, nanoseconds");
 
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, asctime(gmtime(&(localHeader.captureTimeMono).tv_sec)), TSTRING, "MON_OBS", "Monotonic clock");
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = (localHeader.captureTimeMono).tv_nsec), TLONG, "MON_NANO", "Monotonic clock nanoseconds");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTimeMono.tv_sec), TLONG, "MON_SEC", "Monotonic clock, seconds");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTimeMono.tv_nsec), TLONG, "MON_NSEC", "Monotonic clock, nanoseconds");
 
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.exposure), TINT, "EXPOSURE", "Exposure time in msec");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.preampGain), TINT, "GAIN_PRE", "Preamp gain of CCD");
