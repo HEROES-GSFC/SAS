@@ -250,6 +250,9 @@ int readFITSImage(const std::string fileName, cv::OutputArray _image)
         std::cerr << "Exception somewhere in readFITSImage()\n";
         std::cerr << fe.message() << std::endl;
         return -1;
+    } catch (FITS::NoSuchHDU fe) {
+        std::cerr << "Missing HDU for frame!\n";
+        return -1;
     }
 
     return 0;   
