@@ -31,7 +31,7 @@ ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
 
-EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
+EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator test_telemetry evaluate
 
 default: sunDemo sbc_info sbc_shutdown
 
@@ -63,6 +63,9 @@ AspectVideo: AspectVideo.cpp processing.o utilities.o compression.o
 
 test_telemetry: test_telemetry.cpp Telemetry.o Packet.o lib_crc.o UDPSender.o types.o
 	$(CC) $(CFLAGS) $^ -o $@
+
+evaluate: evaluate.cpp compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 #This executable need to be copied to /usr/local/bin/ after it is built
 sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
