@@ -15,7 +15,7 @@ int writePNGImage(cv::InputArray _image, const std::string fileName)
     cv::Size size = image.size();
     if (size.width == 0 || size.height == 0)
     {
-        std::cout << "Image dimension is 0. Not saving." << std::endl;
+        std::cerr << "Image dimension is 0. Not saving." << std::endl;
         return -1;
     } 
     pngParams.push_back(CV_IMWRITE_PNG_COMPRESSION);
@@ -26,9 +26,9 @@ int writePNGImage(cv::InputArray _image, const std::string fileName)
     }
     catch(cv::Exception e)
     {
-        std::cout << "OpenCV Error: " << e.err << std::endl;
-        std::cout << "    In file: " << e.file << std::endl;
-        std::cout << "    on line: " << e.line << std::endl;
+        std::cerr << "OpenCV Error: " << e.err << std::endl;
+        std::cerr << "    In file: " << e.file << std::endl;
+        std::cerr << "    on line: " << e.line << std::endl;
         return -1;
     }
     return 0;
@@ -43,7 +43,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     std::string timeKey;
     if (size.width == 0 || size.height == 0)
     {
-        std::cout << "Image dimension is 0. Not saving." << std::endl;
+        std::cerr << "Image dimension is 0. Not saving." << std::endl;
         return -1;
     }    
     // declare auto-pointer to FITS at function scope. Ensures no resources
@@ -74,7 +74,8 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
         imageExt = pFits->addImage(newName, BYTE_IMG, extAx, 1);
     }
     catch(FitsError e){
-        std::cout << e.message() << "\n";
+        std::cerr << "Error while creating image extension\n";
+        std::cerr << e.message() << "\n";
         return -1;
     }
 
@@ -210,13 +211,14 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
         imageExt->write(fpixel,nelements,array);
     }
     catch(FitsException e){
-        std::cout << e.message();
+        std::cerr << "Exception while writing image to extension\n";
+        std::cerr << e.message() << std::endl;
         return -1;
     }
 
     } catch (FitsError fe) {
-        std::cout << "Exception somewhere else in writeFITSImage()\n";
-        std::cout << fe.message() << std::endl;
+        std::cerr << "Exception somewhere else in writeFITSImage()\n";
+        std::cerr << fe.message() << std::endl;
         //throw fe;
     }
 
@@ -245,9 +247,9 @@ int readFITSImage(const std::string fileName, cv::OutputArray _image)
     frame.copyTo(_image);
 
     } catch (FitsError fe) {
-        std::cout << "Exception somewhere else in readFITSImage()\n";
-        std::cout << fe.message() << std::endl;
-        //throw fe;
+        std::cerr << "Exception somewhere in readFITSImage()\n";
+        std::cerr << fe.message() << std::endl;
+        return -1;
     }
 
     return 0;   

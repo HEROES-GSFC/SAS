@@ -398,7 +398,7 @@ void *CameraThread( void * threadargs, int camera_id)
             if(!camera.Snap(localFrame, frameRate))
             {
                 if((camera_id == 0) && USE_MOCK_PYAS_IMAGE) {
-                    readFITSImage(MOCK_PYAS_IMAGE, localFrame);
+                    while(readFITSImage(MOCK_PYAS_IMAGE, localFrame) != 0);
                 }
                 frameCount[camera_id]++;
                 failcount = 0;
