@@ -149,6 +149,7 @@ pthread_t threads[MAX_THREADS];
 bool started[MAX_THREADS];
 int tid_listen = 0;
 pthread_attr_t attr;
+pthread_mutex_t mutexStartThread;
 pthread_mutex_t mutexHeader[2];  //Used to protect both the frame and header information
 pthread_mutex_t mutexImageSave[2];  //Used to make sure that no more than one ImageSaveThread is running
 
@@ -398,7 +399,9 @@ void *CameraThread( void * threadargs, int camera_id)
             if(!camera.Snap(localFrame, frameRate))
             {
                 if((camera_id == 0) && USE_MOCK_PYAS_IMAGE) {
-                    while(readFITSImage(MOCK_PYAS_IMAGE, localFrame) != 0);
+                    while(readFITSImage(MOCK_PYAS_IMAGE, localFrame) != 0) {
+                        std::cerr << "Trying again...\n";
+                    }
                 }
                 frameCount[camera_id]++;
                 failcount = 0;
@@ -1494,6 +1497,7 @@ void cmd_process_heroes_command(uint16_t heroes_command)
 
 void start_thread(void *(*routine) (void *), const Thread_data *tdata)
 {
+    pthread_mutex_lock(&mutexStartThread);
     int i = 0;
     while (started[i] == true) {
         i++;
@@ -1516,6 +1520,8 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
     } else started[i] = true;
 
     pthread_attr_destroy(&attr);
+
+    pthread_mutex_unlock(&mutexStartThread);
 
     return;
 }
@@ -1623,6 +1629,7 @@ int main(void)
     identifySAS();
     if (sas_id == 1) isOutputting = true;
 
+    pthread_mutex_init(&mutexStartThread, NULL);
     pthread_mutex_init(mutexHeader, NULL);
     pthread_mutex_init(mutexHeader+1, NULL);
     pthread_mutex_init(mutexImageSave, NULL);
@@ -1662,6 +1669,7 @@ int main(void)
     printf("Quitting and cleaning up.\n");
     /* wait for threads to finish */
     kill_all_threads();
+    pthread_mutex_destroy(&mutexStartThread);
     pthread_mutex_destroy(mutexHeader);
     pthread_mutex_destroy(mutexHeader+1);
     pthread_mutex_destroy(mutexImageSave);
