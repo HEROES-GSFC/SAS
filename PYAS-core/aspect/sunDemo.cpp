@@ -227,8 +227,10 @@ bool set_if_different(T& variable, T value); //returns true if the value is diff
 
 void sig_handler(int signum)
 {
-    if (signum == SIGINT)
+    if ((signum == SIGINT) || (signum == SIGTERM))
     {
+        if (signum == SIGINT) std::cerr << "Keyboard interrupt received\n";
+        if (signum == SIGTERM) std::cerr << "Termination signal received\n";
         g_running = 0;
     }
 }
@@ -1623,8 +1625,9 @@ void start_all_workers()
 
 int main(void)
 {  
-    // to catch a Ctrl-C and clean up
+    // to catch a Ctrl-C or termination signal and clean up
     signal(SIGINT, &sig_handler);
+    signal(SIGTERM, &sig_handler);
 
     identifySAS();
     if (sas_id == 1) isOutputting = true;
