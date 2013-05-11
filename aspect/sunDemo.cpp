@@ -3,7 +3,7 @@
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
 #define USE_MOCK_PYAS_IMAGE false
-#define MOCK_PYAS_IMAGE "/mnt/disk1/130421/image_130421_153000_45361.fits"
+#define MOCK_PYAS_IMAGE "/mnt/disk1/130421/image_130421_143000_13385.fits"
 
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
@@ -149,6 +149,7 @@ pthread_t threads[MAX_THREADS];
 bool started[MAX_THREADS];
 int tid_listen = 0;
 pthread_attr_t attr;
+pthread_mutex_t mutexStartThread;
 pthread_mutex_t mutexHeader[2];  //Used to protect both the frame and header information
 pthread_mutex_t mutexImageSave[2];  //Used to make sure that no more than one ImageSaveThread is running
 
@@ -226,8 +227,10 @@ bool set_if_different(T& variable, T value); //returns true if the value is diff
 
 void sig_handler(int signum)
 {
-    if (signum == SIGINT)
+    if ((signum == SIGINT) || (signum == SIGTERM))
     {
+        if (signum == SIGINT) std::cerr << "Keyboard interrupt received\n";
+        if (signum == SIGTERM) std::cerr << "Termination signal received\n";
         g_running = 0;
     }
 }
@@ -398,7 +401,9 @@ void *CameraThread( void * threadargs, int camera_id)
             if(!camera.Snap(localFrame, frameRate))
             {
                 if((camera_id == 0) && USE_MOCK_PYAS_IMAGE) {
-                    while(readFITSImage(MOCK_PYAS_IMAGE, localFrame) != 0);
+                    while(readFITSImage(MOCK_PYAS_IMAGE, localFrame) != 0) {
+                        std::cerr << "Trying again...\n";
+                    }
                 }
                 frameCount[camera_id]++;
                 failcount = 0;
@@ -1214,11 +1219,11 @@ uint16_t cmd_send_image_to_ground( int camera_id )
 
             im_packet_queue << ImageTagPacket(localHeader.cameraID, "N/A", TSTRING, "FILENAME", "Name of the data file");
 
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, asctime(gmtime(&(localHeader.captureTime).tv_sec)), TSTRING, "RT_OBS", "Realtime clock");
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTime.tv_nsec), TLONG, "RT_NANO", "Realtime clock nanoseconds");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTime.tv_sec), TLONG, "RT_SEC", "Realtime clock, seconds");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTime.tv_nsec), TLONG, "RT_NSEC", "Realtime clock, nanoseconds");
 
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, asctime(gmtime(&(localHeader.captureTimeMono).tv_sec)), TSTRING, "MON_OBS", "Monotonic clock");
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = (localHeader.captureTimeMono).tv_nsec), TLONG, "MON_NANO", "Monotonic clock nanoseconds");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTimeMono.tv_sec), TLONG, "MON_SEC", "Monotonic clock, seconds");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTimeMono.tv_nsec), TLONG, "MON_NSEC", "Monotonic clock, nanoseconds");
 
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.exposure), TINT, "EXPOSURE", "Exposure time in msec");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.preampGain), TINT, "GAIN_PRE", "Preamp gain of CCD");
@@ -1494,6 +1499,7 @@ void cmd_process_heroes_command(uint16_t heroes_command)
 
 void start_thread(void *(*routine) (void *), const Thread_data *tdata)
 {
+    pthread_mutex_lock(&mutexStartThread);
     int i = 0;
     while (started[i] == true) {
         i++;
@@ -1516,6 +1522,8 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
     } else started[i] = true;
 
     pthread_attr_destroy(&attr);
+
+    pthread_mutex_unlock(&mutexStartThread);
 
     return;
 }
@@ -1617,12 +1625,14 @@ void start_all_workers()
 
 int main(void)
 {  
-    // to catch a Ctrl-C and clean up
+    // to catch a Ctrl-C or termination signal and clean up
     signal(SIGINT, &sig_handler);
+    signal(SIGTERM, &sig_handler);
 
     identifySAS();
     if (sas_id == 1) isOutputting = true;
 
+    pthread_mutex_init(&mutexStartThread, NULL);
     pthread_mutex_init(mutexHeader, NULL);
     pthread_mutex_init(mutexHeader+1, NULL);
     pthread_mutex_init(mutexImageSave, NULL);
@@ -1662,6 +1672,7 @@ int main(void)
     printf("Quitting and cleaning up.\n");
     /* wait for threads to finish */
     kill_all_threads();
+    pthread_mutex_destroy(&mutexStartThread);
     pthread_mutex_destroy(mutexHeader);
     pthread_mutex_destroy(mutexHeader+1);
     pthread_mutex_destroy(mutexImageSave);
