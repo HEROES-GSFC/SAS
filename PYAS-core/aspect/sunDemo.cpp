@@ -198,6 +198,7 @@ void *RASCameraThread( void * threadargs);
 
 void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader);
 void image_queue_solution(HeaderData &argHeader);
+bool check_solution(HeaderData &argHeader);
 void *ImageSaveThread(void *threadargs);
 
 void *TelemetrySenderThread(void *threadargs);
