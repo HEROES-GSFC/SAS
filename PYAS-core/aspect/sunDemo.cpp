@@ -3,7 +3,7 @@
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
 #define USE_MOCK_PYAS_IMAGE false
-#define MOCK_PYAS_IMAGE "/mnt/disk1/130421/image_130421_153000_45361.fits"
+#define MOCK_PYAS_IMAGE "/mnt/disk1/130421/image_130421_143000_13385.fits"
 
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
