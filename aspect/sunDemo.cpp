@@ -8,6 +8,14 @@
 #define SAVE_LOCATION1 "/mnt/disk1/"
 #define SAVE_LOCATION2 "/mnt/disk2/"
 
+//Calibrated parameters
+#define CLOCKING_ANGLE_PYASF -30
+#define CENTER_X_PYASF 0
+#define CENTER_Y_PYASF 0
+#define CLOCKING_ANGLE_PYASR -60
+#define CENTER_X_PYASR 0
+#define CENTER_Y_PYASR 0
+
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
 
@@ -177,7 +185,7 @@ cv::Mat frame[2]; //protected by mutexHeader
 HeaderData header[2]; //protected by mutexHeader
 
 Aspect aspect;
-Transform solarTransform;
+Transform solarTransform(HUNTSVILLE, GROUND); //see Transform.hpp for options
 
 CameraSettings settings[2]; //not protected!
 
@@ -1611,7 +1619,18 @@ int main(void)
     signal(SIGTERM, &sig_handler);
 
     identifySAS();
-    if (sas_id == 1) isOutputting = true;
+    switch (sas_id) {
+        case 1:
+            isOutputting = true;
+            solarTransform.set_clocking(CLOCKING_ANGLE_PYASF);
+            solarTransform.set_calibrated_center(Pair(CENTER_X_PYASF, CENTER_Y_PYASF));
+            break;
+        case 2:
+            isOutputting = false;
+            solarTransform.set_clocking(CLOCKING_ANGLE_PYASR);
+            solarTransform.set_calibrated_center(Pair(CENTER_X_PYASR, CENTER_Y_PYASR));
+            break;
+    }
 
     pthread_mutex_init(&mutexStartThread, NULL);
     pthread_mutex_init(&mutexHeader[0], NULL);
