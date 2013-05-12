@@ -1,4 +1,4 @@
 #!/bin/sh
 
 source /opt/pleora/ebus_sdk/bin/set_puregev_env
-/usr/local/bin/sunDemo.runtime > /dev/null
+/usr/local/bin/sas.runtime > /dev/null
