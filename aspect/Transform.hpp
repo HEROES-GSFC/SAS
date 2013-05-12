@@ -16,8 +16,24 @@
 #include "types.hpp"
 #include "spa/spa.h"
 
+enum Location
+{
+    GREENBELT = 0,
+    HUNTSVILLE,
+    FORT_SUMNER
+};
+
+enum Environment
+{
+    GROUND = 0,
+    FLIGHT
+};
+
 class Transform {
 private:
+    Location location = HUNTSVILLE;
+    Environment environment = GROUND;
+
     //Conversion from pixel to screen coordinates
     Pair conversion_intercept;
     Pair conversion_slope;
