@@ -74,6 +74,7 @@
 #define SKEY_RESTART_THREADS     0x0020
 #define SKEY_START_OUTPUTTING    0x0030
 #define SKEY_STOP_OUTPUTTING     0x0040
+#define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
 
 //Setting commands
@@ -130,6 +131,8 @@
 uint16_t command_sequence_number = -1; //last SAS command packet number
 uint16_t latest_sas_command_key = 0xFFFF; //last SAS command
 uint16_t ctl_sequence_number = 0; //global so that 0x1104 packets share the same counter as the other 0x110? packets
+
+uint8_t tm_frames_to_suppress = 0;
 
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
@@ -891,8 +894,9 @@ void *TelemetryPackagerThread(void *threadargs)
         //Tacking on I2C temperatures
         for (int i=0; i<8; i++) tp << (int8_t)localHeaders[0].i2c_temperatures[i];
 
-        //add telemetry packet to the queue
-        tm_packet_queue << tp;
+        //add telemetry packet to the queue if not being suppressed
+        if (tm_frames_to_suppress > 0) tm_frames_to_suppress--;
+        else tm_packet_queue << tp;
     }
 
     printf("TelemetryPackager thread #%ld exiting\n", tid);
@@ -1397,12 +1401,18 @@ void *CommandHandlerThread(void *threadargs)
         case SKEY_START_OUTPUTTING:
             {
                 isOutputting = true;
+                queue_cmd_proc_ack_tmpacket(0);
             }
             break;
         case SKEY_STOP_OUTPUTTING:
             {
                 isOutputting = false;
+                queue_cmd_proc_ack_tmpacket(0);
             }
+            break;
+        case SKEY_SUPPRESS_TELEMETRY:
+            tm_frames_to_suppress = (uint8_t)my_data->command_vars[0];
+            queue_cmd_proc_ack_tmpacket(0);
             break;
         case SKEY_GET_PYAS_EXPOSURE:
             {
