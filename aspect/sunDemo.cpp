@@ -86,6 +86,7 @@
 #define SKEY_SET_RAS_EXPOSURE    0x0551
 #define SKEY_SET_RAS_ANALOGGAIN  0x0581
 #define SKEY_SET_RAS_PREAMPGAIN  0x0591
+#define SKEY_SET_CLOCKING        0x0621
 
 //Getting commands
 #define SKEY_REQUEST_PYAS_IMAGE  0x0810
@@ -1397,6 +1398,11 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_SET_TARGET:    // set new solar target
             solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
+            queue_cmd_proc_ack_tmpacket(0);
+            break;
+        case SKEY_SET_CLOCKING:    // set new solar target
+            solarTransform.set_clocking(Float2B(my_data->command_vars[0]).value());
+            queue_cmd_proc_ack_tmpacket(0);
             break;
         case SKEY_START_OUTPUTTING:
             {
