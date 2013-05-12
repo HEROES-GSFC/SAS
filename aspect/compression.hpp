@@ -9,6 +9,7 @@ struct HeaderData
     int cameraID;
     float cameraTemperature;
     int cpuTemperature;
+    int i2c_temperatures[8];
     long frameCount;
     int exposure;
     timespec imageWriteTime;
