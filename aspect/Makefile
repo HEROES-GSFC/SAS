@@ -101,7 +101,7 @@ install: sunDemo sbc_info sbc_shutdown
 	sudo systemctl stop sas
 	sudo systemctl stop sbc_info
 	sudo systemctl stop sbc_shutdown
-	sudo cp sunDemo /usr/local/bin/sunDemo.runtime
+	sudo cp sunDemo /usr/local/bin/sas.runtime
 	sudo cp sbc_info /usr/local/bin/sbc_info.runtime
 	sudo cp sbc_shutdown /usr/local/bin/sbc_shutdown.runtime
 	sudo systemctl start sbc_shutdown

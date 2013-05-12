@@ -16,6 +16,19 @@
 #include "types.hpp"
 #include "spa/spa.h"
 
+enum Location
+{
+    GREENBELT = 0,
+    HUNTSVILLE,
+    FORT_SUMNER
+};
+
+enum Environment
+{
+    GROUND = 0,
+    FLIGHT
+};
+
 class Transform {
 private:
     //Conversion from pixel to screen coordinates
@@ -43,7 +56,7 @@ private:
     void prep();
 
 public:
-    Transform();
+    Transform(Location location = HUNTSVILLE, Environment environment = GROUND);
 
     Pair getSunAzEl(); //azimuth/elevation of the Sun
     Pair getTargetAzEl(); //azimuth/elevation of the solar target
@@ -51,7 +64,9 @@ public:
 
     Pair getAngularShift(const Pair& sunPixel);
 
+    //Be careful, this initiates a *new* calulation
     double getOrientation();
+    double getOrientationWithoutRecalculation() const;
 
     //returns new azimuth/elevation
     Pair translateAzEl(const Pair& amount, const Pair& azel);
@@ -64,6 +79,9 @@ public:
     void set_clocking(float arg);
 
     void set_solar_target(const Pair& arg);
+
+    float get_clocking() const;
+    Pair get_solar_target() const;
 };
 
 //Follows the scheme in spa.c but extends the calculation
