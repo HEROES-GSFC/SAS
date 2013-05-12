@@ -32,6 +32,7 @@
   -----
   Float2B
   -----
+  For FLOAT2B_OFFSET == 8192, the range is -1024 to 7167.88 in steps of 0.125
 
 */
 
@@ -95,7 +96,8 @@ public:
     Float2B(const float value);
     Float2B(const uint16_t value);
 
-    float value() const;
+    float value() const; //returns the float representation
+    uint16_t code() const; //returns the internal representation
 
     friend ByteString& operator<<(ByteString& bs, const Float2B& f2);
     friend std::ostream& operator<<(std::ostream& os, const Float2B& f2);

@@ -1,14 +1,26 @@
 #define MAX_THREADS 30
-#define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
 #define USE_MOCK_PYAS_IMAGE false
 #define MOCK_PYAS_IMAGE "/mnt/disk1/130421/image_130421_143000_13385.fits"
 
+//Save locations for FITS files, alternates between the two locations
+#define SAVE_LOCATION1 "/mnt/disk1/"
+#define SAVE_LOCATION2 "/mnt/disk2/"
+
+//Calibrated parameters
+#define CLOCKING_ANGLE_PYASF -30
+#define CENTER_X_PYASF 0
+#define CENTER_Y_PYASF 0
+#define CLOCKING_ANGLE_PYASR -60
+#define CENTER_X_PYASR 0
+#define CENTER_Y_PYASR 0
+
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
 
-//Frequency settings, do each per this many snaps (be mindful of non-multiples)
+//Frequency settings, do each of these per this many snaps
+//It's best if MOD_CTL and MOD_SAVE are multiples of MOD_PROCESS
 #define MOD_PROCESS 1 //process the image
 #define MOD_CTL     4 //send the processing results to CTL
 #define MOD_SAVE    20 //save the image to a local FITS file
@@ -40,8 +52,8 @@
 #define PORT_TM       2002 // send telemetry to FDR (except images)
 #define PORT_IMAGE    2013 // send images to FDR, TCP port
 #define PORT_SAS2     3000 // commands output from SAS2 to CTL are redirected here
-#define PORT_SBC_INFO 3456 //
-#define PORT_SBC_SHUTDOWN 3789 //
+#define PORT_SBC_INFO 3456 // incoming port to retrieve temperature data
+#define PORT_SBC_SHUTDOWN 3789 // outgoing port to signal a shutdown
 
 //HEROES target ID for commands, source ID for telemetry
 #define TARGET_ID_CTL 0x01
@@ -73,6 +85,7 @@
 #define SKEY_RESTART_THREADS     0x0020
 #define SKEY_START_OUTPUTTING    0x0030
 #define SKEY_STOP_OUTPUTTING     0x0040
+#define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
 
 //Setting commands
@@ -84,6 +97,9 @@
 #define SKEY_SET_RAS_EXPOSURE    0x0551
 #define SKEY_SET_RAS_ANALOGGAIN  0x0581
 #define SKEY_SET_RAS_PREAMPGAIN  0x0591
+#define SKEY_SET_CLOCKING        0x0621
+#define SKEY_SET_ASPECT_INT      0x0712
+#define SKEY_SET_ASPECT_FLOAT    0x0722
 
 //Getting commands
 #define SKEY_REQUEST_PYAS_IMAGE  0x0810
@@ -95,6 +111,8 @@
 #define SKEY_GET_RAS_EXPOSURE    0x0950
 #define SKEY_GET_RAS_ANALOGGAIN  0x0960
 #define SKEY_GET_RAS_PREAMPGAIN  0x0970
+#define SKEY_GET_ASPECT_INT      0x0B11
+#define SKEY_GET_ASPECT_FLOAT    0x0B21
 
 #define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 
@@ -104,7 +122,7 @@
 #include <stdlib.h>     /* for atoi() and exit() */
 #include <unistd.h>     /* for sleep()  */
 #include <signal.h>     /* for signal() */
-#include <math.h>       /* for testing only, remove when done */
+#include <math.h>
 #include <ctime>        /* time_t, struct tm, time, gmtime */
 #include <opencv.hpp>
 #include <iostream>
@@ -126,12 +144,11 @@
 #include "utilities.hpp"
 
 // global declarations
-uint16_t command_sequence_number = 0;
-uint16_t latest_heroes_command_key = 0x0000;
-uint16_t latest_sas_command_key = 0x0000;
-uint16_t latest_sas_command_vars[15];
-uint32_t tm_frame_sequence_number = 0;
-uint16_t ctl_sequence_number = 0;
+uint16_t command_sequence_number = -1; //last SAS command packet number
+uint16_t latest_sas_command_key = 0xFFFF; //last SAS command
+uint16_t ctl_sequence_number = 0; //global so that 0x1104 packets share the same counter as the other 0x110? packets
+
+uint8_t tm_frames_to_suppress = 0;
 
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
@@ -141,15 +158,13 @@ bool isSavingImages = true;  // is the SAS saving images?
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
 CommandPacketQueue cm_packet_queue;
-ImagePacketQueue im_packet_queue;
 
 // related to threads
-unsigned int stop_message[MAX_THREADS];
+bool stop_message[MAX_THREADS];
 pthread_t threads[MAX_THREADS];
 bool started[MAX_THREADS];
-int tid_listen = 0;
-pthread_attr_t attr;
-pthread_mutex_t mutexStartThread;
+int tid_listen = -1; //Stores the ID for the CommandListener thread
+pthread_mutex_t mutexStartThread; //Keeps new threads from being started simultaneously
 pthread_mutex_t mutexHeader[2];  //Used to protect both the frame and header information
 pthread_mutex_t mutexImageSave[2];  //Used to make sure that no more than one ImageSaveThread is running
 
@@ -170,20 +185,17 @@ cv::Mat frame[2]; //protected by mutexHeader
 HeaderData header[2]; //protected by mutexHeader
 
 Aspect aspect;
-AspectCode runResult;
-Transform solarTransform;
+Transform solarTransform(HUNTSVILLE, GROUND); //see Transform.hpp for options
 
-CameraSettings settings[2];
+CameraSettings settings[2]; //not protected!
 
-timespec frameRate = {0,FRAME_CADENCE*1000};
-bool cameraReady[2] = {false, false};
-
-long int frameCount[2] = {0, 0};
-
-float camera_temperature[2];
-int8_t sbc_temperature;
-int8_t i2c_temperatures[8];
-float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
+struct Sensors {
+    float camera_temperature[2];
+    int8_t sbc_temperature;
+    int8_t i2c_temperatures[8];
+    float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
+};
+struct Sensors sensors; //not protected!
 
 //Function declarations
 void sig_handler(int signum);
@@ -209,7 +221,7 @@ void *CommandSenderThread( void *threadargs );
 
 void *CommandListenerThread(void *threadargs);
 void cmd_process_heroes_command(uint16_t heroes_command);
-void cmd_process_sas_command(uint16_t sas_command, Command &command);
+void cmd_process_sas_command(Command &command);
 void *CommandHandlerThread(void *threadargs);
 void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
 uint16_t cmd_send_image_to_ground( int camera_id );
@@ -248,7 +260,7 @@ void kill_all_workers()
 {
     for(int i = 0; i < MAX_THREADS; i++ ){
         if ((i != tid_listen) && started[i]) {
-            stop_message[i] = 1;
+            stop_message[i] = true;
         }
     }
     sleep(SLEEP_KILL);
@@ -263,7 +275,7 @@ void kill_all_workers()
 void kill_all_threads()
 {
     if (started[tid_listen]) {
-        stop_message[tid_listen] = 1;
+        stop_message[tid_listen] = true;
         kill_all_workers();
         printf("Quitting thread %i, quitting status is %i\n", tid_listen, pthread_cancel(threads[tid_listen]));
         started[tid_listen] = false;
@@ -324,8 +336,12 @@ void *CameraThread( void * threadargs, int camera_id)
             break;
         default:
             std::cerr << "Invalid camera specified!\n";
-            stop_message[tid] = 1;
+            stop_message[tid] = true;
     }
+
+    timespec frameRate = {0,FRAME_CADENCE*1000};
+    bool cameraReady[2] = {false, false};
+    long int frameCount[2] = {0, 0};
 
     ImperxStream camera;
 
@@ -340,17 +356,9 @@ void *CameraThread( void * threadargs, int camera_id)
     uint16_t localAnalogGain = settings[camera_id].analogGain;
 
     cameraReady[camera_id] = false;
-    while(1)
+    while(!stop_message[tid])
     {
-        if (stop_message[tid] == 1)
-        {
-            printf("CameraStream thread #%ld exiting\n", tid);
-            camera.Stop();
-            camera.Disconnect();
-            started[tid] = false;
-            pthread_exit( NULL );
-        }
-        else if (cameraReady[camera_id] == false)
+        if (!cameraReady[camera_id])
         {
             if (camera.Connect(ip) != 0)
             {
@@ -408,7 +416,7 @@ void *CameraThread( void * threadargs, int camera_id)
                 frameCount[camera_id]++;
                 failcount = 0;
 
-                camera_temperature[camera_id] = camera.getTemperature();
+                sensors.camera_temperature[camera_id] = camera.getTemperature();
 
                 // save data into the fits_header
                 memset(&localHeader, 0, sizeof(HeaderData));
@@ -421,30 +429,32 @@ void *CameraThread( void * threadargs, int camera_id)
                 localHeader.preampGain = localPreampGain;
                 localHeader.analogGain = localAnalogGain;
 
-                localHeader.cameraTemperature = camera_temperature[camera_id];
-                localHeader.cpuTemperature = sbc_temperature;
+                localHeader.cameraTemperature = sensors.camera_temperature[camera_id];
+                localHeader.cpuTemperature = sensors.sbc_temperature;
 
-                localHeader.cpuVoltage[0] = sbc_v105;
-                localHeader.cpuVoltage[1] = sbc_v25;
-                localHeader.cpuVoltage[2] = sbc_v33;
-                localHeader.cpuVoltage[3] = sbc_v50;
-                localHeader.cpuVoltage[4] = sbc_v120;
+                localHeader.cpuVoltage[0] = sensors.sbc_v105;
+                localHeader.cpuVoltage[1] = sensors.sbc_v25;
+                localHeader.cpuVoltage[2] = sensors.sbc_v33;
+                localHeader.cpuVoltage[3] = sensors.sbc_v50;
+                localHeader.cpuVoltage[4] = sensors.sbc_v120;
+
+                for (int i=0; i<8; i++) localHeader.i2c_temperatures[i] = sensors.i2c_temperatures[i];
 
                 if(frameCount[camera_id] % MOD_PROCESS == 0) {
                     image_process(camera_id, localFrame, localHeader);
                 }
 
-                pthread_mutex_lock(mutexHeader+camera_id);
+                pthread_mutex_lock(&mutexHeader[camera_id]);
                 localFrame.copyTo(frame[camera_id]);
                 header[camera_id] = localHeader;
-                pthread_mutex_unlock(mutexHeader+camera_id);
+                pthread_mutex_unlock(&mutexHeader[camera_id]);
 
                 if(frameCount[camera_id] % MOD_CTL == 0) {
                     if(camera_id == 0) image_queue_solution(localHeader);
                 }
 
                 if(frameCount[camera_id] % MOD_SAVE == 0) {
-                    if(pthread_mutex_trylock(mutexImageSave+camera_id) == 0) {
+                    if(pthread_mutex_trylock(&mutexImageSave[camera_id]) == 0) {
                         Thread_data tdata;
                         tdata.camera_id = camera_id;
                         start_thread(ImageSaveThread, &tdata);
@@ -488,10 +498,18 @@ void *CameraThread( void * threadargs, int camera_id)
             nanosleep(&timeToWait, NULL);
         }
     }
+
+    printf("CameraStream thread #%ld exiting\n", tid);
+    camera.Stop();
+    camera.Disconnect();
+    started[tid] = false;
+    pthread_exit( NULL );
 }
 
 void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
 {
+    AspectCode runResult;
+
     CoordList localLimbs, localPixelFiducials, localScreenFiducials;
     IndexList localIds;
     uint8_t localMin, localMax;
@@ -541,6 +559,7 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
             case NO_ERROR:
                 solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
                 localOffset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y));
+                argHeader.northAngle = solarTransform.getOrientationWithoutRecalculation();
 
                 argHeader.CTLsolution[0] = localOffset.x();
                 argHeader.CTLsolution[1] = localOffset.y();
@@ -611,8 +630,18 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
                 break;
         }
 
+        if (GeneralizeError(runResult) != NO_ERROR) {
+            argHeader.northAngle = solarTransform.getOrientation();
+        }
+
         argHeader.isTracking = isTracking;
         argHeader.isOutputting = isOutputting;
+
+        argHeader.clockingAngle = solarTransform.get_clocking();
+
+        Pair localSolarTarget = solarTransform.get_solar_target();
+        argHeader.solarTarget[0] = localSolarTarget.x();
+        argHeader.solarTarget[1] = localSolarTarget.y();
     }
     else if((camera_id == 1) && !argFrame.empty()) {
         double min, max;
@@ -641,7 +670,7 @@ void *TelemetrySenderThread(void *threadargs)
         time(&ltime);
         times = localtime(&ltime);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-        sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION, stringtemp);
+        sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION1, stringtemp);
         filename[128 - 1] = '\0';
         printf("Creating telemetry log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
@@ -649,7 +678,7 @@ void *TelemetrySenderThread(void *threadargs)
 
     TelemetrySender telSender(IP_FDR, (unsigned short) PORT_TM);
 
-    while(1)    // run forever
+    while(!stop_message[tid])
     {
         usleep(USLEEP_TM_SEND);
 
@@ -667,14 +696,12 @@ void *TelemetrySenderThread(void *threadargs)
                 //log.flush();
             }
         }
-
-        if (stop_message[tid] == 1){
-            printf("TelemetrySender thread #%ld exiting\n", tid);
-            if (LOG_PACKETS) log.close();
-            started[tid] = false;
-            pthread_exit( NULL );
-        }
     }
+
+    printf("TelemetrySender thread #%ld exiting\n", tid);
+    if (LOG_PACKETS) log.close();
+    started[tid] = false;
+    pthread_exit( NULL );
 }
 
 void *SBCInfoThread(void *threadargs)
@@ -688,15 +715,8 @@ void *SBCInfoThread(void *threadargs)
     uint16_t packet_length;
     uint8_t *array;
 
-    while(1)
+    while(!stop_message[tid])
     {
-        if (stop_message[tid] == 1)
-        {
-            printf("SBCInfo thread #%ld exiting\n", tid);
-            started[tid] = false;
-            pthread_exit( NULL );
-        }
-
         //This call will block forever if the service is not running
         usleep(USLEEP_UDP_LISTEN);
         packet_length = receiver.listen();
@@ -704,10 +724,14 @@ void *SBCInfoThread(void *threadargs)
         receiver.get_packet(array);
 
         Packet packet( array, packet_length );
-        packet >> sbc_temperature >> sbc_v105 >> sbc_v25 >> sbc_v33 >> sbc_v50 >> sbc_v120;
-        for (int i=0; i<8; i++) packet >> i2c_temperatures[i];
+        packet >> sensors.sbc_temperature >> sensors.sbc_v105 >> sensors.sbc_v25 >> sensors.sbc_v33 >> sensors.sbc_v50 >> sensors.sbc_v120;
+        for (int i=0; i<8; i++) packet >> sensors.i2c_temperatures[i];
         delete array;
     }
+
+    printf("SBCInfo thread #%ld exiting\n", tid);
+    started[tid] = false;
+    pthread_exit( NULL );
 }
 
 void *SaveTemperaturesThread(void *threadargs)
@@ -724,7 +748,7 @@ void *SaveTemperaturesThread(void *threadargs)
     time(&ltime);
     times = localtime(&ltime);
     strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-    sprintf(obsfilespec, "%stemp_data_%s.dat", SAVE_LOCATION, stringtemp);
+    sprintf(obsfilespec, "%stemp_data_%s.dat", SAVE_LOCATION1, stringtemp);
     obsfilespec[128 - 1] = '\0';
     printf("Creating file %s \n",obsfilespec);
 
@@ -732,35 +756,33 @@ void *SaveTemperaturesThread(void *threadargs)
 
     if((file = fopen(obsfilespec, "w")) == NULL){
         printf("Cannot open file\n");
-        started[tid] = false;
-        pthread_exit( NULL );
+        stop_message[tid] = true;
     } else {
         fprintf(file, "time, camera temp, cpu temp, i2c temp x8\n");
         sleep(SLEEP_LOG_TEMPERATURE);
-        while(1)
-        {
-            char current_time[25];
-            if (stop_message[tid] == 1)
-            {
-                printf("SaveTemperatures thread #%ld exiting\n", tid);
-                fclose(file);
-                started[tid] = false;
-                pthread_exit( NULL );
-            }
-            sleep(SLEEP_LOG_TEMPERATURE);
-
-            time(&ltime);
-            times = localtime(&ltime);
-            strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-            fprintf(file, "%s, %f, %d", current_time, camera_temperature[count % sas_id], sbc_temperature);
-            for (int i=0; i<8; i++) fprintf(file, ", %d", i2c_temperatures[i]);
-            fprintf(file, "\n");
-            printf("%s, %f, %d", current_time, camera_temperature[count % sas_id], sbc_temperature);
-            for (int i=0; i<8; i++) printf(", %d", i2c_temperatures[i]);
-            printf("\n");
-            count++;
-        }
     }
+
+    while(!stop_message[tid])
+    {
+        char current_time[25];
+        sleep(SLEEP_LOG_TEMPERATURE);
+
+        time(&ltime);
+        times = localtime(&ltime);
+        strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
+        fprintf(file, "%s, %f, %d", current_time, sensors.camera_temperature[count % sas_id], sensors.sbc_temperature);
+        for (int i=0; i<8; i++) fprintf(file, ", %d", sensors.i2c_temperatures[i]);
+        fprintf(file, "\n");
+        printf("%s, %f, %d", current_time, sensors.camera_temperature[count % sas_id], sensors.sbc_temperature);
+        for (int i=0; i<8; i++) printf(", %d", sensors.i2c_temperatures[i]);
+        printf("\n");
+        count++;
+    }
+
+    printf("SaveTemperatures thread #%ld exiting\n", tid);
+    fclose(file);
+    started[tid] = false;
+    pthread_exit( NULL );
 }
 
 void *ImageSaveThread(void *threadargs)
@@ -778,41 +800,41 @@ void *ImageSaveThread(void *threadargs)
     cv::Mat localFrame;
     HeaderData localHeader;
 
-    pthread_mutex_lock(mutexHeader+camera_id);
+    pthread_mutex_lock(&mutexHeader[camera_id]);
     frame[camera_id].copyTo(localFrame);
     localHeader = header[camera_id];
-    pthread_mutex_unlock(mutexHeader+camera_id);
+    pthread_mutex_unlock(&mutexHeader[camera_id]);
 
     if(!localFrame.empty())
     {
         char stringtemp[80];
-        char obsfilespec[128];
-        time_t ltime;
+        char filename[128];
         struct tm *times;
 
-        //Use clock_gettime instead?
-        time(&ltime);
-        times = localtime(&ltime);
+        times = localtime(&localHeader.captureTime.tv_sec);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
 
-        sprintf(obsfilespec, "%s%s_%s_%06d.fits", SAVE_LOCATION, (camera_id == 1 ? "ras" : "pyas"), stringtemp, (int)localHeader.frameCount);
+        sprintf(filename, "%s%s_%s_%06d.fits",
+                ((localHeader.frameCount / MOD_SAVE) % 2 == 0 ? SAVE_LOCATION1 : SAVE_LOCATION2),
+                (camera_id == 1 ? "ras" : "pyas"),
+                stringtemp, (int)localHeader.frameCount);
 
-        printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", obsfilespec, localHeader.exposure, localHeader.analogGain, localHeader.preampGain);
-        writeFITSImage(localFrame, localHeader, obsfilespec);
+        printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", filename, localHeader.exposure, localHeader.analogGain, localHeader.preampGain);
+        writeFITSImage(localFrame, localHeader, filename);
     }
     else
     {
     }
 
     //This thread should only ever be started if the lock was set
-    pthread_mutex_unlock(mutexImageSave+camera_id);
+    pthread_mutex_unlock(&mutexImageSave[camera_id]);
 
     clock_gettime(CLOCK_MONOTONIC, &postSave);
     elapsedSave = TimespecDiff(preSave, postSave);
     //std::cout << "Saving took: " << elapsedSave.tv_sec << " " << elapsedSave.tv_nsec << std::endl;
 
     started[tid] = false;
-    return NULL;
+    pthread_exit(NULL);
 }
 
 void *TelemetryPackagerThread(void *threadargs)
@@ -820,18 +842,20 @@ void *TelemetryPackagerThread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("TelemetryPackager thread #%ld!\n", tid);
 
+    uint32_t tm_frame_sequence_number = 0;
+
     HeaderData localHeaders[2];
 
-    while(1)    // run forever
+    while(!stop_message[tid])
     {
         usleep(USLEEP_TM_GENERIC);
         tm_frame_sequence_number++;
 
         TelemetryPacket tp(TM_SAS_GENERIC, SOURCE_ID_SAS);
         tp.setSAS(sas_id);
-        tp << tm_frame_sequence_number;
-        tp << command_sequence_number;
-        tp << latest_sas_command_key;
+        tp << (uint32_t)tm_frame_sequence_number;
+        tp << (uint16_t)command_sequence_number;
+        tp << (uint16_t)latest_sas_command_key;
 
         if(pthread_mutex_trylock(&mutexHeader[0]) == 0) {
             localHeaders[0] = header[0];
@@ -895,20 +919,16 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]);
 
         //Tacking on I2C temperatures
-        for (int i=0; i<8; i++) tp << i2c_temperatures[i];
+        for (int i=0; i<8; i++) tp << (int8_t)localHeaders[0].i2c_temperatures[i];
 
-        //add telemetry packet to the queue
-        tm_packet_queue << tp;
-            
-        if (stop_message[tid] == 1){
-            printf("TelemetryPackager thread #%ld exiting\n", tid);
-            started[tid] = false;
-            pthread_exit( NULL );
-        }
+        //add telemetry packet to the queue if not being suppressed
+        if (tm_frames_to_suppress > 0) tm_frames_to_suppress--;
+        else tm_packet_queue << tp;
     }
 
-    /* NEVER REACHED */
-    return NULL;
+    printf("TelemetryPackager thread #%ld exiting\n", tid);
+    started[tid] = false;
+    pthread_exit( NULL );
 }
 
 void *CommandListenerThread(void *threadargs)
@@ -921,7 +941,7 @@ void *CommandListenerThread(void *threadargs)
     CommandReceiver comReceiver( (unsigned short) PORT_CMD);
     comReceiver.init_connection();
 
-    while(1)    // run forever
+    while(!stop_message[tid])
     {
         unsigned int packet_length;
 
@@ -961,17 +981,12 @@ void *CommandListenerThread(void *threadargs)
         }
 
         delete packet;
-
-        if (stop_message[tid] == 1){
-            printf("CommandListener thread #%ld exiting\n", tid);
-            comReceiver.close_connection();
-            started[tid] = false;
-            pthread_exit( NULL );
-        }
     }
 
-    /* NEVER REACHED */
-    return NULL;
+    printf("CommandListener thread #%ld exiting\n", tid);
+    comReceiver.close_connection();
+    started[tid] = false;
+    pthread_exit( NULL );
 }
 
 void *ForwardCommandsFromSAS2Thread(void *threadargs)
@@ -986,7 +1001,7 @@ void *ForwardCommandsFromSAS2Thread(void *threadargs)
 
     CommandSender comForwarder(IP_CTL, PORT_CMD);
 
-    while(1)    // run forever
+    while(!stop_message[tid])
     {
         unsigned int packet_length;
 
@@ -1009,17 +1024,12 @@ void *ForwardCommandsFromSAS2Thread(void *threadargs)
             }
         }
         delete packet;
-
-        if (stop_message[tid] == 1){
-            printf("ForwardCommandsFromSAS2 thread #%ld exiting\n", tid);
-            comReceiver.close_connection();
-            started[tid] = false;
-            pthread_exit( NULL );
-        }
     }
 
-    /* NEVER REACHED */
-    return NULL;
+    printf("ForwardCommandsFromSAS2 thread #%ld exiting\n", tid);
+    comReceiver.close_connection();
+    started[tid] = false;
+    pthread_exit( NULL );
 }
 
 void *CommandSenderThread( void *threadargs )
@@ -1037,7 +1047,7 @@ void *CommandSenderThread( void *threadargs )
         time(&ltime);
         times = localtime(&ltime);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-        sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION, stringtemp);
+        sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION1, stringtemp);
         filename[128 - 1] = '\0';
         printf("Creating command log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
@@ -1045,7 +1055,7 @@ void *CommandSenderThread( void *threadargs )
 
     CommandSender comSender(IP_CTL, PORT_CMD);
 
-    while(1)    // run forever
+    while(!stop_message[tid])
     {
         usleep(USLEEP_CMD_SEND);
     
@@ -1063,14 +1073,12 @@ void *CommandSenderThread( void *threadargs )
                 //log.flush();
             }
         }
-
-        if (stop_message[tid] == 1){
-            printf("CommandSender thread #%ld exiting\n", tid);
-            if (LOG_PACKETS) log.close();
-            started[tid] = false;
-            pthread_exit( NULL );
-        }
     }
+
+    printf("CommandSender thread #%ld exiting\n", tid);
+    if (LOG_PACKETS) log.close();
+    started[tid] = false;
+    pthread_exit( NULL );
 }
 
 void image_queue_solution(HeaderData &argHeader)
@@ -1144,7 +1152,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         time(&ltime);
         times = localtime(&ltime);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-        sprintf(filename, "%slog_sc_%s.bin", SAVE_LOCATION, stringtemp);
+        sprintf(filename, "%slog_sc_%s.bin", SAVE_LOCATION1, stringtemp);
         filename[128 - 1] = '\0';
         printf("Creating science log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
@@ -1153,14 +1161,16 @@ uint16_t cmd_send_image_to_ground( int camera_id )
     TCPSender tcpSndr(IP_FDR, (unsigned short) PORT_IMAGE);
     int ret = tcpSndr.init_connection();
     if (ret > 0){
-        if (pthread_mutex_trylock(mutexHeader+camera_id) == 0){
+        if (pthread_mutex_trylock(&mutexHeader[camera_id]) == 0){
             if( !frame[camera_id].empty() ){
                 frame[camera_id].copyTo(localFrame);
                 localHeader = header[camera_id];
             }
-            pthread_mutex_unlock(mutexHeader+camera_id);
+            pthread_mutex_unlock(&mutexHeader[camera_id]);
         }
         if( !localFrame.empty() ){
+            ImagePacketQueue im_packet_queue;
+
             bool tlogical;
             int tint;
             long tlong;
@@ -1235,6 +1245,11 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             if((localHeader.cameraID == 1) || (localHeader.cameraID == 2)) {
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlogical = localHeader.isTracking), TLOGICAL, "F_TRACK", "Is SAS currently tracking?");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlogical = localHeader.isOutputting), TLOGICAL, "F_OUTPUT", "Is this SAS outputting to CTL?");
+
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.solarTarget[0]), TFLOAT, "TARGET_X", "Intended solar target in HPC (arcsec)");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.solarTarget[1]), TFLOAT, "TARGET_Y", "Intended solar target in HPC (arcsec)");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.clockingAngle), TFLOAT, "CLOCKANG", "CCW angle from screen +Y to vertical");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = localHeader.northAngle), TDOUBLE, "NORTHANG", "CW angle from zenith to solar north");
 
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.sunCenter[0]), TFLOAT, "SUNCENT1", "Calculated Sun center in x-pixel");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.sunCenter[1]), TFLOAT, "SUNCENT2", "Calculated Sun center in y-pixel");
@@ -1343,136 +1358,109 @@ void *CommandHandlerThread(void *threadargs)
 
     switch( my_data->command_key & 0x0FFF)
     {
-        case SKEY_REQUEST_PYAS_IMAGE:
-            {
-                error_code = cmd_send_image_to_ground( 0 );
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+        //Operations commands
+        case SKEY_START_OUTPUTTING:
+            isOutputting = true;
+            error_code = 0;
             break;
-        case SKEY_REQUEST_RAS_IMAGE:
-            {
-                error_code = cmd_send_image_to_ground( 1 );
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+        case SKEY_STOP_OUTPUTTING:
+            isOutputting = false;
+            error_code = 0;
             break;
+        case SKEY_SUPPRESS_TELEMETRY:
+            tm_frames_to_suppress = (uint8_t)my_data->command_vars[0];
+            error_code = 0;
+            break;
+
+        //Setting commands
         case SKEY_SET_IMAGESAVEFLAG:
-            {
-                if(my_data->command_num_vars == 1) isSavingImages = (my_data->command_vars[0] > 0);
-                if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
-                if( isSavingImages == true ){ std::cout << "Image saving is now turned on" << std::endl; }
-                if( isSavingImages == false ){ std::cout << "Image saving is now turned off" << std::endl; }
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            isSavingImages = (my_data->command_vars[0] > 0);
+            if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
+            std::cout << "Image saving is now turned " << ( isSavingImages ? "on\n" : "off\n");
             break;
         case SKEY_SET_PYAS_EXPOSURE:    // set exposure time
-            {
-                if(my_data->command_num_vars == 1) settings[0].exposure = my_data->command_vars[0];
-                if( settings[0].exposure == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current exposure time is: " << settings[0].exposure << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            settings[0].exposure = my_data->command_vars[0];
+            if( settings[0].exposure == my_data->command_vars[0] ) error_code = 0;
             break;
         case SKEY_SET_PYAS_PREAMPGAIN:    // set preamp gain
-            {
-                if( my_data->command_num_vars == 1) settings[0].preampGain = (int16_t)my_data->command_vars[0];
-                if( settings[0].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current preamp gain is: " << settings[0].preampGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            settings[0].preampGain = (int16_t)my_data->command_vars[0];
+            if( settings[0].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
             break;
         case SKEY_SET_PYAS_ANALOGGAIN:    // set analog gain
-            {
-                if( my_data->command_num_vars == 1) settings[0].analogGain = my_data->command_vars[0];
-                if( settings[0].analogGain == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current analog gain is: " << settings[0].analogGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            settings[0].analogGain = my_data->command_vars[0];
+            if( settings[0].analogGain == my_data->command_vars[0] ) error_code = 0;
             break;
         case SKEY_SET_RAS_EXPOSURE:    // set exposure time
-            {
-                if(my_data->command_num_vars == 1) settings[1].exposure = my_data->command_vars[0];
-                if( settings[1].exposure == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current exposure time is: " << settings[1].exposure << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            settings[1].exposure = my_data->command_vars[0];
+            if( settings[1].exposure == my_data->command_vars[0] ) error_code = 0;
             break;
         case SKEY_SET_RAS_PREAMPGAIN:    // set preamp gain
-            {
-                if( my_data->command_num_vars == 1) settings[1].preampGain = (int16_t)my_data->command_vars[0];
-                if( settings[1].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current preamp gain is: " << settings[1].preampGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            settings[1].preampGain = (int16_t)my_data->command_vars[0];
+            if( settings[1].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
             break;
         case SKEY_SET_RAS_ANALOGGAIN:    // set analog gain
-            {
-                if( my_data->command_num_vars == 1) settings[1].analogGain = my_data->command_vars[0];
-                if( settings[1].analogGain == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current analog gain is: " << settings[1].analogGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            settings[1].analogGain = my_data->command_vars[0];
+            if( settings[1].analogGain == my_data->command_vars[0] ) error_code = 0;
             break;
         case SKEY_SET_TARGET:    // set new solar target
             solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
+            error_code = 0;
             break;
-        case SKEY_START_OUTPUTTING:
-            {
-                isOutputting = true;
-            }
+        case SKEY_SET_CLOCKING:    // set new solar target
+            solarTransform.set_clocking(Float2B(my_data->command_vars[0]).value());
+            error_code = 0;
             break;
-        case SKEY_STOP_OUTPUTTING:
-            {
-                isOutputting = false;
-            }
+        case SKEY_SET_ASPECT_INT:
+            aspect.SetInteger((IntParameter)my_data->command_vars[0], my_data->command_vars[1]);
+            error_code = 0;
+            break;
+        case SKEY_SET_ASPECT_FLOAT:
+            aspect.SetFloat((FloatParameter)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
+            error_code = 0;
+            break;
+
+        //Getting commands
+        case SKEY_REQUEST_PYAS_IMAGE:
+            error_code = cmd_send_image_to_ground( 0 );
+            break;
+        case SKEY_REQUEST_RAS_IMAGE:
+            error_code = cmd_send_image_to_ground( 1 );
             break;
         case SKEY_GET_PYAS_EXPOSURE:
-            {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[0].exposure );
-            }
+            error_code = (uint16_t)settings[0].exposure;
             break;
         case SKEY_GET_PYAS_ANALOGGAIN:
-            {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[0].analogGain );
-            }
+            error_code = (uint16_t)settings[0].analogGain;
             break;
         case SKEY_GET_PYAS_PREAMPGAIN:
-            {
-                queue_cmd_proc_ack_tmpacket( (int16_t)settings[0].preampGain );
-            }
+            error_code = (int16_t)settings[0].preampGain;
             break;
         case SKEY_GET_RAS_EXPOSURE:
-            {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[1].exposure );
-            }
+            error_code = (uint16_t)settings[1].exposure;
             break;
         case SKEY_GET_RAS_ANALOGGAIN:
-            {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[1].analogGain );
-            }
+            error_code = (uint16_t)settings[1].analogGain;
             break;
         case SKEY_GET_RAS_PREAMPGAIN:
-            {
-                queue_cmd_proc_ack_tmpacket( (int16_t)settings[1].preampGain );
-            }
+            error_code = (int16_t)settings[1].preampGain;
             break;
         case SKEY_GET_DISKSPACE:
-            {
-                if( my_data->command_num_vars == 1) {
-                    uint16_t disk = (uint16_t)my_data->command_vars[0];
-                    error_code = get_disk_usage( disk );
-                }
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            error_code = (uint16_t)get_disk_usage((uint16_t)my_data->command_vars[0]);
+            break;
+        case SKEY_GET_ASPECT_INT:
+            error_code = (int16_t)aspect.GetInteger((IntParameter)my_data->command_vars[0]);
+            break;
+        case SKEY_GET_ASPECT_FLOAT:
+            error_code = (uint16_t)Float2B(aspect.GetFloat((FloatParameter)my_data->command_vars[0])).code();
             break;
         default:
-            {
-                error_code = 0xffff;            // unknown command!
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            error_code = 0xffff;            // unknown command!
     }
 
+    queue_cmd_proc_ack_tmpacket( error_code );
+
     started[tid] = false;
-    return NULL;
+    pthread_exit(NULL);
 }
 
 void cmd_process_heroes_command(uint16_t heroes_command)
@@ -1510,7 +1498,7 @@ void start_thread(void *(*routine) (void *), const Thread_data *tdata)
     if (tdata != NULL) memcpy(&thread_data[i], tdata, sizeof(Thread_data));
     thread_data[i].thread_id = i;
 
-    stop_message[i] = 0;
+    stop_message[i] = false;
 
     pthread_attr_t attr;
     pthread_attr_init(&attr);
@@ -1553,8 +1541,10 @@ void send_shutdown()
     out.send(&pkt);
 }
 
-void cmd_process_sas_command(uint16_t sas_command, Command &command)
+void cmd_process_sas_command(Command &command)
 {
+    uint16_t sas_command = command.get_sas_command();
+
     Thread_data tdata;
 
     if ((sas_command & (sas_id << 12)) != 0) {
@@ -1591,7 +1581,6 @@ void cmd_process_sas_command(uint16_t sas_command, Command &command)
             case SKEY_SHUTDOWN:
                 {
                     kill_all_threads();
-                    queue_cmd_proc_ack_tmpacket( 0 );
                     sleep(2);
                     send_shutdown();
                 }
@@ -1630,13 +1619,24 @@ int main(void)
     signal(SIGTERM, &sig_handler);
 
     identifySAS();
-    if (sas_id == 1) isOutputting = true;
+    switch (sas_id) {
+        case 1:
+            isOutputting = true;
+            solarTransform.set_clocking(CLOCKING_ANGLE_PYASF);
+            solarTransform.set_calibrated_center(Pair(CENTER_X_PYASF, CENTER_Y_PYASF));
+            break;
+        case 2:
+            isOutputting = false;
+            solarTransform.set_clocking(CLOCKING_ANGLE_PYASR);
+            solarTransform.set_calibrated_center(Pair(CENTER_X_PYASR, CENTER_Y_PYASR));
+            break;
+    }
 
     pthread_mutex_init(&mutexStartThread, NULL);
-    pthread_mutex_init(mutexHeader, NULL);
-    pthread_mutex_init(mutexHeader+1, NULL);
-    pthread_mutex_init(mutexImageSave, NULL);
-    pthread_mutex_init(mutexImageSave+1, NULL);
+    pthread_mutex_init(&mutexHeader[0], NULL);
+    pthread_mutex_init(&mutexHeader[1], NULL);
+    pthread_mutex_init(&mutexImageSave[0], NULL);
+    pthread_mutex_init(&mutexImageSave[1], NULL);
 
     /* Create worker threads */
     printf("In main: creating threads\n");
@@ -1657,13 +1657,13 @@ int main(void)
             command = Command();
             recvd_command_queue >> command;
 
-            latest_heroes_command_key = command.get_heroes_command();
+            uint16_t latest_heroes_command_key = command.get_heroes_command();
             latest_sas_command_key = command.get_sas_command();
-            printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, latest_sas_command_key);
+            printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, command.get_sas_command());
 
             cmd_process_heroes_command(latest_heroes_command_key);
             if(latest_heroes_command_key == HKEY_FDR_SAS_CMD) {
-                cmd_process_sas_command(latest_sas_command_key, command);
+                cmd_process_sas_command(command);
             }
         }
     }
@@ -1673,10 +1673,10 @@ int main(void)
     /* wait for threads to finish */
     kill_all_threads();
     pthread_mutex_destroy(&mutexStartThread);
-    pthread_mutex_destroy(mutexHeader);
-    pthread_mutex_destroy(mutexHeader+1);
-    pthread_mutex_destroy(mutexImageSave);
-    pthread_mutex_destroy(mutexImageSave+1);
+    pthread_mutex_destroy(&mutexHeader[0]);
+    pthread_mutex_destroy(&mutexHeader[1]);
+    pthread_mutex_destroy(&mutexImageSave[0]);
+    pthread_mutex_destroy(&mutexImageSave[1]);
     pthread_exit(NULL);
 
     return 0;

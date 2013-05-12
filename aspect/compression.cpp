@@ -154,6 +154,11 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
         pFits->pHDU().addKey("F_TRACK", (bool)keys.isTracking, "Is SAS currently tracking?");
         pFits->pHDU().addKey("F_OUTPUT", (bool)keys.isOutputting, "Is this SAS outputting to CTL?");
 
+        pFits->pHDU().addKey("TARGET_X", (float)keys.solarTarget[0], "Intended target in HPC (arcsec)"); 
+        pFits->pHDU().addKey("TARGET_Y", (float)keys.solarTarget[1], "Intended target in HPC (arcsec)"); 
+        pFits->pHDU().addKey("CLOCKANG", (float)keys.clockingAngle, "CCW angle from screen +Y to vertical"); 
+        pFits->pHDU().addKey("NORTHANG", (double)keys.northAngle, "CW angle from zenith to solar north"); 
+
         pFits->pHDU().addKey("SUNCENT1", (float)keys.sunCenter[0], "Calculated sun center in x-pixel"); 
         pFits->pHDU().addKey("SUNCENT2", (float)keys.sunCenter[1], "Calculated sun center in y-pixel"); 
         pFits->pHDU().addKey("CTL_AZIM", (double)keys.CTLsolution[0], "Azimuth offset for CTL (deg)");

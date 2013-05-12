@@ -6,9 +6,7 @@
 //Include the spa code directly to be able to use private functions
 #include "spa/spa.c"
 
-//#define PI 3.141592653589793
-
-Transform::Transform()
+Transform::Transform(Location location, Environment environment)
 {
     conversion_intercept = Pair(-3000, 3000);
     conversion_slope = Pair(6, -6);
@@ -23,27 +21,33 @@ Transform::Transform()
 
     spa.delta_t       = 67.1116;
 
-    //Greenbelt
-    spa.longitude     = -76.8758;
-    spa.latitude      = 39.0044;
+    switch(location) {
+        case GREENBELT:
+            spa.longitude     = -76.8758;
+            spa.latitude      = 39.0044;
+            break;
+        case HUNTSVILLE:
+            spa.longitude     = -86.5861;
+            spa.latitude      = 34.7303;
+            break;
+        case FORT_SUMNER:
+        default:
+            spa.longitude     = -104.2450;
+            spa.latitude      = 34.4717;
+    }
 
-    //Huntsville
-    //spa.longitude     = 86.5861;
-    //spa.latitude      = 34.7303;
-
-    //Fort Sumner
-    //spa.longitude     = -104.2450;
-    //spa.latitude      = 34.4717;
-
-    //Ground
-    spa.elevation       = 0; //meters
-    spa.pressure        = 1013; //millibars
-    spa.temperature     = 20; //degrees Celsius
-
-    //Flight
-    //spa.elevation     = 40000; //meters
-    //spa.pressure      = 3; //millibars
-    //spa.temperature   = -50; //degrees Celsius
+    switch(environment) {
+        case GROUND:
+            spa.elevation       = 0; //meters
+            spa.pressure        = 1013; //millibars
+            spa.temperature     = 20; //degrees Celsius
+            break;
+        case FLIGHT:
+        default:
+            spa.elevation     = 40000; //meters
+            spa.pressure      = 3; //millibars
+            spa.temperature   = -50; //degrees Celsius
+    }
 
     spa.slope         = 0;
     spa.azm_rotation  = 0;
@@ -162,6 +166,14 @@ double Transform::getOrientation()
 
     return orientation;
 }
+
+double Transform::getOrientationWithoutRecalculation() const
+{
+    return orientation;
+}
+
+float Transform::get_clocking() const { return clocking; }
+Pair Transform::get_solar_target() const { return solar_target; }
 
 Pair Transform::translateAzEl(const Pair& amount, const Pair& azel)
 {

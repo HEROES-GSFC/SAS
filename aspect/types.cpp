@@ -97,6 +97,7 @@ Float2B::Float2B(const float value)
 Float2B::Float2B(const uint16_t value) : i_value(value) {}
 
 float Float2B::value() const { return ((float)i_value-FLOAT2B_OFFSET)/8; }
+uint16_t Float2B::code() const { return i_value; }
 
 ByteString& operator<<(ByteString& bs, const Float2B& f2)
 {
