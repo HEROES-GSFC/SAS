@@ -167,6 +167,14 @@ double Transform::getOrientation()
     return orientation;
 }
 
+double Transform::getOrientationWithoutRecalculation() const
+{
+    return orientation;
+}
+
+float Transform::get_clocking() const { return clocking; }
+Pair Transform::get_solar_target() const { return solar_target; }
+
 Pair Transform::translateAzEl(const Pair& amount, const Pair& azel)
 {
     //amount is [magnitude, direction]

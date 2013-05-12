@@ -64,7 +64,9 @@ public:
 
     Pair getAngularShift(const Pair& sunPixel);
 
+    //Be careful, this initiates a *new* calulation
     double getOrientation();
+    double getOrientationWithoutRecalculation() const;
 
     //returns new azimuth/elevation
     Pair translateAzEl(const Pair& amount, const Pair& azel);
@@ -77,6 +79,9 @@ public:
     void set_clocking(float arg);
 
     void set_solar_target(const Pair& arg);
+
+    float get_clocking() const;
+    Pair get_solar_target() const;
 };
 
 //Follows the scheme in spa.c but extends the calculation
