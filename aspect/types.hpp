@@ -32,6 +32,7 @@
   -----
   Float2B
   -----
+  For FLOAT2B_OFFSET == 8192, the range is -1024 to 7167.88 in steps of 0.125
 
 */
 
