@@ -53,6 +53,12 @@ SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o Packet.o lib_crc.o
 sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
+test_telemetry: test_telemetry.cpp Telemetry.o Packet.o lib_crc.o UDPSender.o types.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+evaluate: evaluate.cpp compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
+
 #This executable need to be copied to /usr/local/bin/ after it is built
 sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
