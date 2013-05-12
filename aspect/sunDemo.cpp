@@ -551,6 +551,7 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
             case NO_ERROR:
                 solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
                 localOffset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y));
+                argHeader.northAngle = solarTransform.getOrientationWithoutRecalculation();
 
                 argHeader.CTLsolution[0] = localOffset.x();
                 argHeader.CTLsolution[1] = localOffset.y();
@@ -621,8 +622,18 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
                 break;
         }
 
+        if (GeneralizeError(runResult) != NO_ERROR) {
+            argHeader.northAngle = solarTransform.getOrientation();
+        }
+
         argHeader.isTracking = isTracking;
         argHeader.isOutputting = isOutputting;
+
+        argHeader.clockingAngle = solarTransform.get_clocking();
+
+        Pair localSolarTarget = solarTransform.get_solar_target();
+        argHeader.solarTarget[0] = localSolarTarget.x();
+        argHeader.solarTarget[1] = localSolarTarget.y();
     }
     else if((camera_id == 1) && !argFrame.empty()) {
         double min, max;
@@ -1226,6 +1237,11 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             if((localHeader.cameraID == 1) || (localHeader.cameraID == 2)) {
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlogical = localHeader.isTracking), TLOGICAL, "F_TRACK", "Is SAS currently tracking?");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlogical = localHeader.isOutputting), TLOGICAL, "F_OUTPUT", "Is this SAS outputting to CTL?");
+
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.solarTarget[0]), TFLOAT, "TARGET_X", "Intended solar target in HPC (arcsec)");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.solarTarget[1]), TFLOAT, "TARGET_Y", "Intended solar target in HPC (arcsec)");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.clockingAngle), TFLOAT, "CLOCKANG", "CCW angle from screen +Y to vertical");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tdouble = localHeader.northAngle), TDOUBLE, "NORTHANG", "CW angle from zenith to solar north");
 
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.sunCenter[0]), TFLOAT, "SUNCENT1", "Calculated Sun center in x-pixel");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.sunCenter[1]), TFLOAT, "SUNCENT2", "Calculated Sun center in y-pixel");

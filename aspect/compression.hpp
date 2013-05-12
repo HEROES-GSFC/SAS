@@ -35,6 +35,10 @@ struct HeaderData
     float cpuVoltage[5];
     bool isTracking;
     bool isOutputting;
+
+    float solarTarget[2];
+    double northAngle;
+    float clockingAngle;
 };
 
 int writePNGImage(cv::InputArray _image, const std::string fileName);
