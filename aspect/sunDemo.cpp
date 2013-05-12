@@ -90,6 +90,8 @@
 #define SKEY_SET_RAS_ANALOGGAIN  0x0581
 #define SKEY_SET_RAS_PREAMPGAIN  0x0591
 #define SKEY_SET_CLOCKING        0x0621
+#define SKEY_SET_ASPECT_INT      0x0712
+#define SKEY_SET_ASPECT_FLOAT    0x0722
 
 //Getting commands
 #define SKEY_REQUEST_PYAS_IMAGE  0x0810
@@ -101,6 +103,8 @@
 #define SKEY_GET_RAS_EXPOSURE    0x0950
 #define SKEY_GET_RAS_ANALOGGAIN  0x0960
 #define SKEY_GET_RAS_PREAMPGAIN  0x0970
+#define SKEY_GET_ASPECT_INT      0x0B11
+#define SKEY_GET_ASPECT_FLOAT    0x0B21
 
 #define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 
@@ -1330,144 +1334,106 @@ void *CommandHandlerThread(void *threadargs)
 
     switch( my_data->command_key & 0x0FFF)
     {
-        case SKEY_REQUEST_PYAS_IMAGE:
-            {
-                error_code = cmd_send_image_to_ground( 0 );
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_REQUEST_RAS_IMAGE:
-            {
-                error_code = cmd_send_image_to_ground( 1 );
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_IMAGESAVEFLAG:
-            {
-                if(my_data->command_num_vars == 1) isSavingImages = (my_data->command_vars[0] > 0);
-                if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
-                if( isSavingImages == true ){ std::cout << "Image saving is now turned on" << std::endl; }
-                if( isSavingImages == false ){ std::cout << "Image saving is now turned off" << std::endl; }
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_PYAS_EXPOSURE:    // set exposure time
-            {
-                if(my_data->command_num_vars == 1) settings[0].exposure = my_data->command_vars[0];
-                if( settings[0].exposure == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current exposure time is: " << settings[0].exposure << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_PYAS_PREAMPGAIN:    // set preamp gain
-            {
-                if( my_data->command_num_vars == 1) settings[0].preampGain = (int16_t)my_data->command_vars[0];
-                if( settings[0].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current preamp gain is: " << settings[0].preampGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_PYAS_ANALOGGAIN:    // set analog gain
-            {
-                if( my_data->command_num_vars == 1) settings[0].analogGain = my_data->command_vars[0];
-                if( settings[0].analogGain == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current analog gain is: " << settings[0].analogGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_RAS_EXPOSURE:    // set exposure time
-            {
-                if(my_data->command_num_vars == 1) settings[1].exposure = my_data->command_vars[0];
-                if( settings[1].exposure == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current exposure time is: " << settings[1].exposure << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_RAS_PREAMPGAIN:    // set preamp gain
-            {
-                if( my_data->command_num_vars == 1) settings[1].preampGain = (int16_t)my_data->command_vars[0];
-                if( settings[1].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current preamp gain is: " << settings[1].preampGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_RAS_ANALOGGAIN:    // set analog gain
-            {
-                if( my_data->command_num_vars == 1) settings[1].analogGain = my_data->command_vars[0];
-                if( settings[1].analogGain == my_data->command_vars[0] ) error_code = 0;
-                std::cout << "Current analog gain is: " << settings[1].analogGain << std::endl;
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
-            break;
-        case SKEY_SET_TARGET:    // set new solar target
-            solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
-            queue_cmd_proc_ack_tmpacket(0);
-            break;
-        case SKEY_SET_CLOCKING:    // set new solar target
-            solarTransform.set_clocking(Float2B(my_data->command_vars[0]).value());
-            queue_cmd_proc_ack_tmpacket(0);
-            break;
+        //Operations commands
         case SKEY_START_OUTPUTTING:
-            {
-                isOutputting = true;
-                queue_cmd_proc_ack_tmpacket(0);
-            }
+            isOutputting = true;
+            error_code = 0;
             break;
         case SKEY_STOP_OUTPUTTING:
-            {
-                isOutputting = false;
-                queue_cmd_proc_ack_tmpacket(0);
-            }
+            isOutputting = false;
+            error_code = 0;
             break;
         case SKEY_SUPPRESS_TELEMETRY:
             tm_frames_to_suppress = (uint8_t)my_data->command_vars[0];
-            queue_cmd_proc_ack_tmpacket(0);
+            error_code = 0;
+            break;
+
+        //Setting commands
+        case SKEY_SET_IMAGESAVEFLAG:
+            isSavingImages = (my_data->command_vars[0] > 0);
+            if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
+            std::cout << "Image saving is now turned " << ( isSavingImages ? "on\n" : "off\n");
+            break;
+        case SKEY_SET_PYAS_EXPOSURE:    // set exposure time
+            settings[0].exposure = my_data->command_vars[0];
+            if( settings[0].exposure == my_data->command_vars[0] ) error_code = 0;
+            break;
+        case SKEY_SET_PYAS_PREAMPGAIN:    // set preamp gain
+            settings[0].preampGain = (int16_t)my_data->command_vars[0];
+            if( settings[0].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
+            break;
+        case SKEY_SET_PYAS_ANALOGGAIN:    // set analog gain
+            settings[0].analogGain = my_data->command_vars[0];
+            if( settings[0].analogGain == my_data->command_vars[0] ) error_code = 0;
+            break;
+        case SKEY_SET_RAS_EXPOSURE:    // set exposure time
+            settings[1].exposure = my_data->command_vars[0];
+            if( settings[1].exposure == my_data->command_vars[0] ) error_code = 0;
+            break;
+        case SKEY_SET_RAS_PREAMPGAIN:    // set preamp gain
+            settings[1].preampGain = (int16_t)my_data->command_vars[0];
+            if( settings[1].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
+            break;
+        case SKEY_SET_RAS_ANALOGGAIN:    // set analog gain
+            settings[1].analogGain = my_data->command_vars[0];
+            if( settings[1].analogGain == my_data->command_vars[0] ) error_code = 0;
+            break;
+        case SKEY_SET_TARGET:    // set new solar target
+            solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
+            error_code = 0;
+            break;
+        case SKEY_SET_CLOCKING:    // set new solar target
+            solarTransform.set_clocking(Float2B(my_data->command_vars[0]).value());
+            error_code = 0;
+            break;
+        case SKEY_SET_ASPECT_INT:
+            aspect.SetInteger(my_data->command_vars[0], my_data->command_vars[1]);
+            error_code = 0;
+            break;
+        case SKEY_SET_ASPECT_FLOAT:
+            aspect.SetFloat(my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
+            error_code = 0;
+            break;
+
+        //Getting commands
+        case SKEY_REQUEST_PYAS_IMAGE:
+            error_code = cmd_send_image_to_ground( 0 );
+            break;
+        case SKEY_REQUEST_RAS_IMAGE:
+            error_code = cmd_send_image_to_ground( 1 );
             break;
         case SKEY_GET_PYAS_EXPOSURE:
-            {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[0].exposure );
-            }
+            error_code = (uint16_t)settings[0].exposure;
             break;
         case SKEY_GET_PYAS_ANALOGGAIN:
-            {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[0].analogGain );
-            }
+            error_code = (uint16_t)settings[0].analogGain;
             break;
         case SKEY_GET_PYAS_PREAMPGAIN:
-            {
-                queue_cmd_proc_ack_tmpacket( (int16_t)settings[0].preampGain );
-            }
+            error_code = (int16_t)settings[0].preampGain;
             break;
         case SKEY_GET_RAS_EXPOSURE:
-            {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[1].exposure );
-            }
+            error_code = (uint16_t)settings[1].exposure;
             break;
         case SKEY_GET_RAS_ANALOGGAIN:
-            {
-                queue_cmd_proc_ack_tmpacket( (uint16_t)settings[1].analogGain );
-            }
+            error_code = (uint16_t)settings[1].analogGain;
             break;
         case SKEY_GET_RAS_PREAMPGAIN:
-            {
-                queue_cmd_proc_ack_tmpacket( (int16_t)settings[1].preampGain );
-            }
+            error_code = (int16_t)settings[1].preampGain;
             break;
         case SKEY_GET_DISKSPACE:
-            {
-                if( my_data->command_num_vars == 1) {
-                    uint16_t disk = (uint16_t)my_data->command_vars[0];
-                    error_code = get_disk_usage( disk );
-                }
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            error_code = (uint16_t)get_disk_usage((uint16_t)my_data->command_vars[0]);
+            break;
+        case SKEY_GET_ASPECT_INT:
+            error_code = (int16_t)aspect.GetInteger(my_data->command_vars[0]);
+            break;
+        case SKEY_GET_ASPECT_FLOAT:
+            error_code = (uint16_t)Float2B(aspect.GetFloat(my_data->command_vars[0])).code();
             break;
         default:
-            {
-                error_code = 0xffff;            // unknown command!
-                queue_cmd_proc_ack_tmpacket( error_code );
-            }
+            error_code = 0xffff;            // unknown command!
     }
+
+    queue_cmd_proc_ack_tmpacket( error_code );
 
     started[tid] = false;
     pthread_exit(NULL);
