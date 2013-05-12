@@ -1,5 +1,6 @@
 #define MAX_THREADS 30
-#define SAVE_LOCATION "/mnt/disk2/" // location for saving full images locally
+#define SAVE_LOCATION1 "/mnt/disk1/" // location for saving full images locally
+#define SAVE_LOCATION2 "/mnt/disk2/" // location for saving full images locally
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
 #define USE_MOCK_PYAS_IMAGE false
@@ -639,7 +640,7 @@ void *TelemetrySenderThread(void *threadargs)
         time(&ltime);
         times = localtime(&ltime);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-        sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION, stringtemp);
+        sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION1, stringtemp);
         filename[128 - 1] = '\0';
         printf("Creating telemetry log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
@@ -717,7 +718,7 @@ void *SaveTemperaturesThread(void *threadargs)
     time(&ltime);
     times = localtime(&ltime);
     strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-    sprintf(obsfilespec, "%stemp_data_%s.dat", SAVE_LOCATION, stringtemp);
+    sprintf(obsfilespec, "%stemp_data_%s.dat", SAVE_LOCATION1, stringtemp);
     obsfilespec[128 - 1] = '\0';
     printf("Creating file %s \n",obsfilespec);
 
@@ -783,7 +784,10 @@ void *ImageSaveThread(void *threadargs)
         times = localtime(&localHeader.captureTime.tv_sec);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
 
-        sprintf(filename, "%s%s_%s_%06d.fits", SAVE_LOCATION, (camera_id == 1 ? "ras" : "pyas"), stringtemp, (int)localHeader.frameCount);
+        sprintf(filename, "%s%s_%s_%06d.fits",
+                ((localHeader.frameCount / MOD_SAVE) % 2 == 0 ? SAVE_LOCATION1 : SAVE_LOCATION2),
+                (camera_id == 1 ? "ras" : "pyas"),
+                stringtemp, (int)localHeader.frameCount);
 
         printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", filename, localHeader.exposure, localHeader.analogGain, localHeader.preampGain);
         writeFITSImage(localFrame, localHeader, filename);
@@ -1012,7 +1016,7 @@ void *CommandSenderThread( void *threadargs )
         time(&ltime);
         times = localtime(&ltime);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-        sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION, stringtemp);
+        sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION1, stringtemp);
         filename[128 - 1] = '\0';
         printf("Creating command log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
@@ -1117,7 +1121,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         time(&ltime);
         times = localtime(&ltime);
         strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-        sprintf(filename, "%slog_sc_%s.bin", SAVE_LOCATION, stringtemp);
+        sprintf(filename, "%slog_sc_%s.bin", SAVE_LOCATION1, stringtemp);
         filename[128 - 1] = '\0';
         printf("Creating science log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
