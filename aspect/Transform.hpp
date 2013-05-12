@@ -31,9 +31,6 @@ enum Environment
 
 class Transform {
 private:
-    Location location = HUNTSVILLE;
-    Environment environment = GROUND;
-
     //Conversion from pixel to screen coordinates
     Pair conversion_intercept;
     Pair conversion_slope;
@@ -59,7 +56,7 @@ private:
     void prep();
 
 public:
-    Transform();
+    Transform(Location location = HUNTSVILLE, Environment environment = GROUND);
 
     Pair getSunAzEl(); //azimuth/elevation of the Sun
     Pair getTargetAzEl(); //azimuth/elevation of the solar target

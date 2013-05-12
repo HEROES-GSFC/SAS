@@ -6,7 +6,7 @@
 //Include the spa code directly to be able to use private functions
 #include "spa/spa.c"
 
-Transform::Transform()
+Transform::Transform(Location location, Environment environment)
 {
     conversion_intercept = Pair(-3000, 3000);
     conversion_slope = Pair(6, -6);
