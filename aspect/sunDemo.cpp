@@ -287,7 +287,7 @@ void identifySAS()
     FILE *in;
     char buff[128];
 
-    if(!(in = popen("ifconfig sbc | grep ether", "r"))) {
+    if(!(in = popen("ip link show sbc | grep ether", "r"))) {
         std::cerr << "Error identifying computer, defaulting to SAS-1\n";
         sas_id = 1;
         return;
