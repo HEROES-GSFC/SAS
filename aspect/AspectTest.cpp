@@ -33,8 +33,6 @@ int main(int argc, char* argv[])
 
     IndexList IDs, rowPairs, colPairs;
 
-    Circle circle[2];
-
     std::vector<float> mapping;
         
     Aspect aspect;
@@ -73,10 +71,6 @@ int main(int argc, char* argv[])
                     break;
                 }
             }
-                    
-            
-            aspect.LoadFrame(frame);
-        
             clock_gettime(CLOCK_REALTIME, &startTime);
             //std::cout << "AspectTest: Load Frame" << std::endl;
             aspect.LoadFrame(frame);
@@ -119,7 +113,7 @@ int main(int argc, char* argv[])
             
             cv::Mat list[] = {frame, frame, frame};
             cv::merge(list,3,image);
-
+/*
             if(GeneralizeError(runResult) < CENTER_ERROR)
             {
                 rowRange = SafeRange(center.y-120, center.y+120, image.rows);
@@ -128,8 +122,8 @@ int main(int argc, char* argv[])
                 offset = cv::Point(colRange.start, rowRange.start);
             }
             else offset = cv::Point(0,0);
-
-//            offset = cv::Point(0,0);
+*/
+            offset = cv::Point(0,0);
 
             //Generate summary image with accurate data products marked.
             switch(GeneralizeError(runResult))
@@ -148,9 +142,9 @@ int main(int argc, char* argv[])
                     DrawCross(image, fiducials[k], fiducialColor, 15, 1, 8);
 
                     cv::putText(image, label, fiducials[k] - offset, cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
-                    std::cout << "[" << label << "] ";
+//                    std::cout << "[" << label << "] ";
                 }
-                std::cout << std::endl;
+/*                std::cout << std::endl;
 
 
                 float rowDiff, colDiff;
@@ -179,7 +173,8 @@ int main(int argc, char* argv[])
                     colDiff = fiducials[colPairs[k].y].x - 
                         fiducials[colPairs[k].x].x;
                     std::cout << " | " << rowDiff << " " << colDiff << std::endl;
-                }
+                    }
+                */
             case ID_ERROR:
                 //std::cout << "AspectTest: Get Fiducials" << std::endl;
                 for (int k = 0; k < fiducials.size(); k++)
@@ -207,9 +202,8 @@ int main(int argc, char* argv[])
 
             //Print data to screen.
 
-            if(GeneralizeError(runResult) < CENTER_ERROR)
-                std::cout << "Centers: " << center << " " << 
-                    circle[0].center() << " " << circle[1].center() << std::endl;
+            if(GeneralizeError(runResult) == NO_ERROR)
+                std::cout << "Center (pixels): " << IDCenter << std::endl;
             else
                 std::cout << "Center (pixels): " << "Not valid" << std::endl;
 /*
@@ -223,7 +217,7 @@ int main(int argc, char* argv[])
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             
             cv::imshow("Solution", image);
-            cv::waitKey(0);
+            cv::waitKey(1);
 
         }
     }

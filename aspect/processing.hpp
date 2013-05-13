@@ -50,6 +50,8 @@ enum IntParameter
 enum FloatParameter
 {
     CHORD_THRESHOLD = 0,
+    ERROR_LIMIT,
+    RADIUS_MARGIN,
     FIDUCIAL_THRESHOLD,
     FIDUCIAL_SPACING,
     FIDUCIAL_SPACING_TOL,
@@ -127,9 +129,10 @@ private:
     int chordsPerAxis;
     float chordThreshold;
     int limbWidth;
+    float errorLimit;
 
     int solarRadius;
-    float radiusTol;
+    float radiusMargin;
 
     int fiducialLength;
     int fiducialWidth;
@@ -144,9 +147,9 @@ private:
     std::vector<float> mDistances, nDistances;
     
     void GenerateKernel();
-    int FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings);
+    int FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossings);
     void FindPixelCenter();
-    void FindPixelFiducials(cv::Mat image, cv::Point offset);
+    void FindPixelFiducials(const cv::Mat &image, cv::Point offset);
     void FindFiducialIDs();
     void FindMapping();
     cv::Point2f PixelToScreen(cv::Point2f point);
@@ -157,8 +160,7 @@ private:
     unsigned char frameMax, frameMin;
 
     cv::Mat kernel;
-    cv::Size kernelSize;
-
+    
     CoordList limbCrossings;
 
     cv::Point2f pixelCenter;

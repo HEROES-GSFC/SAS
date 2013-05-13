@@ -112,3 +112,21 @@ void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, 
     pt2.y = point.y+length;
     cv::line(image, pt1*upscale, pt2*upscale, color, thickness, CV_AA, downscale);
 }
+
+const std::string MonoTimeSince(timespec &start)
+{
+    timespec diff, end;
+    char number[10] = "000000000";
+    std::string output;
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    diff = TimespecDiff(start, end);
+    output = "";
+    sprintf(number, "%09lu", diff.tv_sec);
+    output += number;
+    output += "s ";
+    sprintf(number, "%09lu", diff.tv_nsec);
+    output += number;
+    output += "ns ";
+    start = end;
+    return output;
+}
