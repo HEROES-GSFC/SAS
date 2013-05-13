@@ -453,7 +453,7 @@ void *CameraThread( void * threadargs, int camera_id)
                     if(camera_id == 0) image_queue_solution(localHeader);
                 }
 
-                if(frameCount[camera_id] % MOD_SAVE == 0) {
+                if(isSavingImages && (frameCount[camera_id] % MOD_SAVE == 0)) {
                     if(pthread_mutex_trylock(&mutexImageSave[camera_id]) == 0) {
                         Thread_data tdata;
                         tdata.camera_id = camera_id;
