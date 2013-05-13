@@ -227,7 +227,7 @@ AspectCode Aspect::LoadFrame(cv::Mat inputFrame)
         }
         else
         {
-            inputFrame.copyTo(frame);
+            frame = inputFrame;
             frameSize = frame.size();
 
             state = NO_ERROR;
