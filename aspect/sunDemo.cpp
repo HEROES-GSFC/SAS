@@ -2,7 +2,7 @@
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
 #define USE_MOCK_PYAS_IMAGE false
-#define MOCK_PYAS_IMAGE "/mnt/disk1/130421/image_130421_143000_13385.fits"
+#define MOCK_PYAS_IMAGE "/mnt/disk1/mock.fits"
 
 //Save locations for FITS files, alternates between the two locations
 #define SAVE_LOCATION1 "/mnt/disk1/"
