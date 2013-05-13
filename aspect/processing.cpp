@@ -173,7 +173,7 @@ Aspect::Aspect()
     chordThreshold = .25;
 
     solarRadius = 98;
-    radiusTol = 1.5;
+    radiusMargin = .25;
     errorLimit = 50;
 
     limbWidth = 2;
@@ -193,7 +193,6 @@ Aspect::Aspect()
     
     GenerateKernel();
     //matchKernel(kernel);
-
     mDistances.clear();
     nDistances.clear();
     for (int k = 0; k < 14; k++)
@@ -239,9 +238,7 @@ AspectCode Aspect::LoadFrame(cv::Mat inputFrame)
         }
         else
         {
-            clock_gettime(CLOCK_MONOTONIC, &duration);
             inputFrame.copyTo(frame);
-            std::cout << "Time to copy: " << MonoTimeSince(duration) << std::endl;
             frameSize = frame.size();
 
             state = NO_ERROR;
@@ -275,7 +272,6 @@ AspectCode Aspect::Run()
     }
     else
     {
-        clock_gettime(CLOCK_MONOTONIC, &heythere);
         //std::cout << "Aspect: Finding max and min pixel values" << std::endl;
         cv::minMaxLoc(frame, &min, &max, NULL, NULL);
         frameMin = (unsigned char) min;
@@ -291,7 +287,6 @@ AspectCode Aspect::Run()
             state = DYNAMIC_RANGE_LOW;
             return state;
         }
-        std::cout << MonoTimeSince(heythere) << "Min/Max" << std::endl;
         //std::cout << "Aspect: Finding Center" << std::endl;
         FindPixelCenter();
         if (limbCrossings.size() == 0)
@@ -326,12 +321,10 @@ AspectCode Aspect::Run()
             state = CENTER_ERROR_LARGE;
             return state;
         }
-        
-        std::cout << MonoTimeSince(heythere) << "Center" << std::endl;
 
         //Find solar subImage
         //std::cout << "Aspect: Finding solar subimage" << std::endl;
-        int subimageSize = solarRadius*radiusTol;
+        int subimageSize = solarRadius*(1+radiusMargin);
 
         rowRange = SafeRange(pixelCenter.y-subimageSize, 
                              pixelCenter.y+subimageSize, 
@@ -370,9 +363,7 @@ AspectCode Aspect::Run()
             state = SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS;
             return state;
         }
-            
-        std::cout << MonoTimeSince(heythere) << "Subimage" << std::endl;
-
+          
         //Find fiducials
         //std::cout << "Aspect: Finding Fiducials" << std::endl;
         FindPixelFiducials(solarImage, offset);
@@ -388,8 +379,6 @@ AspectCode Aspect::Run()
             state = FEW_FIDUCIALS;
             return state;
         }
-        
-        std::cout << MonoTimeSince(heythere) << "Fiducials" << std::endl;
 
         //Find fiducial IDs
         //std::cout << "Aspect: Finding fiducial IDs" << std::endl;
@@ -401,8 +390,6 @@ AspectCode Aspect::Run()
             return state;
         }
         
-
-        std::cout  << MonoTimeSince(heythere) << "IDs" << std::endl;
         //std::cout << "Aspect: Finding Mapping" << std::endl;
         FindMapping();
         if (/*ILL CONDITIONED*/ false)
@@ -412,8 +399,6 @@ AspectCode Aspect::Run()
             return state;
         }
 
-
-        std::cout << MonoTimeSince(heythere) << "Mapping" << std::endl;
     }
     state = NO_ERROR;
     return state;
@@ -575,8 +560,8 @@ float Aspect::GetFloat(FloatParameter variable)
         return chordThreshold;
     case ERROR_LIMIT:
         return errorLimit;
-    case RADIUS_TOL:
-        return radiusTol;
+    case RADIUS_MARGIN:
+        return radiusMargin;
     case FIDUCIAL_THRESHOLD:
         return fiducialThreshold;
     case FIDUCIAL_SPACING:
@@ -621,8 +606,8 @@ void Aspect::SetFloat(FloatParameter variable, float value)
     case ERROR_LIMIT:
         errorLimit = value;
         break;
-    case RADIUS_TOL:
-        radiusTol = value;
+    case RADIUS_MARGIN:
+        radiusMargin = value;
         break;
     case FIDUCIAL_THRESHOLD:
         fiducialThreshold = value;
@@ -727,6 +712,7 @@ void Aspect::GenerateKernel()
     }
 
     cv::normalize(kernel, kernel, -1, 1,cv::NORM_MINMAX);
+    
 /*
   for (int m = 0; m < shape.rows; m++)
   {
@@ -740,7 +726,7 @@ void Aspect::GenerateKernel()
     return;
 }
 
-int Aspect::FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings)
+int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossings)
 {
     std::vector<int> edges;
     std::vector<float> x, y, fit;
@@ -1000,22 +986,30 @@ void Aspect::FindPixelCenter()
     return;
 }
 
-void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
+void Aspect::FindPixelFiducials(const cv::Mat &image, cv::Point offset)
 {
+    cv::Mat input;
     cv::Scalar mean, stddev;
     cv::Size imageSize;
     cv::Mat correlation, nbhd;
     cv::Range rowRange, colRange;
-    double threshold, thisValue, thatValue, minValue;
-    double Cm, Cn, average;
+    float threshold, thisValue, thatValue, minValue;
+    float Cm, Cn, average;
     int minIndex;
     bool redundant;
 
     pixelFiducials.clear();
+    image.convertTo(input, CV_32FC1);
+    correlation.create(image.size(), CV_32FC1);
 
     //cv::namedWindow("Correlation", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
-    cv::filter2D(image, correlation, CV_64FC1, kernel, cv::Point(-1,-1));
-    cv::normalize(correlation,correlation,0,1,cv::NORM_MINMAX);
+    
+    matchTemplate(input, kernel, correlation, CV_TM_CCORR);
+
+    offset.x += (kernel.cols/2);
+    offset.y += (kernel.rows/2);
+
+    //cv::normalize(correlation,correlation,0,1,cv::NORM_MINMAX);
     //cv::imshow("Correlation", kernel);
     //cv::waitKey(0);
     cv::meanStdDev(correlation, mean, stddev);
@@ -1026,13 +1020,13 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
     {
         for (int n = 1; n < correlation.cols-1; n++)
         {        
-            thisValue = correlation.at<double>(m,n);
+            thisValue = correlation.at<float>(m,n);
             if(thisValue > threshold)
             {
-                if((thisValue > correlation.at<double>(m, n + 1)) &
-                   (thisValue > correlation.at<double>(m, n - 1)) &
-                   (thisValue > correlation.at<double>(m + 1, n)) &
-                   (thisValue > correlation.at<double>(m - 1, n)))
+                if((thisValue > correlation.at<float>(m, n + 1)) &
+                   (thisValue > correlation.at<float>(m, n - 1)) &
+                   (thisValue > correlation.at<float>(m + 1, n)) &
+                   (thisValue > correlation.at<float>(m - 1, n)))
                 {
                     redundant = false;
                     for (unsigned int k = 0; k <  pixelFiducials.size(); k++)
@@ -1041,7 +1035,7 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
                             abs(pixelFiducials[k].x - n) < fiducialLength*2)
                         {
                             redundant = true;
-                            thatValue = correlation.at<double>((int) pixelFiducials[k].y,
+                            thatValue = correlation.at<float>((int) pixelFiducials[k].y,
                                                                (int) pixelFiducials[k].x);
                             if ( thisValue > thatValue)
                             {
@@ -1059,16 +1053,16 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
                     }
                     else
                     {
-                        minValue = kernel.rows*kernel.cols*256;
+                        minValue = std::numeric_limits<float>::infinity();;
                         minIndex = -1;
                         for (int k = 0; k < numFiducials; k++)
                         {
-                            if (correlation.at<double>((int) pixelFiducials[k].y,
+                            if (correlation.at<float>((int) pixelFiducials[k].y,
                                                        (int) pixelFiducials[k].x) 
                                 < minValue)
                             {
                                 minIndex = k;
-                                minValue = correlation.at<double>((int) pixelFiducials[k].y,
+                                minValue = correlation.at<float>((int) pixelFiducials[k].y,
                                                                   (int) pixelFiducials[k].x);
                             }   
                         }
@@ -1103,11 +1097,11 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
         {
             for (int n = colRange.start; n < colRange.end; n++)
             {
-                thisValue = correlation.at<double>(m,n);
+                thisValue = correlation.at<float>(m,n);
                 if (thisValue > threshold)
                 {
-                    Cm += ((double) m)*thisValue;
-                    Cn += ((double) n)*thisValue;
+                    Cm += ((float) m)*thisValue;
+                    Cn += ((float) n)*thisValue;
                     average += thisValue;
                 }
             }
@@ -1115,8 +1109,8 @@ void Aspect::FindPixelFiducials(cv::Mat image, cv::Point offset)
 
         //Set the fiducials to the centroid location, plus an offset
         //to convert from the solar subimage to the original frame
-        pixelFiducials[k].y = (float) (Cm/average + ((double) offset.y));
-        pixelFiducials[k].x = (float) (Cn/average + ((double) offset.x));
+        pixelFiducials[k].y = (float) (Cm/average + ((float) offset.y));
+        pixelFiducials[k].x = (float) (Cn/average + ((float) offset.x));
     }
 
     for (int k = 0; k < pixelFiducials.size(); k++)
