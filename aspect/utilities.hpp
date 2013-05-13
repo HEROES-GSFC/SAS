@@ -33,5 +33,6 @@ private:
 
 timespec TimespecDiff(timespec start, timespec end);
 const std::string nanoString(long tv_nsec);
+const std::string MonoTimeSince(timespec &start);
 void DrawCross(cv::Mat &image, cv::Point2f point, cv::Scalar color, int length, int thickness, int resolution);
 

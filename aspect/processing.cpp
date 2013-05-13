@@ -8,6 +8,7 @@
    cv::Point. All the functions doing real computation are private, other than "Run."
 */
 #include "processing.hpp"
+#include "utilities.hpp"
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -169,7 +170,7 @@ Aspect::Aspect()
     // when the sun has been found
     chordsPerAxis = 10;
 
-    chordThreshold = .2;
+    chordThreshold = .25;
 
     solarRadius = 98;
     radiusTol = 1.5;
@@ -219,7 +220,7 @@ Aspect::~Aspect()
 
 AspectCode Aspect::LoadFrame(cv::Mat inputFrame)
 {
-
+    timespec duration;
     //std::cout << "Aspect: Loading Frame" << std::endl;
     if(inputFrame.empty())
     {
@@ -238,7 +239,9 @@ AspectCode Aspect::LoadFrame(cv::Mat inputFrame)
         }
         else
         {
+            clock_gettime(CLOCK_MONOTONIC, &duration);
             inputFrame.copyTo(frame);
+            std::cout << "Time to copy: " << MonoTimeSince(duration) << std::endl;
             frameSize = frame.size();
 
             state = NO_ERROR;
@@ -254,7 +257,7 @@ AspectCode Aspect::Run()
     cv::Size solarSize;
     cv::Point offset;
     double max, min;
-
+    timespec heythere;
     limbCrossings.clear();    
     slopes.clear();    
     pixelFiducials.clear();
@@ -272,6 +275,7 @@ AspectCode Aspect::Run()
     }
     else
     {
+        clock_gettime(CLOCK_MONOTONIC, &heythere);
         //std::cout << "Aspect: Finding max and min pixel values" << std::endl;
         cv::minMaxLoc(frame, &min, &max, NULL, NULL);
         frameMin = (unsigned char) min;
@@ -287,7 +291,7 @@ AspectCode Aspect::Run()
             state = DYNAMIC_RANGE_LOW;
             return state;
         }
-
+        std::cout << MonoTimeSince(heythere) << "Min/Max" << std::endl;
         //std::cout << "Aspect: Finding Center" << std::endl;
         FindPixelCenter();
         if (limbCrossings.size() == 0)
@@ -322,7 +326,8 @@ AspectCode Aspect::Run()
             state = CENTER_ERROR_LARGE;
             return state;
         }
-
+        
+        std::cout << MonoTimeSince(heythere) << "Center" << std::endl;
 
         //Find solar subImage
         //std::cout << "Aspect: Finding solar subimage" << std::endl;
@@ -366,6 +371,8 @@ AspectCode Aspect::Run()
             return state;
         }
             
+        std::cout << MonoTimeSince(heythere) << "Subimage" << std::endl;
+
         //Find fiducials
         //std::cout << "Aspect: Finding Fiducials" << std::endl;
         FindPixelFiducials(solarImage, offset);
@@ -381,6 +388,8 @@ AspectCode Aspect::Run()
             state = FEW_FIDUCIALS;
             return state;
         }
+        
+        std::cout << MonoTimeSince(heythere) << "Fiducials" << std::endl;
 
         //Find fiducial IDs
         //std::cout << "Aspect: Finding fiducial IDs" << std::endl;
@@ -392,6 +401,8 @@ AspectCode Aspect::Run()
             return state;
         }
         
+
+        std::cout  << MonoTimeSince(heythere) << "IDs" << std::endl;
         //std::cout << "Aspect: Finding Mapping" << std::endl;
         FindMapping();
         if (/*ILL CONDITIONED*/ false)
@@ -400,6 +411,9 @@ AspectCode Aspect::Run()
             state = MAPPING_ILL_CONDITIONED;
             return state;
         }
+
+
+        std::cout << MonoTimeSince(heythere) << "Mapping" << std::endl;
     }
     state = NO_ERROR;
     return state;

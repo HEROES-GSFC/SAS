@@ -106,12 +106,12 @@ int main(int argc, char* agrv[])
             //std::cout << "fullDemo: Get Crossings" << std::endl;
             aspect.GetPixelCrossings(crossings);
             for (int k = 0; k < crossings.size(); k++)
-                DrawCross(image, crossings[k], crossingColor, 10, 1);
+                DrawCross(image, crossings[k], crossingColor, 10, 1, 8);
 
             //std::cout << "fullDemo: Get Center" << std::endl;
             aspect.GetPixelCenter(center);
             //std::cout << "fullDemo: Center: " << center.x << " " << center.y << std::endl;
-            DrawCross(image, center, centerColor, 20, 1);
+            DrawCross(image, center, centerColor, 20, 1, 8);
             
             //std::cout << "fullDemo: Get Error" << std::endl;
             aspect.GetPixelError(error);
@@ -120,7 +120,7 @@ int main(int argc, char* agrv[])
             //std::cout << "fullDemo: Get Fiducials" << std::endl;
             aspect.GetPixelFiducials(fiducials);
             for (int k = 0; k < fiducials.size(); k++)
-                DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+                DrawCross(image, fiducials[k], fiducialColor, 15, 1, 8);
 
             //std::cout << "fullDemo: Get IDs" << std::endl;
             aspect.GetFiducialIDs(IDs);
@@ -133,7 +133,7 @@ int main(int argc, char* agrv[])
                 label += ",";
                 sprintf(number, "%d", (int) IDs[k].y);
                 label += number;
-                DrawCross(image, fiducials[k], fiducialColor, 15, 1);
+                DrawCross(image, fiducials[k], fiducialColor, 15, 1, 8);
                 cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, textColor);
                 
                 std::cout << "[" << label << "] ";
