@@ -345,7 +345,7 @@ void *CameraThread( void * threadargs, int camera_id)
 
     ImperxStream camera;
 
-    cv::Mat localFrame;
+    cv::Mat localFrame, mockFrame;
     HeaderData localHeader;
     timespec localCaptureTime, preExposure, postExposure, timeElapsed, timeToWait;
     int width, height;
@@ -354,6 +354,13 @@ void *CameraThread( void * threadargs, int camera_id)
     uint16_t localExposure = settings[camera_id].exposure;
     int16_t localPreampGain = settings[camera_id].preampGain;
     uint16_t localAnalogGain = settings[camera_id].analogGain;
+
+    if((camera_id == 0) && USE_MOCK_PYAS_IMAGE) {
+        std::cerr << "Loading mock image...";
+        if(readFITSImage(MOCK_PYAS_IMAGE, mockFrame) == 0) {
+            std::cerr << "success\n";
+        } else std::cerr << "failure\n";
+    }
 
     cameraReady[camera_id] = false;
     while(!stop_message[tid])
@@ -409,9 +416,7 @@ void *CameraThread( void * threadargs, int camera_id)
             if(!camera.Snap(localFrame, frameRate))
             {
                 if((camera_id == 0) && USE_MOCK_PYAS_IMAGE) {
-                    while(readFITSImage(MOCK_PYAS_IMAGE, localFrame) != 0) {
-                        std::cerr << "Trying again...\n";
-                    }
+                    if (!mockFrame.empty()) mockFrame.copyTo(localFrame);
                 }
                 frameCount[camera_id]++;
                 failcount = 0;
