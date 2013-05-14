@@ -3,6 +3,7 @@
 #define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "Packet.hpp"
 #include "UDPSender.hpp"

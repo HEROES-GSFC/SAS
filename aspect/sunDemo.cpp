@@ -1,8 +1,9 @@
+#define SAVE_IMAGES false
 #define MAX_THREADS 30
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
 #define USE_MOCK_PYAS_IMAGE false
-#define MOCK_PYAS_IMAGE "/mnt/disk1/130421/image_130421_143000_13385.fits"
+#define MOCK_PYAS_IMAGE "/mnt/disk1/mock.fits"
 
 //Save locations for FITS files, alternates between the two locations
 #define SAVE_LOCATION1 "/mnt/disk1/"
@@ -153,7 +154,7 @@ uint8_t tm_frames_to_suppress = 0;
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
 bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
-bool isSavingImages = true;  // is the SAS saving images?
+bool isSavingImages = SAVE_IMAGES;  // is the SAS saving images?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -166,7 +167,9 @@ bool started[MAX_THREADS];
 int tid_listen = -1; //Stores the ID for the CommandListener thread
 pthread_mutex_t mutexStartThread; //Keeps new threads from being started simultaneously
 pthread_mutex_t mutexHeader[2];  //Used to protect both the frame and header information
-pthread_mutex_t mutexImageSave[2];  //Used to make sure that no more than one ImageSaveThread is running
+
+//Used to make sure that there are no more than 3 saving threads per camera
+Semaphore semaphoreSave[2] = {Semaphore(3), Semaphore(3)};
 
 struct Thread_data{
     int thread_id;
@@ -287,7 +290,7 @@ void identifySAS()
     FILE *in;
     char buff[128];
 
-    if(!(in = popen("ifconfig sbc | grep ether", "r"))) {
+    if(!(in = popen("ip link show sbc | grep ether", "r"))) {
         std::cerr << "Error identifying computer, defaulting to SAS-1\n";
         sas_id = 1;
         return;
@@ -345,7 +348,7 @@ void *CameraThread( void * threadargs, int camera_id)
 
     ImperxStream camera;
 
-    cv::Mat localFrame;
+    cv::Mat localFrame, mockFrame;
     HeaderData localHeader;
     timespec localCaptureTime, preExposure, postExposure, timeElapsed, timeToWait;
     int width, height;
@@ -354,6 +357,13 @@ void *CameraThread( void * threadargs, int camera_id)
     uint16_t localExposure = settings[camera_id].exposure;
     int16_t localPreampGain = settings[camera_id].preampGain;
     uint16_t localAnalogGain = settings[camera_id].analogGain;
+
+    if((camera_id == 0) && USE_MOCK_PYAS_IMAGE) {
+        std::cerr << "Loading mock image...";
+        if(readFITSImage(MOCK_PYAS_IMAGE, mockFrame) == 0) {
+            std::cerr << "success\n";
+        } else std::cerr << "failure\n";
+    }
 
     cameraReady[camera_id] = false;
     while(!stop_message[tid])
@@ -409,9 +419,7 @@ void *CameraThread( void * threadargs, int camera_id)
             if(!camera.Snap(localFrame, frameRate))
             {
                 if((camera_id == 0) && USE_MOCK_PYAS_IMAGE) {
-                    while(readFITSImage(MOCK_PYAS_IMAGE, localFrame) != 0) {
-                        std::cerr << "Trying again...\n";
-                    }
+                    if (!mockFrame.empty()) mockFrame.copyTo(localFrame);
                 }
                 frameCount[camera_id]++;
                 failcount = 0;
@@ -453,13 +461,14 @@ void *CameraThread( void * threadargs, int camera_id)
                     if(camera_id == 0) image_queue_solution(localHeader);
                 }
 
-                if(frameCount[camera_id] % MOD_SAVE == 0) {
-                    if(pthread_mutex_trylock(&mutexImageSave[camera_id]) == 0) {
+                if(isSavingImages && (frameCount[camera_id] % MOD_SAVE == 0)) {
+                    try {
+                        semaphoreSave[camera_id].increment();
                         Thread_data tdata;
                         tdata.camera_id = camera_id;
                         start_thread(ImageSaveThread, &tdata);
-                    } else {
-                        printf("Already saving a %s image\n", (camera_id == 0 ? "PYAS" : "RAS"));
+                    } catch (std::exception& e) {
+                        printf("Already saving too many %s images\n", (camera_id == 0 ? "PYAS" : "RAS"));
                     }
                 }
             }
@@ -826,8 +835,8 @@ void *ImageSaveThread(void *threadargs)
     {
     }
 
-    //This thread should only ever be started if the lock was set
-    pthread_mutex_unlock(&mutexImageSave[camera_id]);
+    //This thread should only ever be started if the semaphore was incremented
+    semaphoreSave[camera_id].decrement();
 
     clock_gettime(CLOCK_MONOTONIC, &postSave);
     elapsedSave = TimespecDiff(preSave, postSave);
@@ -1635,8 +1644,6 @@ int main(void)
     pthread_mutex_init(&mutexStartThread, NULL);
     pthread_mutex_init(&mutexHeader[0], NULL);
     pthread_mutex_init(&mutexHeader[1], NULL);
-    pthread_mutex_init(&mutexImageSave[0], NULL);
-    pthread_mutex_init(&mutexImageSave[1], NULL);
 
     /* Create worker threads */
     printf("In main: creating threads\n");
@@ -1675,8 +1682,6 @@ int main(void)
     pthread_mutex_destroy(&mutexStartThread);
     pthread_mutex_destroy(&mutexHeader[0]);
     pthread_mutex_destroy(&mutexHeader[1]);
-    pthread_mutex_destroy(&mutexImageSave[0]);
-    pthread_mutex_destroy(&mutexImageSave[1]);
     pthread_exit(NULL);
 
     return 0;
