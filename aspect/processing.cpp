@@ -15,6 +15,8 @@
 #include <list>
 #include <cmath>
 
+const float pi = std::atan(1.0)*4;
+
 cv::Point2f fiducialIDtoScreen(cv::Point2i id) 
 {
     cv::Point2f result;
@@ -188,6 +190,9 @@ Aspect::Aspect()
     // Value measured in lab for fiducialSpacing is 15.7
     fiducialSpacing = 15.7;
     fiducialSpacingTol = 1.5;
+    
+    fiducialTwist = 90;
+
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
     
@@ -568,6 +573,8 @@ float Aspect::GetFloat(FloatParameter variable)
         return fiducialSpacing;
     case FIDUCIAL_SPACING_TOL:
         return fiducialSpacingTol;
+    case FIDUCIAL_TWIST:
+        return fiducialTwist;
     default:
         return 0;
     }
@@ -617,6 +624,9 @@ void Aspect::SetFloat(FloatParameter variable, float value)
         break;
     case FIDUCIAL_SPACING_TOL:
         fiducialSpacingTol = value;
+        break;
+    case FIDUCIAL_TWIST:
+        fiducialTwist = value;
         break;
     default:
         return;
@@ -1127,6 +1137,7 @@ void Aspect::FindFiducialIDs()
     unsigned int d, k, l, K;
     float rowDiff, colDiff;
     CoordList trash;
+    CoordList rotatedFiducials;
     
     K = pixelFiducials.size();
     rowPairs.clear();
@@ -1139,6 +1150,8 @@ void Aspect::FindFiducialIDs()
     
     std::vector<int> modes;
 
+    rotate(fiducialTwist, pixelFiducials, rotatedFiducials);
+
     //Find fiducial pairs that are spaced correctly
     //std::cout << "Aspect: Find valid fiducial pairs" << std::endl;
     //std::cout << "Aspect: Searching through " << K << " Fiducials" << std::endl;
@@ -1146,8 +1159,8 @@ void Aspect::FindFiducialIDs()
     {
         for (l = k+1; l < K; l++)
         {
-            rowDiff = pixelFiducials[k].y - pixelFiducials[l].y;
-            colDiff = pixelFiducials[k].x - pixelFiducials[l].x;
+            rowDiff = rotatedFiducials[k].y - rotatedFiducials[l].y;
+            colDiff = rotatedFiducials[k].x - rotatedFiducials[l].x;
 
             if (fabs(rowDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
                 fabs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol && 
@@ -1171,8 +1184,8 @@ void Aspect::FindFiducialIDs()
     //std::cout << "Rows: " << std::endl;
     for (k = 0; k <  rowPairs.size(); k++)
     {
-        rowDiff = pixelFiducials[rowPairs[k].y].y 
-            - pixelFiducials[rowPairs[k].x].y;
+        rowDiff = rotatedFiducials[rowPairs[k].y].y 
+            - rotatedFiducials[rowPairs[k].x].y;
 
         for (d = 0; d < mDistances.size(); d++)
         {
@@ -1197,8 +1210,8 @@ void Aspect::FindFiducialIDs()
     //std::cout << "Aspect: Compute intra-pair distances for col pairs." << std::endl;
     for (k = 0; k <  colPairs.size(); k++)
     {
-        colDiff = pixelFiducials[colPairs[k].x].x 
-            - pixelFiducials[colPairs[k].y].x;
+        colDiff = rotatedFiducials[colPairs[k].x].x 
+            - rotatedFiducials[colPairs[k].y].x;
         for (d = 0; d <  nDistances.size(); d++)
         {
             if (fabs(fabs(colDiff) - nDistances[d]) < fiducialSpacingTol)
@@ -1257,8 +1270,8 @@ void Aspect::FindFiducialIDs()
     //std::cout << "Aspect: Compute intra-pair distances for row pairs." << std::endl;
     for (k = 0; k <  rowPairs.size(); k++)
     {
-        rowDiff = pixelFiducials[rowPairs[k].y].y 
-            - pixelFiducials[rowPairs[k].x].y;
+        rowDiff = rotatedFiducials[rowPairs[k].y].y 
+            - rotatedFiducials[rowPairs[k].x].y;
 
         //If part of a row pair has an unidentified column index, it should match its partner
         if (fiducialIDs[rowPairs[k].x].x == -100 && fiducialIDs[rowPairs[k].y].x != -100)
@@ -1289,8 +1302,8 @@ void Aspect::FindFiducialIDs()
 
     for (k = 0; k <  colPairs.size(); k++)
     {
-        colDiff = pixelFiducials[colPairs[k].x].x 
-            - pixelFiducials[colPairs[k].y].x;
+        colDiff = rotatedFiducials[colPairs[k].x].x 
+            - rotatedFiducials[colPairs[k].y].x;
 
         //For columns, pairs should match in row
         if (fiducialIDs[colPairs[k].x].y == -100 && fiducialIDs[colPairs[k].y].y != -100)
@@ -1600,3 +1613,21 @@ std::vector<T> Mode(std::vector<T> data)
     }
     return mode;
 }
+
+cv::Point2f rotate(float angle, cv::Point2f point)
+{
+    float c, s;
+    cv::Point2f outPoint;
+    c = std::cos(2*pi*angle/360);
+    s = std::sin(2*pi*angle/360);
+    outPoint.x = c*point.x - s*point.y;
+    outPoint.y = s*point.x + c*point.y;
+    return outPoint;
+}
+void rotate(float angle, const CoordList &inPoints, CoordList &outPoints)
+{
+    outPoints.resize(inPoints.size());
+    for (int k = 0; k < inPoints.size(); k++)
+        outPoints[k] = rotate(angle, inPoints[k]);
+}
+    

@@ -34,6 +34,8 @@ int main(int argc, char* argv[])
     IndexList IDs, rowPairs, colPairs;
 
     std::vector<float> mapping;
+
+    float twistAngle;
         
     Aspect aspect;
     AspectCode runResult;
@@ -41,6 +43,11 @@ int main(int argc, char* argv[])
     std::ifstream frames(argv[1]);
     std::string message;
     timespec startTime, stopTime, diffTime;
+
+    std::cout << "Feed me Seymour: ";
+    std::cin >> twistAngle;
+
+    aspect.SetFloat(FIDUCIAL_TWIST, twistAngle);
 
     if (!frames.good())
     {
@@ -144,7 +151,7 @@ int main(int argc, char* argv[])
                     cv::putText(image, label, fiducials[k] - offset, cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
 //                    std::cout << "[" << label << "] ";
                 }
-/*                std::cout << std::endl;
+                std::cout << std::endl;
 
 
                 float rowDiff, colDiff;
@@ -174,7 +181,7 @@ int main(int argc, char* argv[])
                         fiducials[colPairs[k].x].x;
                     std::cout << " | " << rowDiff << " " << colDiff << std::endl;
                     }
-                */
+                
             case ID_ERROR:
                 //std::cout << "AspectTest: Get Fiducials" << std::endl;
                 for (int k = 0; k < fiducials.size(); k++)
@@ -217,7 +224,7 @@ int main(int argc, char* argv[])
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             
             cv::imshow("Solution", image);
-            cv::waitKey(1);
+            cv::waitKey(0);
 
         }
     }
