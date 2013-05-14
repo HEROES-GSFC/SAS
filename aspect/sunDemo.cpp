@@ -166,7 +166,9 @@ bool started[MAX_THREADS];
 int tid_listen = -1; //Stores the ID for the CommandListener thread
 pthread_mutex_t mutexStartThread; //Keeps new threads from being started simultaneously
 pthread_mutex_t mutexHeader[2];  //Used to protect both the frame and header information
-pthread_mutex_t mutexImageSave[2];  //Used to make sure that no more than one ImageSaveThread is running
+
+//Used to make sure that there are no more than 3 saving threads per camera
+Semaphore semaphoreSave[2] = {Semaphore(3), Semaphore(3)};
 
 struct Thread_data{
     int thread_id;
@@ -459,12 +461,13 @@ void *CameraThread( void * threadargs, int camera_id)
                 }
 
                 if(isSavingImages && (frameCount[camera_id] % MOD_SAVE == 0)) {
-                    if(pthread_mutex_trylock(&mutexImageSave[camera_id]) == 0) {
+                    try {
+                        semaphoreSave[camera_id].increment();
                         Thread_data tdata;
                         tdata.camera_id = camera_id;
                         start_thread(ImageSaveThread, &tdata);
-                    } else {
-                        printf("Already saving a %s image\n", (camera_id == 0 ? "PYAS" : "RAS"));
+                    } catch (std::exception& e) {
+                        printf("Already saving too many %s images\n", (camera_id == 0 ? "PYAS" : "RAS"));
                     }
                 }
             }
@@ -831,8 +834,8 @@ void *ImageSaveThread(void *threadargs)
     {
     }
 
-    //This thread should only ever be started if the lock was set
-    pthread_mutex_unlock(&mutexImageSave[camera_id]);
+    //This thread should only ever be started if the semaphore was incremented
+    semaphoreSave[camera_id].decrement();
 
     clock_gettime(CLOCK_MONOTONIC, &postSave);
     elapsedSave = TimespecDiff(preSave, postSave);
@@ -1640,8 +1643,6 @@ int main(void)
     pthread_mutex_init(&mutexStartThread, NULL);
     pthread_mutex_init(&mutexHeader[0], NULL);
     pthread_mutex_init(&mutexHeader[1], NULL);
-    pthread_mutex_init(&mutexImageSave[0], NULL);
-    pthread_mutex_init(&mutexImageSave[1], NULL);
 
     /* Create worker threads */
     printf("In main: creating threads\n");
@@ -1680,8 +1681,6 @@ int main(void)
     pthread_mutex_destroy(&mutexStartThread);
     pthread_mutex_destroy(&mutexHeader[0]);
     pthread_mutex_destroy(&mutexHeader[1]);
-    pthread_mutex_destroy(&mutexImageSave[0]);
-    pthread_mutex_destroy(&mutexImageSave[1]);
     pthread_exit(NULL);
 
     return 0;
