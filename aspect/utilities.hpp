@@ -9,13 +9,21 @@
 class Semaphore 
 {
 public:
-    Semaphore();
+    Semaphore(int maximum = -1);
     ~Semaphore();
     void increment();
     void decrement();
 private:
-    int count;  
+    int count, max;
     pthread_mutex_t mutex;
+};
+
+class SemaphoreException : public std::exception
+{
+    virtual const char* what() const throw()
+        {
+            return "Exception in Semaphore usage";
+        }
 };
 
 class Flag 
