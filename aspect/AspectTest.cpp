@@ -44,11 +44,6 @@ int main(int argc, char* argv[])
     std::string message;
     timespec startTime, stopTime, diffTime;
 
-    std::cout << "Feed me Seymour: ";
-    std::cin >> twistAngle;
-
-    aspect.SetFloat(FIDUCIAL_TWIST, twistAngle);
-
     if (!frames.good())
     {
         std::cout << "Failed to whatever file list" << std::endl;
