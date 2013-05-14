@@ -50,9 +50,12 @@ enum IntParameter
 enum FloatParameter
 {
     CHORD_THRESHOLD = 0,
+    ERROR_LIMIT,
+    RADIUS_MARGIN,
     FIDUCIAL_THRESHOLD,
     FIDUCIAL_SPACING,
     FIDUCIAL_SPACING_TOL,
+    FIDUCIAL_TWIST
 };
     
 enum AspectCode
@@ -127,9 +130,10 @@ private:
     int chordsPerAxis;
     float chordThreshold;
     int limbWidth;
+    float errorLimit;
 
     int solarRadius;
-    float radiusTol;
+    float radiusMargin;
 
     int fiducialLength;
     int fiducialWidth;
@@ -141,12 +145,13 @@ private:
     
     float fiducialSpacing;
     float fiducialSpacingTol;
+    float fiducialTwist;
     std::vector<float> mDistances, nDistances;
     
     void GenerateKernel();
-    int FindLimbCrossings(cv::Mat chord, std::vector<float> &crossings);
+    int FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossings);
     void FindPixelCenter();
-    void FindPixelFiducials(cv::Mat image, cv::Point offset);
+    void FindPixelFiducials(const cv::Mat &image, cv::Point offset);
     void FindFiducialIDs();
     void FindMapping();
     cv::Point2f PixelToScreen(cv::Point2f point);
@@ -157,8 +162,7 @@ private:
     unsigned char frameMax, frameMin;
 
     cv::Mat kernel;
-    cv::Size kernelSize;
-
+    
     CoordList limbCrossings;
 
     cv::Point2f pixelCenter;
@@ -192,3 +196,6 @@ float Euclidian(cv::Point2f d);
 float Euclidian(cv::Point2f p1, cv::Point2f p2);
 
 template <class T> std::vector<T> Mode(std::vector<T> data);
+
+cv::Point2f rotate(float angle, cv::Point2f point);
+void rotate(float angle, const CoordList &inPoints, CoordList &outPoints); 

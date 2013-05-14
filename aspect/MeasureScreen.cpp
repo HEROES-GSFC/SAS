@@ -10,7 +10,7 @@ int main(int argc, char* argv[])
 
     if (argc != 2)
     {
-        std::cout << "Correct usage is: AspectTest frameList.txt\n";
+        std::cout << "Correct usage is: MeasureScreen frameList.txt\n";
         return -1;
     }
 
@@ -20,22 +20,19 @@ int main(int argc, char* argv[])
     char number[4] = "000";
     cv::Mat frame;
     cv::Mat image;
-    cv::Point2f center,error, offset, IDCenter;
 
-    cv::Scalar crossingColor(0,255,0);
-    cv::Scalar centerColor(64,0,128);
     cv::Scalar fiducialColor(255,0,0);
     cv::Scalar IDColor(165,0,165);
     cv::Scalar textColor(0,165,255);
     cv::Range rowRange, colRange;
 
-    CoordList crossings, fiducials;
+    CoordList fiducials;
 
-    IndexList IDs, rowPairs, colPairs;
+    IndexList IDs, rowPairs, colPairs, pairs;
 
-    std::vector<float> mapping;
+    Circle circle[2];
 
-    float twistAngle;
+    std::vector<float> mapping, crap;
         
     Aspect aspect;
     AspectCode runResult;
@@ -43,6 +40,12 @@ int main(int argc, char* argv[])
     std::ifstream frames(argv[1]);
     std::string message;
     timespec startTime, stopTime, diffTime;
+    
+    aspect.SetInteger(NUM_FIDUCIALS, 225);
+    aspect.SetFloat(ERROR_LIMIT, 1296);
+    aspect.SetFloat(CHORD_THRESHOLD, .1);
+    aspect.SetFloat(RADIUS_TOL, 20);
+    aspect.SetFloat(FIDUCIAL_THRESHOLD, 3.5);
 
     if (!frames.good())
     {
@@ -73,6 +76,10 @@ int main(int argc, char* argv[])
                     break;
                 }
             }
+                    
+            
+            aspect.LoadFrame(frame);
+        
             clock_gettime(CLOCK_REALTIME, &startTime);
             //std::cout << "AspectTest: Load Frame" << std::endl;
             aspect.LoadFrame(frame);
@@ -82,10 +89,7 @@ int main(int argc, char* argv[])
             //Get aspect data products depending on error severity
             switch(GeneralizeError(runResult))
             {
-            case NO_ERROR:
-                aspect.GetScreenCenter(IDCenter);
-                aspect.GetScreenFiducials(fiducials);
-        
+            case NO_ERROR:        
             case MAPPING_ERROR:
                 //std::cout << "AspectTest: Get IDs" << std::endl;
                 aspect.GetFiducialIDs(IDs);
@@ -94,18 +98,7 @@ int main(int argc, char* argv[])
             case ID_ERROR:
                 //std::cout << "AspectTest: Get Fiducials" << std::endl;
                 aspect.GetPixelFiducials(fiducials);
-                
-            case FIDUCIAL_ERROR:
-                //std::cout << "AspectTest: Get Center" << std::endl;
-                aspect.GetPixelCenter(center);
-                aspect.GetPixelError(error);
-                
-            case CENTER_ERROR:
-                //std::cout << "AspectTest: Get Crossings" << std::endl;
-                aspect.GetPixelCrossings(crossings);
-                aspect.GetPixelError(error);
-            case LIMB_ERROR:
-                break;
+        
             default:
                 break;
             }
@@ -115,17 +108,6 @@ int main(int argc, char* argv[])
             
             cv::Mat list[] = {frame, frame, frame};
             cv::merge(list,3,image);
-/*
-            if(GeneralizeError(runResult) < CENTER_ERROR)
-            {
-                rowRange = SafeRange(center.y-120, center.y+120, image.rows);
-                colRange = SafeRange(center.x-120, center.x+120, image.cols);
-                image = image(rowRange, colRange);
-                offset = cv::Point(colRange.start, rowRange.start);
-            }
-            else offset = cv::Point(0,0);
-*/
-            offset = cv::Point(0,0);
 
             //Generate summary image with accurate data products marked.
             switch(GeneralizeError(runResult))
@@ -143,77 +125,47 @@ int main(int argc, char* argv[])
                     label += number;
                     DrawCross(image, fiducials[k], fiducialColor, 15, 1, 8);
 
-                    cv::putText(image, label, fiducials[k] - offset, cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
-//                    std::cout << "[" << label << "] ";
+                    cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
+                    std::cout << IDs[k];
                 }
                 std::cout << std::endl;
 
-
                 float rowDiff, colDiff;
                 std::cout << "Pair distances: \n";
-                for (int k = 0; k < rowPairs.size(); k++)
+                crap.clear();
+                pairs.clear();
+                for (int d = 0; d < 2; d++)
                 {
-                    std::cout << fiducials[rowPairs[k].x] << " ";
-                    std::cout << fiducials[rowPairs[k].y] << " ";
-                    std::cout << IDs[rowPairs[k].x] << " ";
-                    std::cout << IDs[rowPairs[k].y] << " ";
-                    rowDiff = fiducials[rowPairs[k].y].y - 
-                        fiducials[rowPairs[k].x].y;
-                    colDiff = fiducials[rowPairs[k].y].x - 
-                        fiducials[rowPairs[k].x].x;
-                    std::cout << " | " << rowDiff << " " << colDiff << std::endl;
-                }
+                    pairs = d ? rowPairs : colPairs;
+                    for (int k = 0; k < pairs.size(); k++)
+                    {
+                        std::cout << fiducials[pairs[k].x] << " ";
+                        std::cout << fiducials[pairs[k].y] << " ";
+                        std::cout << IDs[pairs[k].x] << " ";
+                        std::cout << IDs[pairs[k].y] << " ";
+                        rowDiff = fiducials[pairs[k].y].y - 
+                            fiducials[pairs[k].x].y;
+                        colDiff = fiducials[pairs[k].y].x - 
+                            fiducials[pairs[k].x].x;
 
-                for (int k = 0; k < colPairs.size(); k++)
-                {
-                    std::cout << fiducials[colPairs[k].x] << " ";
-                    std::cout << fiducials[colPairs[k].y] << " ";
-                    std::cout << IDs[colPairs[k].x] << " ";
-                    std::cout << IDs[colPairs[k].y] << " ";
-                    rowDiff = fiducials[colPairs[k].y].y - 
-                        fiducials[colPairs[k].x].y;
-                    colDiff = fiducials[colPairs[k].y].x - 
-                        fiducials[colPairs[k].x].x;
-                    std::cout << " | " << rowDiff << " " << colDiff << std::endl;
+                        std::cout << " | " << rowDiff << " " << colDiff << std::endl;
+                        if (fabs(rowDiff - 15.7) < 1.5)
+                            crap.push_back(rowDiff);
+                        else if (fabs(colDiff - 15.7) < 1.5)
+                            crap.push_back(colDiff);
                     }
-                
+                }
             case ID_ERROR:
                 //std::cout << "AspectTest: Get Fiducials" << std::endl;
                 for (int k = 0; k < fiducials.size(); k++)
-                    DrawCross(image, fiducials[k] - offset, fiducialColor, 15, 1, 8);
-                
-            case FIDUCIAL_ERROR:
-                //std::cout << "AspectTest: Get Center" << std::endl;
-                DrawCross(image, center - offset, centerColor , 20, 1, 8);
-                cv::circle(image, (center - offset)*pow(2,8), error.x*pow(2,8), centerColor, 1, CV_AA, 8);
-                
-                //std::cout << "AspectTest: Get Error" << std::endl;
-                //std::cout << "AspectTest: Error:  " << error.x << " " << error.y << std::endl;
-
-            case CENTER_ERROR:
-                //std::cout << "AspectTest: Get Crossings" << std::endl;;
-                for (int k = 0; k < crossings.size(); k++)
-                    DrawCross(image, crossings[k] - offset, crossingColor, 10, 1, 8);
-
-            case LIMB_ERROR:
-                break;
+                    DrawCross(image, fiducials[k], fiducialColor, 15, 1, 8);
+             
             default:
                 break;
-            }
+            }            
 
+            std::cout << "Mean whatever bullshit is: " << Mean(crap) << std::endl;
 
-            //Print data to screen.
-
-            if(GeneralizeError(runResult) == NO_ERROR)
-                std::cout << "Center (pixels): " << IDCenter << std::endl;
-            else
-                std::cout << "Center (pixels): " << "Not valid" << std::endl;
-/*
-            if(GeneralizeError(runResult) < MAPPING_ERROR)
-                std::cout << "Center (screen): " << IDCenter << std::endl;
-            else
-                std::cout << "Center (screen): " << "Not valid" << std::endl;
-*/            
             cv::putText(image, filename, cv::Point(0,(frame.size()).height-20), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             message = GetMessage(runResult);
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);

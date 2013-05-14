@@ -31,7 +31,8 @@ ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
 
-EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator test_telemetry evaluate
+TESTS = AspectTest AspectVideo MeasureScreen BlackFrames 
+EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
 
 default: sunDemo sbc_info sbc_shutdown
 
@@ -51,15 +52,6 @@ SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o Packet.o lib_crc.o
 
 sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
-
-streamTest: streamTest.cpp processing.o utilities.o ImperxStream.o compression.o lib_crc.o
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
-
-AspectTest: AspectTest.cpp processing.o utilities.o compression.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
-
-AspectVideo: AspectVideo.cpp processing.o utilities.o compression.o
-	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 test_telemetry: test_telemetry.cpp Telemetry.o Packet.o lib_crc.o UDPSender.o types.o
 	$(CC) $(CFLAGS) $^ -o $@
@@ -88,6 +80,10 @@ tmbin_reader: tmbin_reader.cpp Packet.o lib_crc.o Telemetry.o types.o
 %.o: %.cpp %.hpp
 	$(CC) -c $(CFLAGS) $< -o $@
 
+#This pattern is for any of Alex's weird test programs
+$(TESTS): % : %.cpp processing.o utilities.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
+
 smbus.o: smbus/smbus.c smbus/smbus.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
@@ -109,4 +105,4 @@ install: sunDemo sbc_info sbc_shutdown
 	sudo systemctl start sas
 
 clean:
-	rm -rf *.o *.out $(EXEC)
+	rm -rf *.o *.out $(EXEC) $(TESTS)
