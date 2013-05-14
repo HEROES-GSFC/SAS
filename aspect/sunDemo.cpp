@@ -1,3 +1,4 @@
+#define SAVE_IMAGES false
 #define MAX_THREADS 30
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
@@ -153,7 +154,7 @@ uint8_t tm_frames_to_suppress = 0;
 bool isTracking = false; // does CTL want solutions?
 bool isOutputting = false; // is this SAS supposed to be outputting solutions?
 bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
-bool isSavingImages = true;  // is the SAS saving images?
+bool isSavingImages = SAVE_IMAGES;  // is the SAS saving images?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
