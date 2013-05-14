@@ -191,7 +191,7 @@ Aspect::Aspect()
     fiducialSpacing = 15.7;
     fiducialSpacingTol = 1.5;
     
-    fiducialTwist = 0;
+    fiducialTwist = 0.0;
 
     pixelCenter = cv::Point2f(-1.0, -1.0);
     pixelError = cv::Point2f(0.0, 0.0);
