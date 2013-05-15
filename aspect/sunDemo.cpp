@@ -1143,6 +1143,41 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
     tm_packet_queue << ack_tp;
 }
 
+uint16_t cmd_send_test_ctl_solution( int type )
+{
+    int num_test_solutions = 8;
+    int test_solution_azimuth[num_test_solutions] = { 1, -1, 0, 0, 1, -1, 1, -1 };
+    int test_solution_elevation[num_test_solutions] = { 0, 0, 1, -1, 1, 1, -1, -1 };
+    for( int i = 0; i < 3; i++ ){
+    
+        timespec localSolutionTime
+        clock_gettime(CLOCK_REALTIME, &localSolutionTime);
+        // first send time of next solution
+        ctl_sequence_number++;
+        CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
+        cp << (uint16_t)HKEY_SAS_TIMESTAMP;
+        cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
+        cp << (double)(localSolutionTime.tv_sec + (double)localSolutionTime.tv_nsec/1e9);  // timestamp 
+        cm_packet_queue << cp;
+        
+        ctl_sequence_number++;
+        CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
+
+        cp << (uint16_t)HKEY_SAS_SOLUTION;
+        if (type < num_test_solutions) {
+        cp << (double)test_solution_azimuth[type]; // azimuth offset
+        cp << (double)test_solution_elevation[type]; // elevation offset
+        } else {
+            cp << (double)0; // azimuth offset
+            cp << (double)0; // elevation offset
+        }
+        cp << (double)0; // roll offset
+        cp << (double)0.003; // error
+        cp << (uint32_t)localSolutionTime.tv_sec; //seconds
+        cp << (uint16_t)(localSolutionTime.tv_nsec/1e6+0.5); //milliseconds, rounded
+
+}
+
 uint16_t cmd_send_image_to_ground( int camera_id )
 {
     // camera_id refers to 0 PYAS, 1 is RAS (if valid)
