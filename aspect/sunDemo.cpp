@@ -167,6 +167,7 @@ bool started[MAX_THREADS];
 int tid_listen = -1; //Stores the ID for the CommandListener thread
 pthread_mutex_t mutexStartThread; //Keeps new threads from being started simultaneously
 pthread_mutex_t mutexHeader[2];  //Used to protect both the frame and header information
+pthread_mutex_t mutexSensors;
 
 //Used to make sure that there are no more than 3 saving threads per camera
 Semaphore semaphoreSave[2] = {Semaphore(3), Semaphore(3)};
@@ -438,16 +439,21 @@ void *CameraThread( void * threadargs, int camera_id)
                 localHeader.analogGain = localAnalogGain;
 
                 localHeader.cameraTemperature = sensors.camera_temperature[camera_id];
-                localHeader.cpuTemperature = sensors.sbc_temperature;
+                
+                if(pthread_mutex_trylock(&mutexSensors) == 0) {
 
-                localHeader.cpuVoltage[0] = sensors.sbc_v105;
-                localHeader.cpuVoltage[1] = sensors.sbc_v25;
-                localHeader.cpuVoltage[2] = sensors.sbc_v33;
-                localHeader.cpuVoltage[3] = sensors.sbc_v50;
-                localHeader.cpuVoltage[4] = sensors.sbc_v120;
-
-                for (int i=0; i<8; i++) localHeader.i2c_temperatures[i] = sensors.i2c_temperatures[i];
-
+                    localHeader.cpuTemperature = sensors.sbc_temperature;
+                    
+                    localHeader.cpuVoltage[0] = sensors.sbc_v105;
+                    localHeader.cpuVoltage[1] = sensors.sbc_v25;
+                    localHeader.cpuVoltage[2] = sensors.sbc_v33;
+                    localHeader.cpuVoltage[3] = sensors.sbc_v50;
+                    localHeader.cpuVoltage[4] = sensors.sbc_v120;
+                    
+                    for (int i=0; i<8; i++) localHeader.i2c_temperatures[i] = sensors.i2c_temperatures[i];
+                    
+                    pthread_mutex_unlock(&mutexHeader[0]);
+                }
                 if(frameCount[camera_id] % MOD_PROCESS == 0) {
                     image_process(camera_id, localFrame, localHeader);
                 }
@@ -854,6 +860,7 @@ void *TelemetryPackagerThread(void *threadargs)
     uint32_t tm_frame_sequence_number = 0;
 
     HeaderData localHeaders[2];
+    Sensors localSensors;
 
     while(!stop_message[tid])
     {
@@ -875,6 +882,11 @@ void *TelemetryPackagerThread(void *threadargs)
             pthread_mutex_unlock(&mutexHeader[1]);
         }
 
+        if(pthread_mutex_trylock(&mutexSensors) == 0) {
+            localSensors = sensors;
+            pthread_mutex_unlock(&mutexSensors);
+        }
+
         int camera_id = tm_frame_sequence_number % sas_id;
 
 /*
@@ -888,7 +900,7 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Housekeeping fields, two of them
         tp << Float2B(localHeaders[camera_id].cameraTemperature);
-        tp << (uint16_t)localHeaders[0].cpuTemperature;
+        tp << (uint16_t)localSensors.sbc_temperature;
 
         //Sun center and error
         tp << Pair3B(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
@@ -928,7 +940,7 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]);
 
         //Tacking on I2C temperatures
-        for (int i=0; i<8; i++) tp << (int8_t)localHeaders[0].i2c_temperatures[i];
+        for (int i=0; i<8; i++) tp << (int8_t)localSensors.i2c_temperatures[i];
 
         //add telemetry packet to the queue if not being suppressed
         if (tm_frames_to_suppress > 0) tm_frames_to_suppress--;
@@ -1644,6 +1656,7 @@ int main(void)
     pthread_mutex_init(&mutexStartThread, NULL);
     pthread_mutex_init(&mutexHeader[0], NULL);
     pthread_mutex_init(&mutexHeader[1], NULL);
+    pthread_mutex_init(&mutexSensors, NULL);
 
     /* Create worker threads */
     printf("In main: creating threads\n");
@@ -1682,6 +1695,7 @@ int main(void)
     pthread_mutex_destroy(&mutexStartThread);
     pthread_mutex_destroy(&mutexHeader[0]);
     pthread_mutex_destroy(&mutexHeader[1]);
+    pthread_mutex_destroy(&mutexSensors);
     pthread_exit(NULL);
 
     return 0;
