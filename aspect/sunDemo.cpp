@@ -88,6 +88,7 @@
 #define SKEY_STOP_OUTPUTTING     0x0040
 #define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
+#define SKEY_CTL_TEST_CMD        0x0081
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
@@ -1145,11 +1146,11 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 
 uint16_t cmd_send_test_ctl_solution( int type )
 {
+    int error_code = 1;
     int num_test_solutions = 8;
     int test_solution_azimuth[num_test_solutions] = { 1, -1, 0, 0, 1, -1, 1, -1 };
     int test_solution_elevation[num_test_solutions] = { 0, 0, 1, -1, 1, 1, -1, -1 };
     for( int i = 0; i < 3; i++ ){
-    
         timespec localSolutionTime
         clock_gettime(CLOCK_REALTIME, &localSolutionTime);
         // first send time of next solution
@@ -1175,7 +1176,10 @@ uint16_t cmd_send_test_ctl_solution( int type )
         cp << (double)0.003; // error
         cp << (uint32_t)localSolutionTime.tv_sec; //seconds
         cp << (uint16_t)(localSolutionTime.tv_nsec/1e6+0.5); //milliseconds, rounded
-
+        cm_packet_queue << cp;
+    }
+    error_code = 0
+    return error_code;
 }
 
 uint16_t cmd_send_image_to_ground( int camera_id )
@@ -1462,7 +1466,9 @@ void *CommandHandlerThread(void *threadargs)
             aspect.SetFloat((FloatParameter)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
             error_code = 0;
             break;
-
+        case SKEY_CTL_TEST_CMD:
+            error_code = cmd_send_test_ctl_solution( my_data->command_vars[0] );
+            break;
         //Getting commands
         case SKEY_REQUEST_PYAS_IMAGE:
             error_code = cmd_send_image_to_ground( 0 );
