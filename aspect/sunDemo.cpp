@@ -2,7 +2,7 @@
 #define MAX_THREADS 30
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
-#define USE_MOCK_PYAS_IMAGE false
+#define USE_MOCK_PYAS_IMAGE true
 #define MOCK_PYAS_IMAGE "/mnt/disk1/mock.fits"
 
 //Save locations for FITS files, alternates between the two locations
@@ -48,6 +48,8 @@
 
 #define IP_LOOPBACK "127.0.0.1"
 
+#define MAX_CLOCK_OFFSET_UMS 1000   // maximum acceptable clock offset in microseconds 
+
 //UDP ports, aside from PORT_IMAGE, which is TCP
 #define PORT_CMD      2000 // commands, FDR (receive) and CTL (send/receive)
 #define PORT_TM       2002 // send telemetry to FDR (except images)
@@ -88,7 +90,6 @@
 #define SKEY_STOP_OUTPUTTING     0x0040
 #define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
-#define SKEY_CTL_TEST_CMD        0x0081
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
@@ -157,6 +158,9 @@ bool isOutputting = false; // is this SAS supposed to be outputting solutions?
 bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
 bool isSavingImages = SAVE_IMAGES;  // is the SAS saving images?
 
+bool isClocksynced = false;
+
+
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
 CommandPacketQueue cm_packet_queue;
@@ -168,6 +172,7 @@ bool started[MAX_THREADS];
 int tid_listen = -1; //Stores the ID for the CommandListener thread
 pthread_mutex_t mutexStartThread; //Keeps new threads from being started simultaneously
 pthread_mutex_t mutexHeader[2];  //Used to protect both the frame and header information
+pthread_mutex_t mutexSensors;
 
 //Used to make sure that there are no more than 3 saving threads per camera
 Semaphore semaphoreSave[2] = {Semaphore(3), Semaphore(3)};
@@ -200,6 +205,9 @@ struct Sensors {
     float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 };
 struct Sensors sensors; //not protected!
+float ntp_drift;
+float ntp_offset_ms;
+float ntp_stability;
 
 //Function declarations
 void sig_handler(int signum);
@@ -439,16 +447,21 @@ void *CameraThread( void * threadargs, int camera_id)
                 localHeader.analogGain = localAnalogGain;
 
                 localHeader.cameraTemperature = sensors.camera_temperature[camera_id];
-                localHeader.cpuTemperature = sensors.sbc_temperature;
+                
+                if(pthread_mutex_trylock(&mutexSensors) == 0) {
 
-                localHeader.cpuVoltage[0] = sensors.sbc_v105;
-                localHeader.cpuVoltage[1] = sensors.sbc_v25;
-                localHeader.cpuVoltage[2] = sensors.sbc_v33;
-                localHeader.cpuVoltage[3] = sensors.sbc_v50;
-                localHeader.cpuVoltage[4] = sensors.sbc_v120;
-
-                for (int i=0; i<8; i++) localHeader.i2c_temperatures[i] = sensors.i2c_temperatures[i];
-
+                    localHeader.cpuTemperature = sensors.sbc_temperature;
+                    
+                    localHeader.cpuVoltage[0] = sensors.sbc_v105;
+                    localHeader.cpuVoltage[1] = sensors.sbc_v25;
+                    localHeader.cpuVoltage[2] = sensors.sbc_v33;
+                    localHeader.cpuVoltage[3] = sensors.sbc_v50;
+                    localHeader.cpuVoltage[4] = sensors.sbc_v120;
+                    
+                    for (int i=0; i<8; i++) localHeader.i2c_temperatures[i] = sensors.i2c_temperatures[i];
+                    
+                    pthread_mutex_unlock(&mutexHeader[0]);
+                }
                 if(frameCount[camera_id] % MOD_PROCESS == 0) {
                     image_process(camera_id, localFrame, localHeader);
                 }
@@ -736,6 +749,10 @@ void *SBCInfoThread(void *threadargs)
         Packet packet( array, packet_length );
         packet >> sensors.sbc_temperature >> sensors.sbc_v105 >> sensors.sbc_v25 >> sensors.sbc_v33 >> sensors.sbc_v50 >> sensors.sbc_v120;
         for (int i=0; i<8; i++) packet >> sensors.i2c_temperatures[i];
+        packet >> ntp_drift;
+        packet >> ntp_offset_ms;
+        packet >> ntp_stability;
+        if (ntp_offset_ms * 1000 < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockedSynced = false; }
         delete array;
     }
 
@@ -855,6 +872,7 @@ void *TelemetryPackagerThread(void *threadargs)
     uint32_t tm_frame_sequence_number = 0;
 
     HeaderData localHeaders[2];
+    Sensors localSensors;
 
     while(!stop_message[tid])
     {
@@ -876,6 +894,11 @@ void *TelemetryPackagerThread(void *threadargs)
             pthread_mutex_unlock(&mutexHeader[1]);
         }
 
+        if(pthread_mutex_trylock(&mutexSensors) == 0) {
+            localSensors = sensors;
+            pthread_mutex_unlock(&mutexSensors);
+        }
+
         int camera_id = tm_frame_sequence_number % sas_id;
 
 /*
@@ -889,7 +912,7 @@ void *TelemetryPackagerThread(void *threadargs)
 
         //Housekeeping fields, two of them
         tp << Float2B(localHeaders[camera_id].cameraTemperature);
-        tp << (uint16_t)localHeaders[0].cpuTemperature;
+        tp << (uint16_t)localSensors.sbc_temperature;
 
         //Sun center and error
         tp << Pair3B(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
@@ -929,7 +952,7 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]);
 
         //Tacking on I2C temperatures
-        for (int i=0; i<8; i++) tp << (int8_t)localHeaders[0].i2c_temperatures[i];
+        for (int i=0; i<8; i++) tp << (int8_t)localSensors.i2c_temperatures[i];
 
         //add telemetry packet to the queue if not being suppressed
         if (tm_frames_to_suppress > 0) tm_frames_to_suppress--;
@@ -1142,44 +1165,6 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
     ack_tp << latest_sas_command_key;
     ack_tp << error_code;
     tm_packet_queue << ack_tp;
-}
-
-uint16_t cmd_send_test_ctl_solution( int type )
-{
-    int error_code = 1;
-    int num_test_solutions = 8;
-    int test_solution_azimuth[num_test_solutions] = { 1, -1, 0, 0, 1, -1, 1, -1 };
-    int test_solution_elevation[num_test_solutions] = { 0, 0, 1, -1, 1, 1, -1, -1 };
-    for( int i = 0; i < 3; i++ ){
-        timespec localSolutionTime
-        clock_gettime(CLOCK_REALTIME, &localSolutionTime);
-        // first send time of next solution
-        ctl_sequence_number++;
-        CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
-        cp << (uint16_t)HKEY_SAS_TIMESTAMP;
-        cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
-        cp << (double)(localSolutionTime.tv_sec + (double)localSolutionTime.tv_nsec/1e9);  // timestamp 
-        cm_packet_queue << cp;
-        
-        ctl_sequence_number++;
-        CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
-
-        cp << (uint16_t)HKEY_SAS_SOLUTION;
-        if (type < num_test_solutions) {
-        cp << (double)test_solution_azimuth[type]; // azimuth offset
-        cp << (double)test_solution_elevation[type]; // elevation offset
-        } else {
-            cp << (double)0; // azimuth offset
-            cp << (double)0; // elevation offset
-        }
-        cp << (double)0; // roll offset
-        cp << (double)0.003; // error
-        cp << (uint32_t)localSolutionTime.tv_sec; //seconds
-        cp << (uint16_t)(localSolutionTime.tv_nsec/1e6+0.5); //milliseconds, rounded
-        cm_packet_queue << cp;
-    }
-    error_code = 0
-    return error_code;
 }
 
 uint16_t cmd_send_image_to_ground( int camera_id )
@@ -1466,9 +1451,7 @@ void *CommandHandlerThread(void *threadargs)
             aspect.SetFloat((FloatParameter)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
             error_code = 0;
             break;
-        case SKEY_CTL_TEST_CMD:
-            error_code = cmd_send_test_ctl_solution( my_data->command_vars[0] );
-            break;
+
         //Getting commands
         case SKEY_REQUEST_PYAS_IMAGE:
             error_code = cmd_send_image_to_ground( 0 );
@@ -1685,6 +1668,7 @@ int main(void)
     pthread_mutex_init(&mutexStartThread, NULL);
     pthread_mutex_init(&mutexHeader[0], NULL);
     pthread_mutex_init(&mutexHeader[1], NULL);
+    pthread_mutex_init(&mutexSensors, NULL);
 
     /* Create worker threads */
     printf("In main: creating threads\n");
@@ -1723,6 +1707,7 @@ int main(void)
     pthread_mutex_destroy(&mutexStartThread);
     pthread_mutex_destroy(&mutexHeader[0]);
     pthread_mutex_destroy(&mutexHeader[1]);
+    pthread_mutex_destroy(&mutexSensors);
     pthread_exit(NULL);
 
     return 0;
