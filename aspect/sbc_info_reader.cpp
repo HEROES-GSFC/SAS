@@ -37,7 +37,7 @@ int main()
         printf("    I2C temperatures (deg C): ");
         for (int i=0; i<7; i++) printf("%d, ", i2c_temperatures[i]);
         printf("%d\n", i2c_temperatures[7]);
-        printf("NTP info: %f (offset ms), %f (stability), %f (drift)\n", ntp_offset_ms, ntp_drift, ntp_stability);
+        printf("NTP info: %f (offset ms), %f (stability), %f (drift)\n", ntp_offset_ms, ntp_stability, ntp_drift);
         
         delete array;
     }

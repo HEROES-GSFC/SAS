@@ -1,5 +1,5 @@
 #include <iostream>
-
+#include <string.h>
 #include <unistd.h>
 #include <sys/io.h>
 
@@ -30,7 +30,6 @@ int main()
     int8_t temp[8];
     uint8_t curaddr;
     int32_t ctl_res, rd_res;
-    char line[80];
     float ntp_day, ntp_drift, ntp_seconds, ntp_offset_s, ntp_offset_ms, ntp_est_error, ntp_stability, ntp_poll_intval;
     FILE *ntp_file;
     
@@ -41,6 +40,11 @@ int main()
 
     if ((file = open("/dev/i2c-0", O_RDWR)) < 0) {
         std::cerr << "Failed to access /dev/i2c-0!\n";
+        return 1;
+    }
+    
+    if ((ntp_file = fopen("/mnt/disk2/ntp/loops", "rb")) == NULL){
+        std::cerr << "Failed to access /mnt/disk2/ntp/loops!\n";
         return 1;
     }
 
@@ -67,18 +71,15 @@ int main()
         outb(0x24, EC_INDEX);
         p12v0 = (inb(EC_DATA)*1600)/255;
 
-        if ((ntp_file = fopen("/mnt/disk2/ntp/loops", "rb")) != NULL){
-            fseek(fd, -max_len, SEEK_END);            // set pointer to the end of file minus the length you need. Presumably there can be more than one new line caracter
-            fread(buff, max_len-1, 1, fd);            // read the contents of the file starting from where fseek() positioned us
-            fclose(fd);                               // close the file
+        
+        fseek(ntp_file, -max_len, SEEK_END);            
+        fread(buff, max_len-1, 1, ntp_file);            
 
-            buff[max_len-1] = '\0';                   // close the string
-            char *last_newline = strrchr(buff, '\n'); // find last occurrence of newline 
-            char *last_line = last_newline+1;         // jump to it
-            sscanf (last_line, "%f %f %f %f %f %f %f", &ntp_day, &ntp_seconds, &ntp_offset, &ntp_drift, &ntp_est_error, &ntp_stability, &ntp_poll_intval);
-            ntp_offset_ms = ntp_offset_s * 1000;
-        }
-                
+        buff[max_len-1] = '\0';                   
+        char *last_newline = strrchr(buff, '\n'); 
+        char *last_line = last_newline+1;         
+        sscanf (last_line, "%f %f %f %f %f %f %f", &ntp_day, &ntp_seconds, &ntp_offset_s, &ntp_drift, &ntp_est_error, &ntp_stability, &ntp_poll_intval);
+        ntp_offset_ms = ntp_offset_s * 1000;
         
         for (i=0;i<=7;i++)
         {
@@ -111,5 +112,7 @@ int main()
     }
 
     close(file);
+    fclose(ntp_file);                               
+
     return 0;
 }
