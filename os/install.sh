@@ -35,7 +35,6 @@ echo "Configuring NIC device names based on known MAC addresses..."
 sudo cp 10-network-sas${sas_id}.rules /etc/udev/rules.d/10-network.rules
 
 echo "Configuring NTP statistics logging"
-sudo mkdir /mnt/disk2/ntp
 sudo chown -R ntp:ntp /mnt/disk2/ntp/
 
 echo "Setting up services..."
