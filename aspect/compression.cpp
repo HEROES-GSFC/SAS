@@ -107,15 +107,15 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
         pFits->pHDU().addKey("WAVELNTH", (long)6000, "Wavelength of observation (ang)");
         pFits->pHDU().addKey("WAVE_STR", std::string("600 Nm"), "Wavelength of observation string");
     }
-    pFits->pHDU().addKey("BITPIX", (long)8,"Bit depth of image");
+    pFits->pHDU().addKey("BITPIX", (long) 8,"Bit depth of image");
     pFits->pHDU().addKey("WAVEUNIT", std::string("angstrom"), "Units of WAVELNTH");
     pFits->pHDU().addKey("PIXLUNIT", std::string("DN"), "Pixel units");
     pFits->pHDU().addKey("IMG_TYPE", std::string("LIGHT"), "Image type");
     pFits->pHDU().addKey("RSUN_REF", (double)6.9600000e+08, "");
     pFits->pHDU().addKey("CTLMODE", std::string("LIGHT"), "Image type");
-    pFits->pHDU().addKey("LVL_NUM", (int)0 , "Level of data");
+    pFits->pHDU().addKey("LVL_NUM", (int) 0 , "Level of data");
 
-    pFits->pHDU().addKey("RSUN_OBS", (double)0, "");
+    pFits->pHDU().addKey("RSUN_OBS", (double) 0, "");
 
     pFits->pHDU().addKey("CTYPE1", std::string("HPLN-TAN"), "A string value labeling each coordinate axis");
     pFits->pHDU().addKey("CTYPE2", std::string("HPLN-TAN"), "A string value labeling each coordinate axis");
@@ -236,7 +236,7 @@ int readFITSImage(const std::string fileName, cv::OutputArray _image)
     cv::Size frameSize;
     std::auto_ptr<FITS> pInfile(new FITS(fileName,Read,true));
         
-//    PHDU& fileHeader = pInfile->pHDU();
+    //PHDU& fileHeader = pInfile->pHDU();
     ExtHDU& image = pInfile->extension("Raw Frame");
 
     frameSize.height = image.axis(1);
@@ -259,4 +259,31 @@ int readFITSImage(const std::string fileName, cv::OutputArray _image)
     }
 
     return 0;   
+}
+
+int readFITSHeader(const std::string fileName, HeaderData &keys)
+{
+    int value;
+    try 
+    {
+        std::auto_ptr<FITS> pInfile(new FITS(fileName,Read,true));   
+        PHDU& fileHeader = pInfile->pHDU();
+  
+        fileHeader.readKey("RT_SEC", value); //Realtime clock, seconds
+        keys.captureTime.tv_sec = value;
+        fileHeader.readKey("RT_NSEC", value); //Realtime clock, nanoseconds
+        keys.captureTime.tv_nsec = value;
+        fileHeader.readKey("MON_SEC", value); //Monotonic clock, seconds
+        keys.captureTimeMono.tv_sec = value;
+        fileHeader.readKey("MON_NSEC", value); //Monotonic clock, nanoseconds
+        keys.captureTimeMono.tv_nsec = value;
+
+    } 
+    catch (FitsError fe) 
+    {
+        std::cerr << "Exception somewhere in readFITSImage()\n";
+        std::cerr << fe.message() << std::endl;
+        return -1;
+    }
+    return 0;
 }

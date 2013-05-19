@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
     cv::Scalar IDColor(165,0,165);
     cv::Scalar textColor(0,165,255);
     cv::Range rowRange, colRange;
-
+    HeaderData keys;
     CoordList crossings, fiducials;
 
     IndexList IDs, rowPairs, colPairs;
@@ -66,6 +66,8 @@ int main(int argc, char* argv[])
                 {
                     //std::cout << "Loading fits file: " << filename << std::endl;
                     readFITSImage(filename, frame);
+                    readFITSHeader(filename, keys);
+                    
                 }
                 else
                 {
@@ -203,12 +205,12 @@ int main(int argc, char* argv[])
 
 
             //Print data to screen.
-
+/*
             if(GeneralizeError(runResult) == NO_ERROR)
                 std::cout << "Center (pixels): " << IDCenter << std::endl;
             else
                 std::cout << "Center (pixels): " << "Not valid" << std::endl;
-/*
+
             if(GeneralizeError(runResult) < MAPPING_ERROR)
                 std::cout << "Center (screen): " << IDCenter << std::endl;
             else
@@ -219,7 +221,10 @@ int main(int argc, char* argv[])
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             
             cv::imshow("Solution", image);
-            cv::waitKey(0);
+            cv::waitKey(1);
+            std::cout << keys.captureTime.tv_sec << "s " << keys.captureTime.tv_nsec << std::endl;
+            std::cout << keys.captureTimeMono.tv_sec << "s " << keys.captureTimeMono.tv_nsec << std::endl;
+            std::cout << std::endl;
 
         }
     }
