@@ -14,6 +14,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
+    std::vector<timespec> captureTimes;
     size_t found;
     char line[256];
     std::string filename, label;
@@ -22,6 +23,8 @@ int main(int argc, char* argv[])
     cv::Mat image;
     cv::Point2f center,error, IDCenter;
 
+    HeaderData keys;
+    timespec diff;
     cv::Scalar crossingColor(0,255,0);
     cv::Scalar centerColor(0,0,255);
     cv::Scalar fiducialColor(255,0,0);
@@ -61,6 +64,7 @@ int main(int argc, char* argv[])
                 {
                     std::cout << "Loading fits file: " << filename << std::endl;
                     readFITSImage(filename, frame);
+                    readFITSHeader(filename, keys);
                 }
                 else
                 {
@@ -68,8 +72,8 @@ int main(int argc, char* argv[])
                     break;
                 }
             }
-                    
             
+            captureTimes.push_back(keys.captureTimeMono);
             aspect.LoadFrame(frame);
         
             cv::Mat list[] = {frame, frame, frame};
@@ -162,6 +166,12 @@ int main(int argc, char* argv[])
             summary << image;
 
         }
+    }
+
+    for (int k = 1; k < captureTimes.size(); k++)
+    {
+        diff = TimespecDiff(captureTimes[k-1], captureTimes[k]);
+        std::cout << diff.tv_sec << "s " << diff.tv_nsec << "ns" << std::endl;
     }
     frames.close();
     return 0;
