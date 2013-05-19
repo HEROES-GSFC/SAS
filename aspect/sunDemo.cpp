@@ -2,7 +2,7 @@
 #define MAX_THREADS 30
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
-#define USE_MOCK_PYAS_IMAGE false
+#define USE_MOCK_PYAS_IMAGE true
 #define MOCK_PYAS_IMAGE "/mnt/disk1/mock.fits"
 
 //Save locations for FITS files, alternates between the two locations
@@ -47,6 +47,8 @@
 #define IP_RAS      "192.168.8.8"   // RAS camera
 
 #define IP_LOOPBACK "127.0.0.1"
+
+#define MAX_CLOCK_OFFSET_UMS 1000   // maximum acceptable clock offset in microseconds 
 
 //UDP ports, aside from PORT_IMAGE, which is TCP
 #define PORT_CMD      2000 // commands, FDR (receive) and CTL (send/receive)
@@ -156,6 +158,9 @@ bool isOutputting = false; // is this SAS supposed to be outputting solutions?
 bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
 bool isSavingImages = SAVE_IMAGES;  // is the SAS saving images?
 
+bool isClocksynced = false;
+
+
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
 CommandPacketQueue cm_packet_queue;
@@ -200,6 +205,9 @@ struct Sensors {
     float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 };
 struct Sensors sensors; //not protected!
+float ntp_drift;
+float ntp_offset_ms;
+float ntp_stability;
 
 //Function declarations
 void sig_handler(int signum);
@@ -741,6 +749,10 @@ void *SBCInfoThread(void *threadargs)
         Packet packet( array, packet_length );
         packet >> sensors.sbc_temperature >> sensors.sbc_v105 >> sensors.sbc_v25 >> sensors.sbc_v33 >> sensors.sbc_v50 >> sensors.sbc_v120;
         for (int i=0; i<8; i++) packet >> sensors.i2c_temperatures[i];
+        packet >> ntp_drift;
+        packet >> ntp_offset_ms;
+        packet >> ntp_stability;
+        if (ntp_offset_ms * 1000 < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockedSynced = false; }
         delete array;
     }
 
