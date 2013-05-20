@@ -147,19 +147,18 @@
 #include "utilities.hpp"
 
 // global declarations
-uint16_t command_sequence_number = -1; //last SAS command packet number
-uint16_t latest_sas_command_key = 0xFFFF; //last SAS command
-uint16_t ctl_sequence_number = 0; //global so that 0x1104 packets share the same counter as the other 0x110? packets
-
+uint16_t command_sequence_number = -1;      // last SAS command packet number
+uint16_t latest_sas_command_key = 0xFFFF;   // last SAS command
+uint16_t ctl_sequence_number = 0;           // global so that 0x1104 packets share the same counter as the other 0x110? packets
 uint8_t tm_frames_to_suppress = 0;
+uint8_t aspect_error_code = 0;
 
-bool isTracking = false; // does CTL want solutions?
-bool isOutputting = false; // is this SAS supposed to be outputting solutions?
-bool acknowledgedCTL = true; // have we acknowledged the last command from CTL?
-bool isSavingImages = SAVE_IMAGES;  // is the SAS saving images?
-
-bool isClocksynced = false;
-
+bool isTracking = false;                    // does CTL want solutions?
+bool isOutputting = false;                  // is this SAS supposed to be outputting solutions?
+bool acknowledgedCTL = true;                // have we acknowledged the last command from CTL?
+bool isSavingImages = SAVE_IMAGES;          // is the SAS saving images?
+bool isClockSynced = false;
+bool isSunFound = false;                    // is the Sun found on the screen?  
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -245,6 +244,7 @@ void *SaveTemperaturesThread(void *threadargs);
 void identifySAS();
 uint16_t get_disk_usage( uint16_t disk );
 void send_shutdown();
+uint8_t build_status_bitfield( void );
 
 template <class T>
 bool set_if_different(T& variable, T value); //returns true if the value is different
@@ -329,6 +329,17 @@ void *PYASCameraThread( void *threadargs)
 void *RASCameraThread( void *threadargs)
 {
     return CameraThread(threadargs, 1);
+}
+
+uint8_t build_status_bitfield( void )
+{
+    uint8_t result = 0xff;
+    result = (uint8_t) isTracking << 7;
+    result += (uint8_t) isSunFound << 6;
+    result += (uint8_t) isOutputting << 5;
+    result += (uint8_t) isClockSynced << 4;
+    result += (uint8_t) aspect_error_code && 0x0f;
+    return result;
 }
 
 void *CameraThread( void * threadargs, int camera_id)
@@ -882,7 +893,8 @@ void *TelemetryPackagerThread(void *threadargs)
         TelemetryPacket tp(TM_SAS_GENERIC, SOURCE_ID_SAS);
         tp.setSAS(sas_id);
         tp << (uint32_t)tm_frame_sequence_number;
-        tp << (uint16_t)command_sequence_number;
+        uint8_t status_bitfield = build_status_bitfield();
+        tp << (uint8_t)status_bitfield;
         tp << (uint16_t)latest_sas_command_key;
 
         if(pthread_mutex_trylock(&mutexHeader[0]) == 0) {
@@ -893,14 +905,70 @@ void *TelemetryPackagerThread(void *threadargs)
             localHeaders[1] = header[1];
             pthread_mutex_unlock(&mutexHeader[1]);
         }
-
         if(pthread_mutex_trylock(&mutexSensors) == 0) {
             localSensors = sensors;
             pthread_mutex_unlock(&mutexSensors);
         }
 
-        int camera_id = tm_frame_sequence_number % sas_id;
-
+        switch (tm_frame_sequence_number % 8){
+            case 0:
+                tp << (uint16_t)localSensors.sbc_temperature;
+                break;
+            case 1:
+                tp << (uint16_t)localSensors.i2c_temperatures[0];
+                break;
+            case 2:
+                tp << (uint16_t)localSensors.i2c_temperatures[1];
+                break;
+            case 3:
+                tp << (uint16_t)localSensors.i2c_temperatures[2];
+                break;
+            case 4:
+                tp << (uint16_t)localSensors.i2c_temperatures[3];
+                break;
+            case 5:
+                tp << (uint16_t)localSensors.i2c_temperatures[4];
+                break;
+            case 6:
+                tp << (uint16_t)localSensors.i2c_temperatures[5];
+                break;
+            case 7:
+                tp << (uint16_t)localSensors.i2c_temperatures[6];
+                break;
+            default:
+                tp << (uint16_t)0xffff;
+        }
+        
+        switch (tm_frame_sequence_number % 8){
+            case 0:
+                tp << Float2B(localHeaders[0].cameraTemperature);
+                break;
+            case 1:
+                tp << Float2B(localHeaders[1].cameraTemperature);
+                break;
+            case 2:
+                tp << (uint16_t)localHeaders[0].cpuVoltage[0];
+                break;
+            case 3:
+                tp << (uint16_t)localHeaders[0].cpuVoltage[1];
+                break;
+            case 4:
+                tp << (uint16_t)localHeaders[0].cpuVoltage[2];
+                break;
+            case 5:
+                tp << (uint16_t)localHeaders[0].cpuVoltage[3];
+                break;
+            case 6:
+                tp << (uint16_t)localHeaders[0].cpuVoltage[4];
+                break;
+            case 7:
+                tp << (uint16_t)isSavingImages;
+                break;
+            default:
+                tp << (uint16_t)0xffff;
+        }
+        
+        
 /*
         std::cout << "Telemetry packet with Sun center (pixels): " << Pair(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
         std::cout << ", mapping is";
@@ -911,9 +979,7 @@ void *TelemetryPackagerThread(void *threadargs)
 */
 
         //Housekeeping fields, two of them
-        tp << Float2B(localHeaders[camera_id].cameraTemperature);
-        tp << (uint16_t)localSensors.sbc_temperature;
-
+        
         //Sun center and error
         tp << Pair3B(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
         tp << Pair3B(localHeaders[0].sunCenterError[0], localHeaders[0].sunCenterError[1]);
@@ -921,17 +987,16 @@ void *TelemetryPackagerThread(void *threadargs)
         //Predicted Sun center and error
         tp << Pair3B(0, 0);
         tp << Pair3B(0, 0);
-
-        //Number of limb crossings
-        tp << (uint16_t)localHeaders[0].limbCount;
-
+        
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
             tp << Pair3B(localHeaders[0].limbX[j], localHeaders[0].limbY[j]);
         }
 
-        //Number of fiducials
-        tp << (uint16_t)localHeaders[0].fiducialCount;
+        // Number of fiducials
+        tp << (uint8_t)localHeaders[0].fiducialCount;
+        // Number of limb crossings
+        tp << (uint8_t)localHeaders[0].limbCount;
 
         //Fiduicals (currently 6)
         for(uint8_t j = 0; j < 6; j++) {
@@ -945,14 +1010,12 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << localHeaders[0].XYinterceptslope[3]; //Y slope
 
         //Image max and min
+        int camera_id = tm_frame_sequence_number % sas_id;
         tp << (uint8_t) localHeaders[camera_id].imageMinMax[1]; //max
-        tp << (uint8_t) localHeaders[camera_id].imageMinMax[0]; //min
+        //tp << (uint8_t) localHeaders[camera_id].imageMinMax[0]; //min
 
         //Tacking on the offset numbers intended for CTL
         tp << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]);
-
-        //Tacking on I2C temperatures
-        for (int i=0; i<8; i++) tp << (int8_t)localSensors.i2c_temperatures[i];
 
         //add telemetry packet to the queue if not being suppressed
         if (tm_frames_to_suppress > 0) tm_frames_to_suppress--;
