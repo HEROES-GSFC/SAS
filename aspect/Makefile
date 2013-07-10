@@ -31,7 +31,7 @@ ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
 
-TESTS = AspectTest AspectVideo MeasureScreen BlackFrames 
+TESTS = AspectTest AspectVideo MeasureScreen BlackFrames ClockReader
 EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
 
 default: sunDemo sbc_info sbc_shutdown
