@@ -9,7 +9,7 @@ GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/include/CCfits/
-DSCUD = /usr/local/dscud-6.2/
+DSCUD = /usr/local/dscud-6.02/
 INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR) -I$(DSCUD)
 
 CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
@@ -82,6 +82,16 @@ tmbin_reader: tmbin_reader.cpp Packet.o lib_crc.o Telemetry.o types.o
 %.o: %.cpp %.hpp
 	$(CC) -c $(CFLAGS) $< -o $@
 
+#Relay code
+relays: relays.cpp relays.o
+	$(CC) $(CFLAGS) $^ -o $@ $(RELAYS)
+
+relays.o: ir104/DiamondIr104.cpp ir104/DiamondIr104.h ir104/DiamondBoard.o ir104/StateRelay.o
+	$(CC) -c $(CFLAGS) $< -o $@ $(RELAYS)
+
+ir104/%.o: ir104/%.cpp ir104/%.h
+	$(CC) -c $(CFLAGS) $< -o $@ $(RELAYS)
+
 #This pattern is for any of Alex's weird test programs
 $(TESTS): % : %.cpp processing.o utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
@@ -107,4 +117,4 @@ install: sunDemo sbc_info sbc_shutdown
 	sudo systemctl start sas
 
 clean:
-	rm -rf *.o *.out $(EXEC) $(TESTS)
+	rm -rf *.o *.out $(EXEC) $(TESTS) ir104/*.o

@@ -9,7 +9,7 @@
 
 #include <string>
 
-#include "dscud.h"
+#include <dscud.h>
 
 /**
  * Base class for all Diamond Systems board classes.

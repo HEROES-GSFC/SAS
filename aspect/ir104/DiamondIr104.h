@@ -7,9 +7,9 @@
 #ifndef DIAMONDIR104_H_
 #define DIAMONDIR104_H_
 
-#include <StateRelay.h>
-#include <DioDevice.h>
-#include <DiamondBoard.h>
+#include "StateRelay.h"
+#include "DioDevice.h"
+#include "DiamondBoard.h"
 
 
 

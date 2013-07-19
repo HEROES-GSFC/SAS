@@ -5,7 +5,8 @@
 #define DIODEVICE_H
 
 //#include <Parallel.h>
-#include <HwBaseErrorCodes.h>
+#include "HwBaseErrorCodes.h"
+#include <unistd.h>
 
 /**
  *  Interface class for common multiport Digital I/O operations.
