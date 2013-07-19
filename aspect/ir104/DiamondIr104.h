@@ -28,15 +28,15 @@ class DiamondIr104StateRelay;
 class DiamondIr104 : public DiamondBoard
 {
 public:
-  friend class DiamondIr104Dio;
-  friend class DiamondIr104StateRelay;
+    friend class DiamondIr104Dio;
+    friend class DiamondIr104StateRelay;
 
-  /**
-   * Initializes the library, and initializes the IR-104 board.
-   */
-  DiamondIr104();
+    /**
+     * Initializes the library, and initializes the IR-104 board.
+     */
+    DiamondIr104();
 
-  virtual ~DiamondIr104() {};
+    virtual ~DiamondIr104() {};
 };
 
 /**
@@ -45,31 +45,31 @@ public:
 class DiamondIr104Dio : public DioDevice
 {
 public:
-  /**
-   * Sets IR104 device, number of DIO bits, ports, and bits per port.
-   * \param[in]   ir104     Diamond IR-104 device object.
-   */
-  DiamondIr104Dio( DiamondIr104& ir104 );
+    /**
+     * Sets IR104 device, number of DIO bits, ports, and bits per port.
+     * \param[in]   ir104     Diamond IR-104 device object.
+     */
+    DiamondIr104Dio( DiamondIr104& ir104 );
 
-  virtual ~DiamondIr104Dio() {};
+    virtual ~DiamondIr104Dio() {};
 
-  // Base class over-rides.
+    // Base class over-rides.
 
 
-  // Full-byte functions.
-  virtual int getByte( int port, int &value )
-  {
-    return getPort( port, value );
-  };
+    // Full-byte functions.
+    virtual int getByte( int port, int &value )
+    {
+        return getPort( port, value );
+    };
 
-  virtual int getPort( int port, int &value );
+    virtual int getPort( int port, int &value );
 
-  // Single-bit per-port functions.
-  virtual int getBit( int bitnum, int &value );
-  virtual int getPortBit( int port, int bitnum, int &value );
+    // Single-bit per-port functions.
+    virtual int getBit( int bitnum, int &value );
+    virtual int getPortBit( int port, int bitnum, int &value );
 
 protected:
-  DiamondIr104*   dev;      ///< Pointer to device object.
+    DiamondIr104*   dev;      ///< Pointer to device object.
 };
 
 /**
@@ -78,23 +78,23 @@ protected:
 class DiamondIr104StateRelay : public StateRelay
 {
 public:
-  /**
-   * Sets the number and ID of each channel.
-   * \param[in]   ir104     Diamond IR-104 device object.
-   */
-  DiamondIr104StateRelay( DiamondIr104& ir104 );
+    /**
+     * Sets the number and ID of each channel.
+     * \param[in]   ir104     Diamond IR-104 device object.
+     */
+    DiamondIr104StateRelay( DiamondIr104& ir104 );
 
-  virtual ~DiamondIr104StateRelay() {};
+    virtual ~DiamondIr104StateRelay() {};
 
-  // Base class over-rides.
-  virtual int setPort( int port, int val );
-  virtual int setRelay( int relayID, bool relayOn );
+    // Base class over-rides.
+    virtual int setPort( int port, int val );
+    virtual int setRelay( int relayID, bool relayOn );
 
-  virtual int getPort( int port, int& val );
-  virtual int getRelay( int relayID, bool& relayOn );
+    virtual int getPort( int port, int& val );
+    virtual int getRelay( int relayID, bool& relayOn );
 
 protected:
-  DiamondIr104*   dev;      ///< Pointer to device object.
+    DiamondIr104*   dev;      ///< Pointer to device object.
 };
 
 #endif /* DIAMONDIR104_H_ */

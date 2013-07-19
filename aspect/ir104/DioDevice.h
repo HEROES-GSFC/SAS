@@ -21,18 +21,18 @@ public:
      * \param[in]   portWidth   Number of bits (nominally) in each port.
      */
     DioDevice( int numBits, int portWidth )
-        {
-            //mutex = new Mutex();
-            NUM_BIT = numBits > 1 ? numBits : 1;
-            NUM_PORTBIT = portWidth > 1 ? portWidth : 1;
-            int add = (NUM_BIT % NUM_PORTBIT) > 0 ? 1 : 0;
-            NUM_PORT = (NUM_BIT / NUM_PORTBIT) + add;
-        }
+    {
+        //mutex = new Mutex();
+        NUM_BIT = numBits > 1 ? numBits : 1;
+        NUM_PORTBIT = portWidth > 1 ? portWidth : 1;
+        int add = (NUM_BIT % NUM_PORTBIT) > 0 ? 1 : 0;
+        NUM_PORT = (NUM_BIT / NUM_PORTBIT) + add;
+    }
 
     virtual ~DioDevice()
-        {
-            //delete mutex;
-        };
+    {
+        //delete mutex;
+    };
 
     // Full-byte functions.
     /**
@@ -141,15 +141,15 @@ inline int DioDevice::pulsePortBitHigh(int port, int bitnum, int width)
     return this->clearPortBit(port, bitnum);
 }
 
-//	getBit:
-//		Reads one of 48 bits from the first 6 ports by calling getPortBit.
+//      getBit:
+//              Reads one of 48 bits from the first 6 ports by calling getPortBit.
 inline int DioDevice::getBit( int bitnum, int &value )
 {
     return getPortBit( bitnum/NUM_PORTBIT, bitnum % NUM_PORTBIT, value );
 }
 
-//	setBit:
-//		Writes one of 48 bits by calling setPortBit.
+//      setBit:
+//              Writes one of 48 bits by calling setPortBit.
 inline int DioDevice::setBitState( int bitnum, bool state )
 {
     return setPortBitState( bitnum/NUM_PORTBIT, bitnum % NUM_PORTBIT, state );
