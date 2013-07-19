@@ -9,13 +9,7 @@
 
 #include <StateRelay.h>
 #include <DioDevice.h>
-
-#ifdef _WIN32
 #include <DiamondBoard.h>
-#else
-#include <DiamondBoard.h>
-#include <DioDevice.h>
-#endif
 
 
 

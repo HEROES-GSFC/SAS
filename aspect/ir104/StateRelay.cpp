@@ -5,7 +5,6 @@
  *      Author: kdietz
  */
 
-#include "stdafx.h"
 #include "StateRelay.h"
 
 StateRelay::StateRelay( int numPort, int portWidth, int* relayMask )

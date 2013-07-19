@@ -4,7 +4,7 @@
  *  Created on: Dec 7, 2012
  *      Author: kdietz
  */
-#include "stdafx.h"
+
 #include "DiamondIr104.h"
 
 //#include <ErrorCodes.h>

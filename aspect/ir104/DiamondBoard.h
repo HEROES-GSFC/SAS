@@ -9,11 +9,7 @@
 
 #include <string>
 
-#ifdef _WIN32
 #include "dscud.h"
-#else
-#include <dmm/dscud.h>
-#endif
 
 /**
  * Base class for all Diamond Systems board classes.

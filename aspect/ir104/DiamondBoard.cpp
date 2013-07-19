@@ -3,7 +3,7 @@
  * \date Dec 7, 2012
  * \author Kurt Dietz (some code by Bill Cleveland originally).
  */
-#include "stdafx.h"
+
 #include "DiamondBoard.h"
 
 int DiamondBoard::boardCount = 0;
