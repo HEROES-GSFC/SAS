@@ -9,7 +9,8 @@ GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/include/CCfits/
-INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR)
+DSCUD = /usr/local/dscud-6.2/
+INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR) -I$(DSCUD)
 
 CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
 ifeq "$(GCC_VERSION_GE_43)" "1"
@@ -27,6 +28,7 @@ IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
 CCFITS = -lCCfits
+RELAYS = -L$(DSCUD) -ldscud-6.02
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
