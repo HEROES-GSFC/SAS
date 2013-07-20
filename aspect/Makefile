@@ -9,7 +9,7 @@ GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/include/CCfits/
-DSCUD = /usr/local/dscud-6.02/
+DSCUD = /usr/local/dscud-6.02
 INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR) -I$(DSCUD)
 
 CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
@@ -28,14 +28,14 @@ IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
 CCFITS = -lCCfits
-RELAYS = -L$(DSCUD) -ldscud-6.02
+DSCUD_LIBS = -L$(DSCUD) -ldscud-6.02
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
 
 TESTS = AspectTest AspectVideo MeasureScreen BlackFrames ClockReader
 EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
-
+RELAYS = ir104/DiamondIr104.o ir104/DiamondBoard.o ir104/StateRelay.o
 default: sunDemo sbc_info sbc_shutdown
 
 all: $(EXEC)
@@ -83,14 +83,11 @@ tmbin_reader: tmbin_reader.cpp Packet.o lib_crc.o Telemetry.o types.o
 	$(CC) -c $(CFLAGS) $< -o $@
 
 #Relay code
-relays: relays.cpp relays.o
-	$(CC) $(CFLAGS) $^ -o $@ $(RELAYS)
-
-relays.o: ir104/DiamondIr104.cpp ir104/DiamondIr104.h ir104/DiamondBoard.o ir104/StateRelay.o
-	$(CC) -c $(CFLAGS) $< -o $@ $(RELAYS)
+relays: relays.cpp $(RELAYS)
+	$(CC) $(CFLAGS) $^ -o $@ $(DSCUD_LIBS) $(THREAD)
 
 ir104/%.o: ir104/%.cpp ir104/%.h
-	$(CC) -c $(CFLAGS) $< -o $@ $(RELAYS)
+	$(CC) -c $(CFLAGS) $< -o $@ $(DSCUD_LIBS) $(THREAD)
 
 #This pattern is for any of Alex's weird test programs
 $(TESTS): % : %.cpp processing.o utilities.o compression.o
