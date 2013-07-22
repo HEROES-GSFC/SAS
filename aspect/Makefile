@@ -35,7 +35,7 @@ endif
 
 TESTS = AspectTest AspectVideo MeasureScreen BlackFrames ClockReader
 EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
-RELAYS = ir104/DiamondIr104.o ir104/DiamondBoard.o ir104/StateRelay.o
+RELAYS = pmm/DiamondPMM.o pmm/DiamondBoard.o pmm/StateRelay.o
 default: sunDemo sbc_info sbc_shutdown
 
 all: $(EXEC)
@@ -86,7 +86,7 @@ tmbin_reader: tmbin_reader.cpp Packet.o lib_crc.o Telemetry.o types.o
 relays: relays.cpp $(RELAYS)
 	$(CC) $(CFLAGS) $^ -o $@ $(DSCUD_LIBS) $(THREAD)
 
-ir104/%.o: ir104/%.cpp ir104/%.h
+pmm/%.o: pmm/%.cpp pmm/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ $(DSCUD_LIBS) $(THREAD)
 
 #This pattern is for any of Alex's weird test programs
@@ -114,4 +114,4 @@ install: sunDemo sbc_info sbc_shutdown
 	sudo systemctl start sas
 
 clean:
-	rm -rf *.o *.out $(EXEC) $(TESTS) ir104/*.o
+	rm -rf *.o *.out $(EXEC) $(TESTS) pmm/*.o

@@ -1,14 +1,14 @@
-#include "ir104/DiamondIr104.h"
+#include "pmm/DiamondPMM.h"
 #include <iostream>
 
 int main(int argc, char* argv[])
 {
-    DiamondIr104 relayBoard;
-    DiamondIr104StateRelay relays(relayBoard);
+    DiamondPMM relayBoard;
+    DiamondPMMStateRelay relays(relayBoard);
 
     int relayID;
     bool value;
-    for (int k = 0; k < 16; k++)
+    for (int k = 0; k < 8; k++)
     	{
         relayID = k;
 
