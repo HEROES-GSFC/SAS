@@ -7,19 +7,32 @@ int main(int argc, char* argv[])
     DiamondPMMStateRelay relays(relayBoard);
 
     int relayID;
-    bool value;
+    int value;
+    
+    for (int k = 0; k < 2; k++)
+    {
+        relays.getPort(k, value);
+        std::cout << "Port " << k << " reads " << value << std::endl;
+    }
+    relays.setPort(0, 0xAA);
+    relays.setPort(1, 0x00);
+
+    sleep(10);
+    for (int k = 0; k < 2; k++)
+    {
+        relays.getPort(k, value);
+        std::cout << "Port " << k << " reads " << value << std::endl;
+    }
+
     for (int k = 0; k < 8; k++)
-    	{
-        relayID = k;
+    {
+        relays.setRelay(k, 0);
+    }
 
-        relays.getRelay(relayID, value);
-        std::cout << "Relay " << relayID << " is ";
-        std::cout << value << std::endl;
-
-	relays.setRelay(relayID, 0);
-
-	relays.getRelay(relayID, value);
-	std::cout << "Relay " << relayID << " is now ";
-	std::cout << value << std::endl;
-}
+    sleep(10);    
+    for (int k = 0; k < 2; k++)
+    {
+        relays.getPort(k,value);
+        std::cout << "Port " << k << " reads " << value << std::endl;
+    }
 }

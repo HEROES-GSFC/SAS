@@ -8,11 +8,9 @@
 #define DIAMONDPMM_H_
 
 #include "StateRelay.h"
-#include "DioDevice.h"
 #include "DiamondBoard.h"
+#include "DioDevice.h"
 
-
-class DiamondPMMDio;
 class DiamondPMMStateRelay;
 
 /**
@@ -21,7 +19,6 @@ class DiamondPMMStateRelay;
 class DiamondPMM : public DiamondBoard
 {
 public:
-    friend class DiamondPMMDio;
     friend class DiamondPMMStateRelay;
 
     /**
@@ -30,39 +27,6 @@ public:
     DiamondPMM();
 
     virtual ~DiamondPMM() {};
-};
-
-/**
- * Standard DIO interface to the Pearl-MM board.
- */
-class DiamondPMMDio : public DioDevice
-{
-public:
-    /**
-     * Sets Pearl-MM device, number of DIO bits, ports, and bits per port.
-     * \param[in]   pmm     Diamond Pearl-MM device object.
-     */
-    DiamondPMMDio( DiamondPMM& pmm );
-
-    virtual ~DiamondPMMDio() {};
-
-    // Base class over-rides.
-
-
-    // Full-byte functions.
-    virtual int getByte( int port, int &value )
-    {
-        return getPort( port, value );
-    };
-
-    virtual int getPort( int port, int &value );
-
-    // Single-bit per-port functions.
-    virtual int getBit( int bitnum, int &value );
-    virtual int getPortBit( int port, int bitnum, int &value );
-
-protected:
-    DiamondPMM*   dev;      ///< Pointer to device object.
 };
 
 /**
