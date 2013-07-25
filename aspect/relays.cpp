@@ -40,6 +40,7 @@ int main(int argc, char* argv[])
         relays.getRelay(k, set);
         std::cout << "Port " << k << " is " << (set ? "ON" : "OFF") << std::endl;
         relays.setRelay(k, 1);
+        std::cout << "Port " << k << " set ON" << std::endl
         relays.getRelay(k, set);
         std::cout << "Port " << k << " is " << (set ? "ON" : "OFF") << std::endl;
         sleep(1);

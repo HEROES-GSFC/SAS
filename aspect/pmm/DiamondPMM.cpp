@@ -40,8 +40,6 @@ StateRelay( 2, 8, NULL )
 
 int DiamondPMMStateRelay::setPort( int port, int val )
 {
-//  cout << "DiamondPMMDio::getPort: verifying port " << port << endl;
-
     if ( !verifyPort( port ) )
         return STRLYERR_PORT;
 
@@ -66,19 +64,18 @@ int DiamondPMMStateRelay::setRelay( int relayID, bool relayOn )
     int port = relayID / portWidth;
     int bit = relayID % portWidth;
 
+    int val = relayOn ? (1 << bit) : 0;
 
     if (port < numPort)
     {
         // Make sure the bit is masked in.
         if ( ((1 << bit) & mask[port]) > 0 )
         {
-            bits[port] = (bits[port] & (~(1 << bit))) | 
-                         (bits[port] & (relayOn << bit));
-            
+            bits[port] = (bits[port] & (~(1 << bit))) | val;
+                 
             rval = ::dscSetRelay( dev->handle, relayID, relayOn);
         }
     }
-
     //std::cout << "setRelay: " << dscGetErrorString(rval) << std::endl;
     return rval;
 }
@@ -98,10 +95,8 @@ int DiamondPMMStateRelay::getRelay( int relayID, bool &relayOn )
     if ( !verifyRelay( relayID ) )
         return STRLYERR_RELAY;
 
-
     int port = relayID / portWidth;
     int bit = relayID % portWidth;
-
     relayOn = (bits[port] & (1 << bit)) > 0;
 
     //std::cout << "getRelay: " << dscGetErrorString(rval) << std::endl;
