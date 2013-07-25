@@ -31,9 +31,10 @@ StateRelay( 2, 8, NULL )
     // Set the device pointer.
     this->dev = &pmm;
     
+    int val;
     // Read in current state of PMM board 
     for ( int port = 0; port < numPort; port++)
-        getPort(port, bits[numPort]);
+        getPort(port, val);
 
 }
 
@@ -73,7 +74,7 @@ int DiamondPMMStateRelay::setRelay( int relayID, bool relayOn )
             bits[port] = (bits[port] & (~(1 << bit))) | 
                          (bits[port] & (relayOn << bit));
             
-            rval = ::dscSetRelay( dev->handle, relayID, 1);
+            rval = ::dscSetRelay( dev->handle, relayID, relayOn);
         }
     }
 
@@ -86,7 +87,7 @@ int DiamondPMMStateRelay::getPort( int port, int &val )
         return STRLYERR_PORT;
     BYTE cval;
     int rval = ::dscGetRelayMulti( dev->handle, port, &cval );
-
+    std::cout << "JUST READ VALUE: " << std::hex << cval << std::endl;
     val = cval;
     bits[port] = val;
 
@@ -100,13 +101,14 @@ int DiamondPMMStateRelay::getRelay( int relayID, bool &relayOn )
 
     BYTE cval;
     int rval = ::dscGetRelay( dev->handle, relayID, &cval );
+    std::cout << "JUST READ VALUE: " << std::hex << cval << std::endl;
 
     int port = relayID / portWidth;
     int bit = relayID % portWidth;
 
     relayOn = cval > 0;
 
-    bits[port] = (bits[port] & (~(1 << bit))) | (relayOn << bit);
+    bits[port] = (bits[port] & (~(1 << bit))) | (bits[port] & (relayOn << bit));
     
     return rval;
 }
