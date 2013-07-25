@@ -32,8 +32,8 @@ StateRelay( 2, 8, NULL )
     this->dev = &pmm;
     
     // Read in current state of PMM board 
-    for ( int i = 0; i < numPort; i++)
-        getPort(numPort, bits[numPort]);
+    for ( int port = 0; port < numPort; port++)
+        getPort(port, bits[numPort]);
 
 }
 
@@ -70,7 +70,8 @@ int DiamondPMMStateRelay::setRelay( int relayID, bool relayOn )
         // Make sure the bit is masked in.
         if ( ((1 << bit) & mask[port]) > 0 )
         {
-            bits[port] = (bits[port] & (~(1 << bit))) | (relayOn << bit);
+            bits[port] = (bits[port] & (~(1 << bit))) | 
+                         (bits[port] & (relayOn << bit));
             
             rval = ::dscSetRelay( dev->handle, relayID, 1);
         }
@@ -86,7 +87,7 @@ int DiamondPMMStateRelay::getPort( int port, int &val )
     BYTE cval;
     int rval = ::dscGetRelayMulti( dev->handle, port, &cval );
 
-    val = (int) cval;
+    val = cval;
     bits[port] = val;
 
     return rval;

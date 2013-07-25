@@ -69,8 +69,8 @@ protected:
     int   numBits;    ///< Number of discrete bits or relays on entire device.
     int   numPort;    ///< Number of ports supported by relay device.
     int   portWidth;  ///< Width of port (number of relays or bits per port).
-    int*  bits;       ///< Image of bits set in the hardware or on disk.
-    int*  mask;       ///< Masks in only bits this relay controls.
+    unsigned int*  bits;       ///< Image of bits set in the hardware or on disk.
+    unsigned int*  mask;       ///< Masks in only bits this relay controls.
 };
 
 #endif /* STATERELAY_H_ */

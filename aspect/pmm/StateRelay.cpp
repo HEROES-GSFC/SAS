@@ -15,8 +15,8 @@ StateRelay::StateRelay( int numPort, int portWidth, int* relayMask )
     this->portWidth = portWidth;
     this->numBits = numPort * portWidth;
 
-    mask = new int[numPort];
-    bits = new int[numPort];
+    mask = new unsigned int[numPort];
+    bits = new unsigned int[numPort];
 
     if ( relayMask != NULL )
     {
@@ -25,7 +25,7 @@ StateRelay::StateRelay( int numPort, int portWidth, int* relayMask )
     }
     else
     {
-        int mval = (1 << portWidth) - 1;
+        unsigned int mval = (1 << portWidth) - 1;
         for ( int i = 0; i < numPort; i++ )
             mask[i] = mval;
     }
@@ -36,6 +36,3 @@ StateRelay::~StateRelay()
     delete []mask;
     delete []bits;
 };
-
-
-
