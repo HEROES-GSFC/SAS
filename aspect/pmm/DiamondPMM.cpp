@@ -32,16 +32,14 @@ StateRelay( 2, 8, NULL )
     this->dev = &pmm;
     
     int val;
-    // Read in current state of PMM board 
+    // Zero the PMM board just in case.
     for ( int port = 0; port < numPort; port++)
-        getPort(port, val);
+        setPort(port, 0x00);
 
 }
 
 int DiamondPMMStateRelay::setPort( int port, int val )
 {
-//  cout << "DiamondPMMDio::getPort: verifying port " << port << endl;
-
     if ( !verifyPort( port ) )
         return STRLYERR_PORT;
 
@@ -52,7 +50,7 @@ int DiamondPMMStateRelay::setPort( int port, int val )
     bits[port] = val;
     rval = ::dscSetRelayMulti(dev->handle, port, val); 
     
-
+    //std::cout << "setPort: " << dscGetErrorString(rval) << std::endl;
     return rval;
 }
 
@@ -61,23 +59,24 @@ int DiamondPMMStateRelay::setRelay( int relayID, bool relayOn )
     if ( !verifyRelay( relayID ) )
         return STRLYERR_RELAY;
 
+    int rval = 0;
+
     int port = relayID / portWidth;
     int bit = relayID % portWidth;
 
-    int rval = 0;
+    int val = relayOn ? (1 << bit) : 0;
 
     if (port < numPort)
     {
         // Make sure the bit is masked in.
         if ( ((1 << bit) & mask[port]) > 0 )
         {
-            bits[port] = (bits[port] & (~(1 << bit))) | 
-                         (bits[port] & (relayOn << bit));
-            
+            bits[port] = (bits[port] & (~(1 << bit))) | val;
+                 
             rval = ::dscSetRelay( dev->handle, relayID, relayOn);
         }
     }
-
+    //std::cout << "setRelay: " << dscGetErrorString(rval) << std::endl;
     return rval;
 }
 
@@ -85,13 +84,10 @@ int DiamondPMMStateRelay::getPort( int port, int &val )
 {
     if ( !verifyPort( port ) )
         return STRLYERR_PORT;
-    BYTE cval;
-    int rval = ::dscGetRelayMulti( dev->handle, port, &cval );
-    std::cout << "JUST READ VALUE: " << std::hex << cval << std::endl;
-    val = cval;
-    bits[port] = val;
 
-    return rval;
+    val = bits[port];
+    //std::cout << "getPort: " << dscGetErrorString(rval) << std::endl;
+    return 0;
 }
 
 int DiamondPMMStateRelay::getRelay( int relayID, bool &relayOn )
@@ -99,16 +95,10 @@ int DiamondPMMStateRelay::getRelay( int relayID, bool &relayOn )
     if ( !verifyRelay( relayID ) )
         return STRLYERR_RELAY;
 
-    BYTE cval;
-    int rval = ::dscGetRelay( dev->handle, relayID, &cval );
-    std::cout << "JUST READ VALUE: " << std::hex << cval << std::endl;
-
     int port = relayID / portWidth;
     int bit = relayID % portWidth;
+    relayOn = (bits[port] & (1 << bit)) > 0;
 
-    relayOn = cval > 0;
-
-    bits[port] = (bits[port] & (~(1 << bit))) | (bits[port] & (relayOn << bit));
-    
-    return rval;
+    //std::cout << "getRelay: " << dscGetErrorString(rval) << std::endl;
+    return 0;
 }
