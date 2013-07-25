@@ -10,7 +10,7 @@ int main(int argc, char* argv[])
 
     if (argc != 3)
     {
-        std::cout << "Correct usage is: AspectTest frameList.txt outfile.avi\n";
+        std::cout << "Correct usage is: AspectVideo frameList.txt outfile.avi\n";
         return -1;
     }
 

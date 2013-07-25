@@ -9,7 +9,8 @@ GCC_VERSION_GE_43 := $(shell expr `g++ -dumpversion | cut -f2 -d.` \>= 3)
 PUREGEV_ROOT = /opt/pleora/ebus_sdk
 OPENCVDIR = /usr/include/opencv2/
 CCFITSDIR = /usr/include/CCfits/
-INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR)
+DSCUD = /usr/local/dscud-6.02
+INCLUDE = -I$(OPENCVDIR) -I$(PUREGEV_ROOT)/include/ -I$(CCFITSDIR) -I$(DSCUD)
 
 CFLAGS = -Wall $(INCLUDE) -Wno-unknown-pragmas
 ifeq "$(GCC_VERSION_GE_43)" "1"
@@ -27,13 +28,14 @@ IMPERX =-L$(PUREGEV_ROOT)/lib/		\
 OPENCV = -lopencv_core -lopencv_highgui -lopencv_imgproc
 THREAD = -lpthread
 CCFITS = -lCCfits
+DSCUD_LIBS = -L$(DSCUD) -ldscud-6.02
 ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
 
-TESTS = AspectTest AspectVideo MeasureScreen BlackFrames 
+TESTS = AspectTest AspectVideo MeasureScreen BlackFrames ClockReader
 EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
-
+RELAYS = pmm/DiamondPMM.o pmm/DiamondBoard.o pmm/StateRelay.o
 default: sunDemo sbc_info sbc_shutdown
 
 all: $(EXEC)
@@ -80,6 +82,13 @@ tmbin_reader: tmbin_reader.cpp Packet.o lib_crc.o Telemetry.o types.o
 %.o: %.cpp %.hpp
 	$(CC) -c $(CFLAGS) $< -o $@
 
+#Relay code
+relays: relays.cpp $(RELAYS)
+	$(CC) $(CFLAGS) $^ -o $@ $(DSCUD_LIBS) $(THREAD)
+
+pmm/%.o: pmm/%.cpp pmm/%.h
+	$(CC) -c $(CFLAGS) $< -o $@ $(DSCUD_LIBS) $(THREAD)
+
 #This pattern is for any of Alex's weird test programs
 $(TESTS): % : %.cpp processing.o utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
@@ -105,4 +114,4 @@ install: sunDemo sbc_info sbc_shutdown
 	sudo systemctl start sas
 
 clean:
-	rm -rf *.o *.out $(EXEC) $(TESTS)
+	rm -rf *.o *.out $(EXEC) $(TESTS) pmm/*.o
