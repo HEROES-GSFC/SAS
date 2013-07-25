@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 
     for (int k = 0; k < 2; k++)
     {
-        relays.setPort(k, 0x00);
+        relays.setPort(k, 0xFF);
     }
 
     sleep(1);    
