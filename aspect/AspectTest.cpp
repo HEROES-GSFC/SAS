@@ -8,14 +8,15 @@
 int main(int argc, char* argv[])
 {
 
-    if (argc != 2)
+    if (argc != 3)
     {
-        std::cout << "Correct usage is: AspectTest frameList.txt\n";
+        std::cout << "Correct usage is: AspectTest frameList.txt outfile.csv\n";
         return -1;
     }
 
     size_t found;
     char line[256];
+    int index;
     std::string filename, label;
     char number[4] = "000";
     cv::Mat frame;
@@ -27,20 +28,19 @@ int main(int argc, char* argv[])
     cv::Scalar fiducialColor(255,0,0);
     cv::Scalar IDColor(165,0,165);
     cv::Scalar textColor(0,165,255);
-    cv::Range rowRange, colRange;
-
+    cv::Range rowRange, colRange;\
     CoordList crossings, fiducials;
 
     IndexList IDs, rowPairs, colPairs;
 
     std::vector<float> mapping;
-
-    float twistAngle;
         
     Aspect aspect;
     AspectCode runResult;
     cv::namedWindow("Solution", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
     std::ifstream frames(argv[1]);
+    std::ofstream csvFile(argv[2]);
+
     std::string message;
     timespec startTime, stopTime, diffTime;
 
@@ -50,10 +50,11 @@ int main(int argc, char* argv[])
     }
     else 
     {
+        index = 0;
         while (frames.getline(line,256))
         {
             filename = line;
-            found = filename.find("png",0);
+/*            found = filename.find("png",0);
             if (found != std::string::npos)
             {
                 //std::cout << "Loading png file: " << filename << std::endl;
@@ -61,18 +62,19 @@ int main(int argc, char* argv[])
             }
             else
             {
-                found = filename.find("fit",0);
-                if (found!=std::string::npos)
-                {
-                    //std::cout << "Loading fits file: " << filename << std::endl;
-                    readFITSImage(filename, frame);
-                }
-                else
-                {
-                    std::cout << "ERROR: " << filename << "isn't a valid type";
-                    break;
-                }
+*/
+            found = filename.find("fit",0);
+            if (found!=std::string::npos)
+            {
+                //std::cout << "Loading fits file: " << filename << std::endl;
+                readFITSImage(filename, frame); 
             }
+            else
+            {
+                std::cout << "ERROR: " << filename << "isn't a valid type";
+                break;
+            }
+//            }
             clock_gettime(CLOCK_REALTIME, &startTime);
             //std::cout << "AspectTest: Load Frame" << std::endl;
             aspect.LoadFrame(frame);
@@ -149,7 +151,7 @@ int main(int argc, char* argv[])
                 std::cout << std::endl;
 
 
-                float rowDiff, colDiff;
+/*                float rowDiff, colDiff;
                 std::cout << "Pair distances: \n";
                 for (int k = 0; k < rowPairs.size(); k++)
                 {
@@ -176,7 +178,7 @@ int main(int argc, char* argv[])
                         fiducials[colPairs[k].x].x;
                     std::cout << " | " << rowDiff << " " << colDiff << std::endl;
                     }
-                
+*/                
             case ID_ERROR:
                 //std::cout << "AspectTest: Get Fiducials" << std::endl;
                 for (int k = 0; k < fiducials.size(); k++)
@@ -203,12 +205,12 @@ int main(int argc, char* argv[])
 
 
             //Print data to screen.
-
+/*
             if(GeneralizeError(runResult) == NO_ERROR)
                 std::cout << "Center (pixels): " << IDCenter << std::endl;
             else
                 std::cout << "Center (pixels): " << "Not valid" << std::endl;
-/*
+
             if(GeneralizeError(runResult) < MAPPING_ERROR)
                 std::cout << "Center (screen): " << IDCenter << std::endl;
             else
@@ -219,10 +221,21 @@ int main(int argc, char* argv[])
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             
             cv::imshow("Solution", image);
-            cv::waitKey(0);
+            cv::waitKey(1);
 
+            // Generate CSV of center data
+            csvFile << "Someday"  << ";";
+            csvFile << index << ";";
+            csvFile << center.x << ";" << center.y << ";";
+            csvFile << IDCenter.x << ";" << IDCenter.y << ";";
+            csvFile << filename << ";";
+            csvFile << ";;";
+            csvFile << "\n";
+
+            index++;
         }
     }
+    csvFile.close();
     frames.close();
     return 0;
 }
