@@ -338,7 +338,7 @@ uint8_t build_status_bitfield( void )
     result += (uint8_t) isSunFound << 6;
     result += (uint8_t) isOutputting << 5;
     result += (uint8_t) isClockSynced << 4;
-    result += (uint8_t) aspect_error_code && 0x0f;
+    result += (uint8_t) aspect_error_code & 0x0f;
     return result;
 }
 
@@ -910,6 +910,7 @@ void *TelemetryPackagerThread(void *threadargs)
             pthread_mutex_unlock(&mutexSensors);
         }
 
+        //Housekeeping fields, two of them
         switch (tm_frame_sequence_number % 8){
             case 0:
                 tp << (uint16_t)localSensors.sbc_temperature;
@@ -967,8 +968,7 @@ void *TelemetryPackagerThread(void *threadargs)
             default:
                 tp << (uint16_t)0xffff;
         }
-        
-        
+
 /*
         std::cout << "Telemetry packet with Sun center (pixels): " << Pair(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
         std::cout << ", mapping is";
@@ -978,16 +978,10 @@ void *TelemetryPackagerThread(void *threadargs)
         std::cout << "Offset: " << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]) << std::endl;
 */
 
-        //Housekeeping fields, two of them
-        
         //Sun center and error
         tp << Pair3B(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
         tp << Pair3B(localHeaders[0].sunCenterError[0], localHeaders[0].sunCenterError[1]);
 
-        //Predicted Sun center and error
-        tp << Pair3B(0, 0);
-        tp << Pair3B(0, 0);
-        
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
             tp << Pair3B(localHeaders[0].limbX[j], localHeaders[0].limbY[j]);
@@ -1014,8 +1008,9 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << (uint8_t) localHeaders[camera_id].imageMinMax[1]; //max
         //tp << (uint8_t) localHeaders[camera_id].imageMinMax[0]; //min
 
-        //Tacking on the offset numbers intended for CTL
-        tp << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]);
+        //Tacking on the offset numbers intended for CTL as floats
+        tp << (float)(localHeaders[0].CTLsolution[0]);
+        tp << (float)(localHeaders[0].CTLsolution[1]);
 
         //add telemetry packet to the queue if not being suppressed
         if (tm_frames_to_suppress > 0) tm_frames_to_suppress--;
