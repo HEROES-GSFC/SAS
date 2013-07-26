@@ -29,6 +29,7 @@ sudo cp sysctl.conf /etc/sysctl.conf
 sudo cp etc-resolv.conf /etc/resolv.conf
 sudo cp etc-conf.d-network /etc/conf.d/network
 sudo cp etc-conf.d-lm_sensors /etc/conf.d/lm_sensors
+sudo cp ntp.conf /etc/ntp.conf
 
 echo "Configuring NIC device names based on known MAC addresses..."
 sudo cp 10-network-sas${sas_id}.rules /etc/udev/rules.d/10-network.rules
@@ -48,7 +49,9 @@ sudo systemctl enable network
 sudo systemctl enable lm_sensors
 sudo systemctl enable sbc_info
 sudo systemctl enable sbc_shutdown
+sudo systemctl enable ntpd
 #sudo systemctl enable sas
+
 echo "    Note: you will also need to run 'make install' to install our compiled executables!"
 
 echo "-----------------------------"
