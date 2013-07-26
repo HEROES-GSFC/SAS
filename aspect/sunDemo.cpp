@@ -31,6 +31,11 @@
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 #define SLEEP_KILL             2 // waits when killing all threads
 
+//Relay off
+#define RELAY_OFF 0
+#define RELAY_ON 1
+#define NUM_RELAYS 16
+
 //Sleep settings (microseconds)
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
@@ -104,6 +109,12 @@
 #define SKEY_SET_ASPECT_INT      0x0712
 #define SKEY_SET_ASPECT_FLOAT    0x0722
 
+//controlling relays
+#define SKEY_SET_ALL_RELAYS_ON   0x0620
+#define SKEY_SET_ALL_RELAYS_OFF  0x0630
+#define SKEY_SET_RELAY_ON        0x0601
+#define SKEY_SET_RELAY_OFF       0x0611
+
 //Getting commands
 #define SKEY_REQUEST_PYAS_IMAGE  0x0810
 #define SKEY_GET_PYAS_EXPOSURE   0x0850
@@ -116,6 +127,8 @@
 #define SKEY_GET_RAS_PREAMPGAIN  0x0970
 #define SKEY_GET_ASPECT_INT      0x0B11
 #define SKEY_GET_ASPECT_FLOAT    0x0B21
+
+#define SKEY_GET_RELAY_BANK      0x0A10
 
 #define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 
@@ -145,6 +158,7 @@
 #include "processing.hpp"
 #include "compression.hpp"
 #include "utilities.hpp"
+#include "pmm/DiamondPMM.h"
 
 // global declarations
 uint16_t command_sequence_number = -1;      // last SAS command packet number
@@ -163,6 +177,10 @@ bool isSunFound = false;                    // is the Sun found on the screen?
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
 CommandPacketQueue cm_packet_queue;
+
+// the relays
+DiamondPMM relayBoard;
+DiamondPMMStateRelay relays(relayBoard);
 
 // related to threads
 bool stop_message[MAX_THREADS];
@@ -912,62 +930,41 @@ void *TelemetryPackagerThread(void *threadargs)
 
         switch (tm_frame_sequence_number % 8){
             case 0:
-                tp << (uint16_t)localSensors.sbc_temperature;
-                break;
-            case 1:
-                tp << (uint16_t)localSensors.i2c_temperatures[0];
-                break;
-            case 2:
-                tp << (uint16_t)localSensors.i2c_temperatures[1];
-                break;
-            case 3:
-                tp << (uint16_t)localSensors.i2c_temperatures[2];
-                break;
-            case 4:
-                tp << (uint16_t)localSensors.i2c_temperatures[3];
-                break;
-            case 5:
-                tp << (uint16_t)localSensors.i2c_temperatures[4];
-                break;
-            case 6:
-                tp << (uint16_t)localSensors.i2c_temperatures[5];
-                break;
-            case 7:
-                tp << (uint16_t)localSensors.i2c_temperatures[6];
-                break;
-            default:
-                tp << (uint16_t)0xffff;
-        }
-        
-        switch (tm_frame_sequence_number % 8){
-            case 0:
+                tp << (int16_t)localSensors.sbc_temperature;
                 tp << Float2B(localHeaders[0].cameraTemperature);
                 break;
             case 1:
+                tp << (int16_t)localSensors.i2c_temperatures[0];
                 tp << Float2B(localHeaders[1].cameraTemperature);
                 break;
             case 2:
+                tp << (int16_t)localSensors.i2c_temperatures[1];
                 tp << (uint16_t)localHeaders[0].cpuVoltage[0];
                 break;
             case 3:
+                tp << (int16_t)localSensors.i2c_temperatures[2];
                 tp << (uint16_t)localHeaders[0].cpuVoltage[1];
                 break;
             case 4:
+                tp << (int16_t)localSensors.i2c_temperatures[3];
                 tp << (uint16_t)localHeaders[0].cpuVoltage[2];
                 break;
             case 5:
+                tp << (int16_t)localSensors.i2c_temperatures[4];
                 tp << (uint16_t)localHeaders[0].cpuVoltage[3];
                 break;
             case 6:
+                tp << (int16_t)localSensors.i2c_temperatures[5];
                 tp << (uint16_t)localHeaders[0].cpuVoltage[4];
                 break;
             case 7:
+                tp << (int16_t)localSensors.i2c_temperatures[6];
                 tp << (uint16_t)isSavingImages;
                 break;
             default:
                 tp << (uint16_t)0xffff;
+                tp << (uint16_t)0xffff;
         }
-        
         
 /*
         std::cout << "Telemetry packet with Sun center (pixels): " << Pair(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
@@ -984,8 +981,7 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << Pair3B(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
         tp << Pair3B(localHeaders[0].sunCenterError[0], localHeaders[0].sunCenterError[1]);
 
-        //Predicted Sun center and error
-        tp << Pair3B(0, 0);
+        // Error in Sun center and error
         tp << Pair3B(0, 0);
         
         //Limb crossings (currently 8)
@@ -1514,7 +1510,24 @@ void *CommandHandlerThread(void *threadargs)
             aspect.SetFloat((FloatParameter)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
             error_code = 0;
             break;
-
+        case SKEY_SET_ALL_RELAYS_OFF:
+            for (int i = 0; i < NUM_RELAYS-1; i++) {
+                // do we need to pause between these commands?
+                relays.setPort(RELAY_OFF, i);
+            }
+            break;
+        case SKEY_SET_ALL_RELAYS_ON:
+            for (int i = 0; i < NUM_RELAYS-1; i++) {
+                // do we need to pause between these commands?
+                relays.setPort(RELAY_ON, i);
+            }
+            break;
+        case SKEY_SET_RELAY_ON:
+            relays.setPort(RELAY_ON, my_data->command_vars[0]);
+            break;
+        case SKEY_SET_RELAY_OFF:
+            relays.setPort(RELAY_OFF, my_data->command_vars[0]);
+            break;
         //Getting commands
         case SKEY_REQUEST_PYAS_IMAGE:
             error_code = cmd_send_image_to_ground( 0 );
@@ -1548,6 +1561,18 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_GET_ASPECT_FLOAT:
             error_code = (uint16_t)Float2B(aspect.GetFloat((FloatParameter)my_data->command_vars[0])).code();
+            break;
+        case SKEY_GET_RELAY_STATE:
+            uint16_t state;
+            relays.getRelay(my_data->command_vars[0], state);
+            error_code = state;
+            break;
+        case SKEY_GET_RELAY_BANK:
+            uint16_t state;
+            for (int i = 0; i < NUM_RELAYS-1; i++) {
+                relays.getRelay(my_data->command_vars[0], state);
+                error_code += state << i;
+            }
             break;
         default:
             error_code = 0xffff;            // unknown command!
