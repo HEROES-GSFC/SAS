@@ -96,6 +96,12 @@
 #define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
 
+//Operations commands for controlling relays
+#define SKEY_TURN_RELAY_ON       0x0101
+#define SKEY_TURN_RELAY_OFF      0x0111
+#define SKEY_TURN_ON_ALL_RELAYS  0x0120
+#define SKEY_TURN_OFF_ALL_RELAYS 0x0130
+
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
 #define SKEY_SET_IMAGESAVEFLAG   0x0421
@@ -108,12 +114,6 @@
 #define SKEY_SET_CLOCKING        0x0621
 #define SKEY_SET_ASPECT_INT      0x0712
 #define SKEY_SET_ASPECT_FLOAT    0x0722
-
-//controlling relays
-#define SKEY_SET_ALL_RELAYS_ON   0x0620
-#define SKEY_SET_ALL_RELAYS_OFF  0x0630
-#define SKEY_SET_RELAY_ON        0x0601
-#define SKEY_SET_RELAY_OFF       0x0611
 
 //Getting commands
 #define SKEY_REQUEST_PYAS_IMAGE  0x0810
@@ -1507,22 +1507,22 @@ void *CommandHandlerThread(void *threadargs)
             aspect.SetFloat((FloatParameter)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
             error_code = 0;
             break;
-        case SKEY_SET_ALL_RELAYS_OFF:
+        case SKEY_TURN_OFF_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 // do we need to pause between these commands?
                 relays.setPort(RELAY_OFF, i);
             }
             break;
-        case SKEY_SET_ALL_RELAYS_ON:
+        case SKEY_TURN_ON_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 // do we need to pause between these commands?
                 relays.setPort(RELAY_ON, i);
             }
             break;
-        case SKEY_SET_RELAY_ON:
+        case SKEY_TURN_ON_RELAY:
             relays.setPort(RELAY_ON, my_data->command_vars[0]);
             break;
-        case SKEY_SET_RELAY_OFF:
+        case SKEY_TURN_OFF_RELAY:
             relays.setPort(RELAY_OFF, my_data->command_vars[0]);
             break;
         //Getting commands
