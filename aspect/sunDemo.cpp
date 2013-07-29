@@ -1511,16 +1511,10 @@ void *CommandHandlerThread(void *threadargs)
             error_code = 0;
             break;
         case SKEY_SET_ALL_RELAYS_OFF:
-            for (int i = 0; i < NUM_RELAYS-1; i++) {
-                // do we need to pause between these commands?
-                relays.setPort(RELAY_OFF, i);
-            }
+            relays.setPort(0, 0x00);
             break;
         case SKEY_SET_ALL_RELAYS_ON:
-            for (int i = 0; i < NUM_RELAYS-1; i++) {
-                // do we need to pause between these commands?
-                relays.setPort(RELAY_ON, i);
-            }
+            relays.setPort(0, 0xFF);
             break;
         case SKEY_SET_RELAY_ON:
             relays.setPort(RELAY_ON, my_data->command_vars[0]);
