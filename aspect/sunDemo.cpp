@@ -96,6 +96,12 @@
 #define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
 
+//Operations commands for controlling relays
+#define SKEY_TURN_RELAY_ON       0x0101
+#define SKEY_TURN_RELAY_OFF      0x0111
+#define SKEY_TURN_ON_ALL_RELAYS  0x0120
+#define SKEY_TURN_OFF_ALL_RELAYS 0x0130
+
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
 #define SKEY_SET_IMAGESAVEFLAG   0x0421
@@ -108,12 +114,6 @@
 #define SKEY_SET_CLOCKING        0x0621
 #define SKEY_SET_ASPECT_INT      0x0712
 #define SKEY_SET_ASPECT_FLOAT    0x0722
-
-//controlling relays
-#define SKEY_SET_ALL_RELAYS_ON   0x0620
-#define SKEY_SET_ALL_RELAYS_OFF  0x0630
-#define SKEY_SET_RELAY_ON        0x0601
-#define SKEY_SET_RELAY_OFF       0x0611
 
 //Getting commands
 #define SKEY_REQUEST_PYAS_IMAGE  0x0810
@@ -356,7 +356,7 @@ uint8_t build_status_bitfield( void )
     result += (uint8_t) isSunFound << 6;
     result += (uint8_t) isOutputting << 5;
     result += (uint8_t) isClockSynced << 4;
-    result += (uint8_t) aspect_error_code && 0x0f;
+    result += (uint8_t) aspect_error_code & 0x0f;
     return result;
 }
 
@@ -928,6 +928,7 @@ void *TelemetryPackagerThread(void *threadargs)
             pthread_mutex_unlock(&mutexSensors);
         }
 
+        //Housekeeping fields, two of them
         switch (tm_frame_sequence_number % 8){
             case 0:
                 tp << (int16_t)localSensors.sbc_temperature;
@@ -965,7 +966,7 @@ void *TelemetryPackagerThread(void *threadargs)
                 tp << (uint16_t)0xffff;
                 tp << (uint16_t)0xffff;
         }
-        
+
 /*
         std::cout << "Telemetry packet with Sun center (pixels): " << Pair(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
         std::cout << ", mapping is";
@@ -975,15 +976,10 @@ void *TelemetryPackagerThread(void *threadargs)
         std::cout << "Offset: " << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]) << std::endl;
 */
 
-        //Housekeeping fields, two of them
-        
         //Sun center and error
         tp << Pair3B(localHeaders[0].sunCenter[0], localHeaders[0].sunCenter[1]);
         tp << Pair3B(localHeaders[0].sunCenterError[0], localHeaders[0].sunCenterError[1]);
 
-        // Error in Sun center and error
-        tp << Pair3B(0, 0);
-        
         //Limb crossings (currently 8)
         for(uint8_t j = 0; j < 8; j++) {
             tp << Pair3B(localHeaders[0].limbX[j], localHeaders[0].limbY[j]);
@@ -1010,8 +1006,9 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << (uint8_t) localHeaders[camera_id].imageMinMax[1]; //max
         //tp << (uint8_t) localHeaders[camera_id].imageMinMax[0]; //min
 
-        //Tacking on the offset numbers intended for CTL
-        tp << Pair(localHeaders[0].CTLsolution[0], localHeaders[0].CTLsolution[1]);
+        //Tacking on the offset numbers intended for CTL as floats
+        tp << (float)(localHeaders[0].CTLsolution[0]);
+        tp << (float)(localHeaders[0].CTLsolution[1]);
 
         //add telemetry packet to the queue if not being suppressed
         if (tm_frames_to_suppress > 0) tm_frames_to_suppress--;
@@ -1510,16 +1507,22 @@ void *CommandHandlerThread(void *threadargs)
             aspect.SetFloat((FloatParameter)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
             error_code = 0;
             break;
-        case SKEY_SET_ALL_RELAYS_OFF:
-            relays.setPort(0, 0x00);
+        case SKEY_TURN_OFF_ALL_RELAYS:
+            for (int i = 0; i < NUM_RELAYS-1; i++) {
+                // do we need to pause between these commands?
+                relays.setPort(RELAY_OFF, i);
+            }
             break;
-        case SKEY_SET_ALL_RELAYS_ON:
-            relays.setPort(0, 0xFF);
+        case SKEY_TURN_ON_ALL_RELAYS:
+            for (int i = 0; i < NUM_RELAYS-1; i++) {
+                // do we need to pause between these commands?
+                relays.setPort(RELAY_ON, i);
+            }
             break;
-        case SKEY_SET_RELAY_ON:
+        case SKEY_TURN_ON_RELAY:
             relays.setPort(RELAY_ON, my_data->command_vars[0]);
             break;
-        case SKEY_SET_RELAY_OFF:
+        case SKEY_TURN_OFF_RELAY:
             relays.setPort(RELAY_OFF, my_data->command_vars[0]);
             break;
         //Getting commands
