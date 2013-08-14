@@ -781,7 +781,7 @@ void *SBCInfoThread(void *threadargs)
         packet >> ntp_drift;
         packet >> ntp_offset_ms;
         packet >> ntp_stability;
-        if (ntp_offset_ms * 1000 < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockedSynced = false; }
+        if (ntp_offset_ms * 1000 < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockSynced = false; }
         delete array;
     }
 
@@ -1519,10 +1519,10 @@ void *CommandHandlerThread(void *threadargs)
                 relays.setPort(RELAY_ON, i);
             }
             break;
-        case SKEY_TURN_ON_RELAY:
+        case SKEY_TURN_RELAY_ON:
             relays.setPort(RELAY_ON, my_data->command_vars[0]);
             break;
-        case SKEY_TURN_OFF_RELAY:
+        case SKEY_TURN_RELAY_OFF:
             relays.setPort(RELAY_OFF, my_data->command_vars[0]);
             break;
         //Getting commands
@@ -1559,13 +1559,8 @@ void *CommandHandlerThread(void *threadargs)
         case SKEY_GET_ASPECT_FLOAT:
             error_code = (uint16_t)Float2B(aspect.GetFloat((FloatParameter)my_data->command_vars[0])).code();
             break;
-        case SKEY_GET_RELAY_STATE:
-            uint16_t state;
-            relays.getRelay(my_data->command_vars[0], state);
-            error_code = state;
-            break;
         case SKEY_GET_RELAY_BANK:
-            uint16_t state;
+            bool state;
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 relays.getRelay(my_data->command_vars[0], state);
                 error_code += state << i;
