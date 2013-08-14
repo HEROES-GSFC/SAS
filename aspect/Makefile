@@ -52,8 +52,8 @@ CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
 SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
+sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o $(RELAYS)
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) $(DSCUD_LIBS) -pg
 
 test_telemetry: test_telemetry.cpp Telemetry.o Packet.o lib_crc.o UDPSender.o types.o
 	$(CC) $(CFLAGS) $^ -o $@
