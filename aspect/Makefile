@@ -86,6 +86,9 @@ tmbin_reader: tmbin_reader.cpp Packet.o lib_crc.o Telemetry.o types.o
 relays: relays.cpp $(RELAYS)
 	$(CC) $(CFLAGS) $^ -o $@ $(DSCUD_LIBS) $(THREAD)
 
+test_relays: test_relays.cpp $(RELAYS)
+	$(CC) $(CFLAGS) $^ -o $@ $(DSCUD_LIBS) $(THREAD)
+
 pmm/%.o: pmm/%.cpp pmm/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ $(DSCUD_LIBS) $(THREAD)
 
