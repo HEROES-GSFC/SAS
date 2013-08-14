@@ -5,6 +5,9 @@
 #include <iostream>
 #include <string>
 
+#define AVI 0
+#define CSV 1
+
 int main(int argc, char* argv[])
 {
 
@@ -38,11 +41,32 @@ int main(int argc, char* argv[])
     Aspect aspect;
     AspectCode runResult;
     cv::namedWindow("Solution", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
-    std::ifstream frames(argv[1]);
-    std::ofstream csvFile(argv[2]);
-
+    
     std::string message;
     timespec startTime, stopTime, diffTime;
+
+    std::string outfile(argv[2]);
+    std::string outExtension(outfile.substr(outfile.length()-3, outfile.length()-1));
+    
+    std::ofstream csvFile(argv[2]);
+    std::ifstream frames(argv[1]);
+    cv::VideoWriter summary;
+    bool videoReady = false;
+    int outType = -1;
+
+    if (!outExtension.compare("avi") || !outExtension.compare("AVI"))
+    {
+        outType = AVI;
+    }
+    else if (!outExtension.compare("csv") || !outExtension.compare("CSV"))
+    {
+        outType = CSV;
+    }
+    else
+    {
+        std::cout << "File extension " << outExtension << " not supported" << std::endl;
+        return -1;
+    }
 
     if (!frames.good())
     {
@@ -51,6 +75,8 @@ int main(int argc, char* argv[])
     else 
     {
         index = 0;
+        if (outType == AVI)
+            videoReady = false;
         while (frames.getline(line,256))
         {
             filename = line;
@@ -219,23 +245,34 @@ int main(int argc, char* argv[])
             cv::putText(image, filename, cv::Point(0,(frame.size()).height-20), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             message = GetMessage(runResult);
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
-            
-            cv::imshow("Solution", image);
-            cv::waitKey(1);
+            if (outType == AVI)
+            {
+                if (!videoReady)
+                {
+                    summary.open(argv[2], CV_FOURCC('F','F','V','1'), 10, frame.size(), true);
+                    videoReady = true;
+                }
+                summary << image;
+            }
+            else if(outType == CSV)
+            {
+                // Generate CSV of center data
+                csvFile << "Someday"  << ";";
+                csvFile << index << ";";
+                csvFile << center.x << ";" << center.y << ";";
+                csvFile << IDCenter.x << ";" << IDCenter.y << ";";
+                csvFile << filename << ";";
+                csvFile << ";;";
+                csvFile << "\n";
+            }
 
-            // Generate CSV of center data
-            csvFile << "Someday"  << ";";
-            csvFile << index << ";";
-            csvFile << center.x << ";" << center.y << ";";
-            csvFile << IDCenter.x << ";" << IDCenter.y << ";";
-            csvFile << filename << ";";
-            csvFile << ";;";
-            csvFile << "\n";
-
+            //cv::imshow("Solution", image);
+            //cv::waitKey(1);
             index++;
         }
     }
-    csvFile.close();
+    if (outType == CSV)
+        csvFile.close();
     frames.close();
     return 0;
 }
