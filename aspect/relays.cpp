@@ -17,6 +17,16 @@ int main(int argc, char* argv[])
     relays.setPort(0, 0xAB);
     relays.setPort(1, 0xCD);
 
+    relays.setPort(0, 0x00);
+    relays.setPort(1, 0x00);
+
+    relays.setRelay(1, 1);
+    sleep(10);
+    relays.setRelay(2, 1);
+    sleep(10);
+    relays.setRelay(1, 0);
+    sleep(10);
+
     sleep(1);
     for (int k = 0; k < 2; k++)
     {
@@ -40,7 +50,7 @@ int main(int argc, char* argv[])
         relays.getRelay(k, set);
         std::cout << "Port " << k << " is " << (set ? "ON" : "OFF") << std::endl;
         relays.setRelay(k, 1);
-        std::cout << "Port " << k << " set ON" << std::endl
+        std::cout << "Port " << k << " set ON" << std::endl;
         relays.getRelay(k, set);
         std::cout << "Port " << k << " is " << (set ? "ON" : "OFF") << std::endl;
         sleep(1);
