@@ -738,7 +738,7 @@ void Aspect::GenerateKernel()
 
 int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossings)
 {
-    std::vector<int> edges;
+    std::vector<int> edges, endpoints;
     std::vector<float> x, y, fit;
     unsigned char thisValue, lastValue, pixelThreshold;
     int K = chord.total();
@@ -769,28 +769,62 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
         }
         lastValue = thisValue;
     }
-
+    for (int k = 0; k < edges.size(); k++)
+        std::cout << edges[k] << "\t";
+    std::cout << std::endl;
+    
     //Remove edge pairs that seem to correspond to fiducials
     //also remove edge pairs that are too close together
+    
+    if (edges.size() > 0)
+    {
+        endpoints.resize(edges.size());
+    
+        for (int k = 0; k < endpoints.size(); k++)
+            endpoints[k] = 1;
+
+        endpoints[0] = 1;
+        endpoints[endpoints.size()-1] = 1;
+    }
+    else
+    {
+        //std::cout << "No edges found" << std::endl;
+        return -1;
+    }
+
     for (unsigned int k = 1; k < edges.size(); k++)
     {
         //find distance between next edge pair
         //positive if the region is below the threshold
-        edgeSpread = edges[k] + edges[k-1];
+        edgeSpread = abs(abs(edges[k]) - abs(edges[k-1]));
 
         //if the pair is along a fiducial
-        if(abs(edgeSpread - fiducialLength) <= limbWidth || 
+        if(abs(edgeSpread - fiducialLength) <= (2*limbWidth + 1) || 
            // or across a fiducial
-           abs(edgeSpread - fiducialWidth) <= limbWidth ||
+           abs(edgeSpread - fiducialWidth) <= (2*limbWidth + 1) ||
            // or too close together
-           abs(edgeSpread) < limbWidth)
+           edgeSpread < (2*limbWidth + 1))
         {
             // remove the pair and update the index accordingly
-            edges.erase(edges.begin() + (k-1), edges.begin() + (k+1));
-            if (k == 1) k -= 1;
-            else k -= 2;
+            endpoints[k-1] = 0;
+            endpoints[k] = 0;
         }
     }
+
+    for (int k = 0; k < endpoints.size(); k++)
+    {
+        if (endpoints[k] < 1)
+        {
+            endpoints.erase(endpoints.begin() + k, endpoints.begin() + k + 1);
+            edges.erase(edges.begin() + k, edges.begin() + k + 1);
+            k--;
+        }
+    }
+    
+    for (int k = 0; k < edges.size(); k++)
+        std::cout << edges[k] << "\t";
+    std::cout << std::endl;
+    std::cout << std::endl;
 
     //for (int i=0; i<edges.size(); i++) std::cout << edges[i] << " ";
     //std::cout << std::endl;
