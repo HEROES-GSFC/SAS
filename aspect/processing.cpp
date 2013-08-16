@@ -778,7 +778,7 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
            }
        }
        return 0;
-    }   
+    }
     return -1;
 }
 
@@ -1579,20 +1579,20 @@ void calcMinMax(cv::Mat frame, unsigned char& min, unsigned char& max)
     long total = 0;
     bool min_found = false, max_found = false;
     uint8_t j = 0;
-
-    while((j < hist.rows) && !min_found && !max_found) {
-        total += hist.ptr<float>(j);
+    min = 255; max = 0;
+    while((j < hist.rows) && (!min_found || !max_found)) {
+        total += *hist.ptr<float>(j);
         if (!min_found && (total >= 0.005*len)) {
             min = j;
             min_found = true;
         }
         if (!max_found && (total >= (long)(0.995*len))) {
             max = j;
-            max = true;
+            max_found = true;
         }
+        //std::cout << total << std::endl;
         j++;
     }
-
     if (!min_found || !max_found) {
         //This should not be possible...
         std::cerr << "Bizarre error with finding min/max of an image\n";
