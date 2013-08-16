@@ -10,10 +10,10 @@
 #define SAVE_LOCATION2 "/mnt/disk2/"
 
 //Calibrated parameters
-#define CLOCKING_ANGLE_PYASF -30
+#define CLOCKING_ANGLE_PYASF -33.26
 #define CENTER_X_PYASF 0
 #define CENTER_Y_PYASF 0
-#define CLOCKING_ANGLE_PYASR -60
+#define CLOCKING_ANGLE_PYASR -53.26
 #define CENTER_X_PYASR 0
 #define CENTER_Y_PYASR 0
 
