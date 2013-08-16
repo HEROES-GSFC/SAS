@@ -52,8 +52,8 @@ CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
 SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o $(RELAYS)
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) $(DSCUD_LIBS) -pg
+sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
 test_telemetry: test_telemetry.cpp Telemetry.o Packet.o lib_crc.o UDPSender.o types.o
 	$(CC) $(CFLAGS) $^ -o $@
@@ -68,6 +68,10 @@ sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
 #This executable need to be copied to /usr/local/bin/ after it is built
 sbc_shutdown: sbc_shutdown.cpp UDPReceiver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
+#This executable need to be copied to /usr/local/bin/ after it is built
+relay_control: relay_control.cpp UDPReceiver.o $(RELAYS)
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(DSCUD_LIBS)
 
 sbc_info_reader: sbc_info_reader.cpp UDPReceiver.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
@@ -106,9 +110,12 @@ install: sunDemo sbc_info sbc_shutdown
 	sudo systemctl stop sas
 	sudo systemctl stop sbc_info
 	sudo systemctl stop sbc_shutdown
+	sudo systemctl stop relay_control
 	sudo cp sunDemo /usr/local/bin/sas.runtime
 	sudo cp sbc_info /usr/local/bin/sbc_info.runtime
 	sudo cp sbc_shutdown /usr/local/bin/sbc_shutdown.runtime
+	sudo cp relay_control /usr/local/bin/relay_control.runtime
+	sudo systemctl start relay_control
 	sudo systemctl start sbc_shutdown
 	sudo systemctl start sbc_info
 	sudo systemctl start sas
