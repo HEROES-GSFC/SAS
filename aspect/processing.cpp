@@ -772,7 +772,7 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
 
     //Remove edge pairs that seem to correspond to fiducials
     //also remove edge pairs that are too close together
-    for (unsigned int k = 1; k <  edges.size(); k++)
+    for (unsigned int k = 1; k < edges.size(); k++)
     {
         //find distance between next edge pair
         //positive if the region is below the threshold
@@ -851,18 +851,27 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
                x.clear(); y.clear();
                for (int l = min; l <= max; l++)
                {
-                   x.push_back(l);
+                   x.push_back(l-edge);
                    y.push_back((float) chord.at<unsigned char>(l));
                }
                LinearFit(x,y,fit);
-               fittedEdge = (threshold - fit[0])/fit[1];
-               if (std::isfinite(fittedEdge))
+               fittedEdge = (threshold - fit[0])/fit[1] + edge;
+               
+               if (!std::isfinite(fittedEdge))
+               {
+                   //std::cout << "Edge was infinite" << std::endl;
+                   return -2;
+               }
+               else if ((fittedEdge < min) || (fittedEdge > max))
+               {
+                   //std::cout << "Fit sent the edge to a bad bad place." << std::endl;
+                   return -3;
+               }
+               else
                {
                    crossings.push_back(fittedEdge);
                    slopes.push_back(fabs(fit[1]));
                }
-               else
-                   return -1;
            }
        }
        return 0;
@@ -877,6 +886,9 @@ void Aspect::FindPixelCenter()
     float mean, std;
     int rowStart, colStart, rowStep, colStep, limit, K, M;
     cv::Range rowRange, colRange;
+    int error, infinite, outOfBounds;
+    infinite = 0;
+    outOfBounds = 0;
 
     rows.clear();
     cols.clear();
@@ -945,9 +957,14 @@ void Aspect::FindPixelCenter()
         {
             //Determine the limb crossings in that chord
             crossings.clear();
-            if (dim) FindLimbCrossings(frame.row(rows[k]), crossings);
-            else FindLimbCrossings(frame.col(cols[k]), crossings);
+            if (dim) error = FindLimbCrossings(frame.row(rows[k]), crossings);
+            else error = FindLimbCrossings(frame.col(cols[k]), crossings);
             
+            if (error == -2)
+                infinite++;
+            else if (error == -3)
+                outOfBounds++;
+
             //If there seems to be a pair of crossings
             if (crossings.size() != 2) continue;
 
@@ -991,8 +1008,8 @@ void Aspect::FindPixelCenter()
             pixelError.y = std;
         }       
     }
+    //std::cout << "Infinite error: " << infinite << ", Out of Bounds errors: " << outOfBounds << std::endl;
     //std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
-
     return;
 }
 

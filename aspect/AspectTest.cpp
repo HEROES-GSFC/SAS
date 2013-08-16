@@ -47,9 +47,13 @@ int main(int argc, char* argv[])
 
     std::string outfile(argv[2]);
     std::string outExtension(outfile.substr(outfile.length()-3, outfile.length()-1));
-    
-    std::ofstream csvFile(argv[2]);
+    outfile = outfile.substr(0, outfile.length()-4);
     std::ifstream frames(argv[1]);
+
+    std::ofstream csvCenter(outfile+"_centers.csv");
+    std::ofstream csvLimbs(outfile+"_limbs.csv");
+    std::ofstream csvFiducials(outfile+"_fiducials.csv");
+    
     cv::VideoWriter summary;
     bool videoReady = false;
     int outType = -1;
@@ -174,7 +178,7 @@ int main(int argc, char* argv[])
                     cv::putText(image, label, fiducials[k] - offset, cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
 //                    std::cout << "[" << label << "] ";
                 }
-                std::cout << std::endl;
+//                std::cout << std::endl;
 
 
 /*                float rowDiff, colDiff;
@@ -257,22 +261,44 @@ int main(int argc, char* argv[])
             else if(outType == CSV)
             {
                 // Generate CSV of center data
-                csvFile << "Someday"  << ";";
-                csvFile << index << ";";
-                csvFile << center.x << ";" << center.y << ";";
-                csvFile << IDCenter.x << ";" << IDCenter.y << ";";
-                csvFile << filename << ";";
-                csvFile << ";;";
-                csvFile << "\n";
+                csvCenter << index << ";";
+                csvCenter << filename << ";";
+                csvCenter << (int) runResult << ";";
+                csvCenter << center.x << ";" << center.y << ";";
+                csvCenter << IDCenter.x << ";" << IDCenter.y << ";";
+                csvCenter << "\n";
+
+                // Generate CSV of limb data
+                csvLimbs << index << ";";
+                csvLimbs << filename << ";";
+                csvLimbs << crossings.size() << ";";
+                for (int k = 0; k < crossings.size(); k++)
+                    csvLimbs << "[" << crossings[k].x << " " << crossings[k].y << "],";
+                csvLimbs << "\n";
+                
+                // Generate CSV of fiducial data
+                csvFiducials << index << ";";
+                csvFiducials << filename << ";";
+                csvFiducials << fiducials.size() << ";";
+                for (int k = 0; k < fiducials.size(); k++)
+                {
+                    csvFiducials << "[" << fiducials[k].x << " " << fiducials[k].y;
+                    csvFiducials << " " << IDs[k].x << " " << IDs[k].y << "],";
+                }
+                csvFiducials << "\n";
             }
 
-            //cv::imshow("Solution", image);
-            //cv::waitKey(1);
+            cv::imshow("Solution", image);
+            cv::waitKey(1);
             index++;
         }
     }
     if (outType == CSV)
-        csvFile.close();
+    {
+        csvCenter.close();
+        csvLimbs.close();
+        csvFiducials.close();
+    }
     frames.close();
     return 0;
 }
