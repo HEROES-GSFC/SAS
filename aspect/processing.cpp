@@ -150,7 +150,7 @@ AspectCode Aspect::Run()
     else
     {
         //std::cout << "Aspect: Finding max and min pixel values" << std::endl;
-        calcMinMax(frame, &min, &max);
+        calcMinMax(frame, min, max);
         frameMin = (unsigned char) min;
         frameMax = (unsigned char) max;
         if (min >= max || std::isnan(min) || std::isnan(max))
@@ -1578,7 +1578,7 @@ void calcMinMax(cv::Mat frame, unsigned char& min, unsigned char& max)
     long len = frame.rows*frame.cols;
     long total = 0;
     bool min_found = false, max_found = false;
-    int j = 0;
+    uint8_t j = 0;
 
     while((j < hist.rows) && !min_found && !max_found) {
         total += hist.ptr<float>(j);
@@ -1586,7 +1586,7 @@ void calcMinMax(cv::Mat frame, unsigned char& min, unsigned char& max)
             min = j;
             min_found = true;
         }
-        if (!max_found && (total >= 0.995*len)) {
+        if (!max_found && (total >= (long)(0.995*len))) {
             max = j;
             max = true;
         }
@@ -1595,7 +1595,7 @@ void calcMinMax(cv::Mat frame, unsigned char& min, unsigned char& max)
 
     if (!min_found || !max_found) {
         //This should not be possible...
-        cerr << "Bizarre error with finding min/max of an image\n";
+        std::cerr << "Bizarre error with finding min/max of an image\n";
     }
 }
 
