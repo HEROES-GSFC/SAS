@@ -678,10 +678,9 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
         argHeader.solarTarget[1] = localSolarTarget.y();
     }
     else if((camera_id == 1) && !argFrame.empty()) {
-        double min, max;
-        cv::minMaxLoc(frame[1], &min, &max, NULL, NULL);
-        argHeader.imageMinMax[0] = (uint8_t)min;
-        argHeader.imageMinMax[1] = (uint8_t)max;
+        calcMinMax(frame[1], &localMin, &localMax);
+        argHeader.imageMinMax[0] = localMin;
+        argHeader.imageMinMax[1] = localMax;
     }
     else
     {

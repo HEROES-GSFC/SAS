@@ -141,3 +141,8 @@ template <class T> std::vector<T> Mode(std::vector<T> data);
 
 cv::Point2f rotate(float angle, cv::Point2f point);
 void rotate(float angle, const CoordList &inPoints, CoordList &outPoints); 
+
+//This calculates the min/max of an image after ignoring the extremes of the
+//histogram (approximately the 0.5% on each end)
+void calcMinMax(cv::Mat frame, unsigned char& min, unsigned char& max);
+

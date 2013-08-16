@@ -130,7 +130,7 @@ AspectCode Aspect::Run()
     cv::Mat solarImage;
     cv::Size solarSize;
     cv::Point offset;
-    double max, min;
+    unsigned char max, min;
     timespec heythere;
     limbCrossings.clear();    
     slopes.clear();    
@@ -150,7 +150,7 @@ AspectCode Aspect::Run()
     else
     {
         //std::cout << "Aspect: Finding max and min pixel values" << std::endl;
-        cv::minMaxLoc(frame, &min, &max, NULL, NULL);
+        calcMinMax(frame, &min, &max);
         frameMin = (unsigned char) min;
         frameMax = (unsigned char) max;
         if (min >= max || std::isnan(min) || std::isnan(max))
@@ -1558,4 +1558,44 @@ void rotate(float angle, const CoordList &inPoints, CoordList &outPoints)
     for (int k = 0; k < inPoints.size(); k++)
         outPoints[k] = rotate(angle, inPoints[k]);
 }
-    
+
+void calcMinMax(cv::Mat frame, unsigned char& min, unsigned char& max)
+{
+    cv::Mat hist;
+    int size[] = {256};
+    float range[] = {0, 256};
+    const float *ranges[] = {range};
+
+    cv::calcHist(&frame, 1, //just one matrix
+                 {0},       //just the first channel
+                 cv::Mat(), //no mask
+                 hist,      //output histogram
+                 1, size,   //number of dimensions and bins
+                 ranges,  //range of histogram
+                 true,      //uniform?
+                 false);    //accumulate?
+
+    long len = frame.rows*frame.cols;
+    long total = 0;
+    bool min_found = false, max_found = false;
+    int j = 0;
+
+    while((j < hist.rows) && !min_found && !max_found) {
+        total += hist.ptr<float>(j);
+        if (!min_found && (total >= 0.005*len)) {
+            min = j;
+            min_found = true;
+        }
+        if (!max_found && (total >= 0.995*len)) {
+            max = j;
+            max = true;
+        }
+        j++;
+    }
+
+    if (!min_found || !max_found) {
+        //This should not be possible...
+        cerr << "Bizarre error with finding min/max of an image\n";
+    }
+}
+
