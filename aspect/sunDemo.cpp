@@ -763,7 +763,7 @@ void *SBCInfoThread(void *threadargs)
         packet >> ntp_drift;
         packet >> ntp_offset_ms;
         packet >> ntp_stability;
-        if (ntp_offset_ms * 1000 < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockedSynced = false; }
+        if (ntp_offset_ms * 1000 < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockSynced = false; }
         delete array;
     }
 
@@ -1502,11 +1502,11 @@ void *CommandHandlerThread(void *threadargs)
             error_code = 0;
             break;
         case SKEY_SET_ASPECT_INT:
-            aspect.SetInteger((IntParameter)my_data->command_vars[0], my_data->command_vars[1]);
+            aspect.SetInteger((AspectInt)my_data->command_vars[0], my_data->command_vars[1]);
             error_code = 0;
             break;
         case SKEY_SET_ASPECT_FLOAT:
-            aspect.SetFloat((FloatParameter)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
+            aspect.SetFloat((AspectFloat)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
             error_code = 0;
             break;
 
@@ -1539,10 +1539,10 @@ void *CommandHandlerThread(void *threadargs)
             error_code = (uint16_t)get_disk_usage((uint16_t)my_data->command_vars[0]);
             break;
         case SKEY_GET_ASPECT_INT:
-            error_code = (int16_t)aspect.GetInteger((IntParameter)my_data->command_vars[0]);
+            error_code = (int16_t)aspect.GetInteger((AspectInt)my_data->command_vars[0]);
             break;
         case SKEY_GET_ASPECT_FLOAT:
-            error_code = (uint16_t)Float2B(aspect.GetFloat((FloatParameter)my_data->command_vars[0])).code();
+            error_code = (uint16_t)Float2B(aspect.GetFloat((AspectFloat)my_data->command_vars[0])).code();
             break;
         default:
             error_code = 0xffff;            // unknown command!

@@ -33,9 +33,12 @@ ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
 
-TESTS = AspectTest AspectVideo MeasureScreen BlackFrames ClockReader
+TESTS = AspectTest MeasureScreen BlackFrames ClockReader
 EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
+
 RELAYS = pmm/DiamondPMM.o pmm/DiamondBoard.o pmm/StateRelay.o
+ASPECT = processing.o AspectError.o AspectParameter.o
+
 default: sunDemo sbc_info sbc_shutdown
 
 all: $(EXEC)
@@ -52,7 +55,7 @@ CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
 SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o Packet.o lib_crc.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
+sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o $(ASPECT)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
 test_telemetry: test_telemetry.cpp Telemetry.o Packet.o lib_crc.o UDPSender.o types.o
@@ -90,7 +93,7 @@ pmm/%.o: pmm/%.cpp pmm/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ $(DSCUD_LIBS) $(THREAD)
 
 #This pattern is for any of Alex's weird test programs
-$(TESTS): % : %.cpp processing.o utilities.o compression.o
+$(TESTS): % : %.cpp $(ASPECT) utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 smbus.o: smbus/smbus.c smbus/smbus.h

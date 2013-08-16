@@ -27,137 +27,6 @@ cv::Point2f fiducialIDtoScreen(cv::Point2i id)
     return result;
 }
 
-AspectCode GeneralizeError(AspectCode code)
-{
-    switch(code)
-    {
-    case NO_ERROR:
-        return NO_ERROR;
-
-    case MAPPING_ERROR:
-    case MAPPING_ILL_CONDITIONED:
-        return MAPPING_ERROR;
-
-    case ID_ERROR:
-    case FEW_IDS:
-    case NO_IDS:
-        return ID_ERROR;
-
-    case FIDUCIAL_ERROR:
-    case FEW_FIDUCIALS:
-    case NO_FIDUCIALS:
-    case SOLAR_IMAGE_ERROR:
-    case SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS:
-    case SOLAR_IMAGE_SMALL:
-    case SOLAR_IMAGE_EMPTY:
-        return FIDUCIAL_ERROR;
-
-    case CENTER_ERROR:
-    case CENTER_ERROR_LARGE:
-    case CENTER_OUT_OF_BOUNDS:
-        return CENTER_ERROR;
-
-    case LIMB_ERROR:
-    case FEW_LIMB_CROSSINGS:
-    case NO_LIMB_CROSSINGS:
-        return LIMB_ERROR;
-
-    case RANGE_ERROR:
-    case MIN_MAX_BAD:
-    case DYNAMIC_RANGE_LOW:
-        return RANGE_ERROR;
-
-    case FRAME_EMPTY:
-        return FRAME_EMPTY;
-    case STALE_DATA:
-        return STALE_DATA;
-    default:
-        return STALE_DATA;
-    }
-    return STALE_DATA;
-}
-
-const char * GetMessage(const AspectCode& code)
-{
-    switch(code)
-    {
-    case NO_ERROR:
-        return "No error";
-        break;
-    case MAPPING_ERROR:
-        return "Generic Mapping error";
-        
-    case MAPPING_ILL_CONDITIONED:
-        return "Mapping was ill-conditioned";
-        
-    case ID_ERROR:
-        return "Generic IDing error";
-            
-    case FEW_IDS:
-        return "Too few valid IDs";
-        
-    case NO_IDS:
-        return "No valid IDs found";
-        
-    case FIDUCIAL_ERROR:
-        return "Generic fiducial error";
-        
-    case FEW_FIDUCIALS:
-        return "Too Few Fiducials";
-        
-    case NO_FIDUCIALS:
-        return "No fiducials found";
-        
-    case SOLAR_IMAGE_ERROR:
-        return "Generic solar image error";
-        
-    case SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS:
-        return "Solar image offset is out of bounds";
-        
-    case SOLAR_IMAGE_SMALL:
-        return "Solar image is too small";
-        
-    case SOLAR_IMAGE_EMPTY:
-        return "Solar image is empty";
-        
-    case CENTER_ERROR:
-        return "Generic error with pixel center";
-        
-    case CENTER_ERROR_LARGE:
-        return "Pixel center error is too large";
-        
-    case CENTER_OUT_OF_BOUNDS:
-        return "Pixel center is out of bounds";
-        
-    case LIMB_ERROR:
-        return "Generic limb error";
-        
-    case FEW_LIMB_CROSSINGS:
-        return "Too few limb crossings";
-        
-    case NO_LIMB_CROSSINGS:
-        return "No limb crossings";
-        
-    case RANGE_ERROR:
-        return "Generic dynamic range error";
-        
-    case DYNAMIC_RANGE_LOW:
-        return "dynamic range is too low";
-        
-    case MIN_MAX_BAD:
-        return "Dynamic values aren't real";
-        
-    case FRAME_EMPTY:
-        return "Frame is empty.";
-        
-    case STALE_DATA:
-        return "Data is stale.";
-        
-    default:
-        return "How did I get here?";
-    }
-}
-
 Aspect::Aspect()
 {
     // Initialize min and max values for the image
@@ -178,10 +47,13 @@ Aspect::Aspect()
     radiusMargin = .25;
     errorLimit = 50;
 
-    limbWidth = 2;
+    limbFitWidth = 2;
+    
     fiducialLength = 15;
     fiducialWidth = 2; 
     fiducialThreshold = 5;
+
+    minLimbWidth = fiducialLength;
 
     numFiducials = 12;
     
@@ -313,7 +185,7 @@ AspectCode Aspect::Run()
             pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
             !std::isfinite(pixelCenter.x) || !std::isfinite(pixelCenter.y))
         {
-            std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
+            //std::cout << "Aspect: Center Out-of-bounds:" << pixelCenter << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
             state = CENTER_OUT_OF_BOUNDS;
             return state;
@@ -557,7 +429,7 @@ Aspect Parameter Set/Get Functions
 
 *************************************************************************/
 
-float Aspect::GetFloat(FloatParameter variable)
+float Aspect::GetFloat(AspectFloat variable)
 {
     switch(variable)
     {
@@ -580,7 +452,7 @@ float Aspect::GetFloat(FloatParameter variable)
     }
 }
 
-int Aspect::GetInteger(IntParameter variable)
+int Aspect::GetInteger(AspectInt variable)
 {
     switch(variable)
     {
@@ -588,8 +460,10 @@ int Aspect::GetInteger(IntParameter variable)
         return initialNumChords;
     case NUM_CHORDS_OPERATING:
         return chordsPerAxis;
-    case LIMB_WIDTH:
-        return limbWidth; 
+    case MIN_LIMB_WIDTH:
+        return minLimbWidth;
+    case LIMB_FIT_WIDTH:
+        return limbFitWidth;
     case SOLAR_RADIUS:
         return solarRadius;
     case FIDUCIAL_LENGTH:
@@ -603,7 +477,7 @@ int Aspect::GetInteger(IntParameter variable)
     }
 }
 
-void Aspect::SetFloat(FloatParameter variable, float value)
+void Aspect::SetFloat(AspectFloat variable, float value)
 {
     switch(variable)
     {
@@ -634,7 +508,7 @@ void Aspect::SetFloat(FloatParameter variable, float value)
     return;
 }
 
-void Aspect::SetInteger(IntParameter variable, int value)
+void Aspect::SetInteger(AspectInt variable, int value)
 {
     switch(variable)
     {
@@ -644,8 +518,11 @@ void Aspect::SetInteger(IntParameter variable, int value)
     case NUM_CHORDS_OPERATING:
         chordsPerAxis = value;
         break;
-    case LIMB_WIDTH:
-        limbWidth = value; 
+    case MIN_LIMB_WIDTH:
+        minLimbWidth = value; 
+        break;
+    case LIMB_FIT_WIDTH:
+        limbFitWidth = value; 
         break;
     case SOLAR_RADIUS:
         solarRadius = value;
@@ -738,7 +615,8 @@ void Aspect::GenerateKernel()
 
 int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossings)
 {
-    std::vector<int> edges, endpoints;
+    std::vector<int> edges;
+    std::vector<bool> edgeFlag;
     std::vector<float> x, y, fit;
     unsigned char thisValue, lastValue, pixelThreshold;
     int K = chord.total();
@@ -769,23 +647,17 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
         }
         lastValue = thisValue;
     }
-    for (int k = 0; k < edges.size(); k++)
+
+    /*for (int k = 0; k < edges.size(); k++)
         std::cout << edges[k] << "\t";
-    std::cout << std::endl;
+        std::cout << std::endl;*/
     
     //Remove edge pairs that seem to correspond to fiducials
     //also remove edge pairs that are too close together
     
+    //Generates a list of flags for each edge.
     if (edges.size() > 0)
-    {
-        endpoints.resize(edges.size());
-    
-        for (int k = 0; k < endpoints.size(); k++)
-            endpoints[k] = 1;
-
-        endpoints[0] = 1;
-        endpoints[endpoints.size()-1] = 1;
-    }
+        edgeFlag.resize(edges.size(), false);
     else
     {
         //std::cout << "No edges found" << std::endl;
@@ -798,33 +670,30 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
         //positive if the region is below the threshold
         edgeSpread = abs(abs(edges[k]) - abs(edges[k-1]));
 
-        //if the pair is along a fiducial
-        if(abs(edgeSpread - fiducialLength) <= (2*limbWidth + 1) || 
-           // or across a fiducial
-           abs(edgeSpread - fiducialWidth) <= (2*limbWidth + 1) ||
-           // or too close together
-           edgeSpread < (2*limbWidth + 1))
+        //if the pair is too close together
+        if(edgeSpread <= minLimbWidth)
         {
-            // remove the pair and update the index accordingly
-            endpoints[k-1] = 0;
-            endpoints[k] = 0;
+            // flag both potential edges as invalid
+            edgeFlag[k-1] = true;
+            edgeFlag[k] = true;
         }
     }
 
-    for (int k = 0; k < endpoints.size(); k++)
+    //Remove any edges which are flagged as invalid.
+    for (int k = 0; k < edgeFlag.size(); k++)
     {
-        if (endpoints[k] < 1)
+        if (edgeFlag[k])
         {
-            endpoints.erase(endpoints.begin() + k, endpoints.begin() + k + 1);
+            edgeFlag.erase(edgeFlag.begin() + k, edgeFlag.begin() + k + 1);
             edges.erase(edges.begin() + k, edges.begin() + k + 1);
             k--;
         }
     }
     
-    for (int k = 0; k < edges.size(); k++)
+    /*for (int k = 0; k < edges.size(); k++)
         std::cout << edges[k] << "\t";
     std::cout << std::endl;
-    std::cout << std::endl;
+    std::cout << std::endl;*/
 
     //for (int i=0; i<edges.size(); i++) std::cout << edges[i] << " ";
     //std::cout << std::endl;
@@ -869,11 +738,11 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
            // Otherwise, fit a line to the edge to refine its position
            else
            {
-               if ((edge-limbWidth) < 0) min = 0;
-               else min = edge-limbWidth;
+               if ((edge-limbFitWidth) < 0) min = 0;
+               else min = edge-limbFitWidth;
                
-               if ((edge+limbWidth) > K) max = K;
-               else max = edge+limbWidth;
+               if ((edge+limbFitWidth) > K) max = K;
+               else max = edge+limbFitWidth;
                
                //if that neighborhood is large enough
                N = max-min+1;
@@ -893,12 +762,12 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
                
                if (!std::isfinite(fittedEdge))
                {
-                   //std::cout << "Edge was infinite" << std::endl;
+                   //std::cout << "Limb crossing was given a non-finite value" << std::endl;
                    return -2;
                }
                else if ((fittedEdge < min) || (fittedEdge > max))
                {
-                   //std::cout << "Fit sent the edge to a bad bad place." << std::endl;
+                   //std::cout << "Limb crossing was given a value out of bounds." << std::endl;
                    return -3;
                }
                else
@@ -923,6 +792,8 @@ void Aspect::FindPixelCenter()
     int error, infinite, outOfBounds;
     infinite = 0;
     outOfBounds = 0;
+
+    Circle sun;
 
     rows.clear();
     cols.clear();
@@ -1042,6 +913,12 @@ void Aspect::FindPixelCenter()
             pixelError.y = std;
         }       
     }
+    
+    //Dying to use this. Does a least squares fit to limb crossings instead of using chord midpoints.
+    //CircleFit(limbCrossings, sun);
+    //pixelCenter = sun.center();
+    
+
     //std::cout << "Infinite error: " << infinite << ", Out of Bounds errors: " << outOfBounds << std::endl;
     //std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
     return;
