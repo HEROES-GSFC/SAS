@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
             }
             else
             {
-                std::cout << "ERROR: " << filename << "isn't a valid type";
+                //std::cout << "ERROR: " << filename << "isn't a valid type";
                 break;
             }
 //            }
@@ -141,6 +141,7 @@ int main(int argc, char* argv[])
             default:
                 break;
             }
+            //std::cout << "AspectTest: Just hangin' out" << std::endl;
             clock_gettime(CLOCK_REALTIME, &stopTime);
             diffTime = TimespecDiff(startTime, stopTime);
             //std::cout << "Runtime : " << diffTime.tv_sec << nanoString(diffTime.tv_nsec) << std::endl;
@@ -283,7 +284,10 @@ int main(int argc, char* argv[])
                 for (int k = 0; k < fiducials.size(); k++)
                 {
                     csvFiducials << "[" << fiducials[k].x << " " << fiducials[k].y;
-                    csvFiducials << " " << IDs[k].x << " " << IDs[k].y << "],";
+                    if(IDs.size() == fiducials.size())
+                        csvFiducials << " " << IDs[k].x << " " << IDs[k].y << "],";
+                    else
+                        csvFiducials << "-300, -300],";
                 }
                 csvFiducials << "\n";
             }

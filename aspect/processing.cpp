@@ -131,15 +131,16 @@ AspectCode Aspect::Run()
     cv::Size solarSize;
     cv::Point offset;
     unsigned char max, min;
-    timespec heythere;
     limbCrossings.clear();    
     slopes.clear();    
     pixelFiducials.clear();
     fiducialIDs.clear();
+    int validIDs = 0;
     mapping.clear();
     mapping.resize(4);
     conditionNumbers.clear();
     conditionNumbers.resize(2);
+    
 
     if (state == FRAME_EMPTY)
     {
@@ -193,7 +194,7 @@ AspectCode Aspect::Run()
         else if (pixelError.x > errorLimit || pixelError.y > errorLimit || 
                  !std::isfinite(pixelError.x) || !std::isfinite(pixelError.y))
         {
-            //std::cout << "Aspect: Pixel Error is above an arbitrary threshold: << pixelError << std::endl;
+            //std::cout << "Aspect: Pixel Error is above an arbitrary threshold: " << pixelError << std::endl;
             pixelCenter = cv::Point2f(-1,-1);
             state = CENTER_ERROR_LARGE;
             return state;
@@ -260,13 +261,26 @@ AspectCode Aspect::Run()
         //Find fiducial IDs
         //std::cout << "Aspect: Finding fiducial IDs" << std::endl;
         FindFiducialIDs();
-        if (fiducialIDs.size() == 0)
+        //count number of valid IDs
+        for (int k = 0; k < fiducialIDs.size(); k++)
+        {
+            if (fiducialIDs[k].x < -10 || fiducialIDs[k].y < -10) continue;
+            else validIDs++;
+        }
+
+        if (validIDs == 0)
         {
             //std::cout << "Aspect: No Valid IDs" << std::endl;
             state = NO_IDS;
             return state;
         }
-        
+        else if (validIDs < 3)
+        {
+            //std::cout << "Aspect: Too Few IDs" << std::endl;
+            state = FEW_IDS;
+            return state;
+        }
+
         //std::cout << "Aspect: Finding Mapping" << std::endl;
         FindMapping();
         if (/*ILL CONDITIONED*/ false)
@@ -627,10 +641,11 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
 
     float threshold = frameMin + chordThreshold*(frameMax-frameMin);
     pixelThreshold = (unsigned char) threshold;
-    
 
     //for each pixel, check if the pixel lies on a potential limb
     lastValue = (int) chord.at<unsigned char>(0);
+    edges.clear();
+    edgeFlag.clear();
     for (int k = 1; k < K; k++)
     {
         thisValue = (int) chord.at<unsigned char>(k);
@@ -648,137 +663,143 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
         lastValue = thisValue;
     }
 
-    /*for (int k = 0; k < edges.size(); k++)
-        std::cout << edges[k] << "\t";
-        std::cout << std::endl;*/
-    
-    //Remove edge pairs that seem to correspond to fiducials
-    //also remove edge pairs that are too close together
-    
-    //Generates a list of flags for each edge.
-    if (edges.size() > 0)
-        edgeFlag.resize(edges.size(), false);
-    else
+    if (edges.size() <= 0)
     {
         //std::cout << "No edges found" << std::endl;
         return -1;
     }
-
-    for (unsigned int k = 1; k < edges.size(); k++)
+    else if (edges.size() == 1)
     {
-        //find distance between next edge pair
-        //positive if the region is below the threshold
-        edgeSpread = abs(abs(edges[k]) - abs(edges[k-1]));
+        //std::cout << "One edge found" << std::endl;
 
-        //if the pair is too close together
-        if(edgeSpread <= minLimbWidth)
+        // A single edge transition could mean the sun is at the edge of the image. 
+        // This translates to two valid cases for a single transition:
+        // -a single edge falling within a solar diameter of the start of the image strip
+        // -a single edge rising within a solar diameter of the end of the strip
+    
+        // To handle these cases, we'll add an artificial crossing at the image edge.
+        
+        if ((abs(edges[0]) < 2*solarRadius) && (edges[0] < 0))
         {
-            // flag both potential edges as invalid
-            edgeFlag[k-1] = true;
-            edgeFlag[k] = true;
+            edge = abs(edges[0]);
+            //std::cout << "Special falling edge for " << edge << std::endl;
+            edges.resize(2);
+            edges[0] = 0;
+            edges[1] = -edge;
         }
-    }
-
-    //Remove any edges which are flagged as invalid.
-    for (int k = 0; k < edgeFlag.size(); k++)
-    {
-        if (edgeFlag[k])
+        else if ((abs(edges[0]) > K-2*solarRadius) && (edges[0] > 0))
         {
-            edgeFlag.erase(edgeFlag.begin() + k, edgeFlag.begin() + k + 1);
-            edges.erase(edges.begin() + k, edges.begin() + k + 1);
-            k--;
+            edge = abs(edges[0]);
+            //std::cout << "Special rising edge for " << edge << std::endl;
+            edges.resize(2);
+            edges[0] = edge;
+            edges[1] = -(K-1);
+        }
+        else
+            return -1;
+    }
+    else
+    {
+        //std::cout << "Many edges found" << std::endl;
+        //For multiple edges, remove edge pairs that are too closely spaced
+        
+        //Generate a list of flags for each edge.
+        edgeFlag.resize(edges.size(), false);
+        for (unsigned int k = 1; k < edges.size(); k++)
+        {
+            //find distance between next edge pair
+            //positive if the region is below the threshold
+            edgeSpread = abs(abs(edges[k]) - abs(edges[k-1]));
+
+            //if the pair is too close together
+            if(edgeSpread <= minLimbWidth)
+            {
+                // flag both potential edges as invalid
+                edgeFlag[k-1] = true;
+                edgeFlag[k] = true;
+            }
+        }
+
+        //Remove any edges which are flagged as invalid.
+        for (int k = 0; k < edgeFlag.size(); k++)
+        {
+            if (edgeFlag[k])
+            {
+                edgeFlag.erase(edgeFlag.begin() + k, edgeFlag.begin() + k + 1);
+                edges.erase(edges.begin() + k, edges.begin() + k + 1);
+                k--;
+            }
         }
     }
     
-    /*for (int k = 0; k < edges.size(); k++)
-        std::cout << edges[k] << "\t";
-    std::cout << std::endl;
-    std::cout << std::endl;*/
-
-    //for (int i=0; i<edges.size(); i++) std::cout << edges[i] << " ";
-    //std::cout << std::endl;
-
-    //Going to accept three cases: Either we have 
-    // -a pair with a rising edge followed by a falling edge,
-    // -a single edge falling within a solar diameter of the start of the image strip
-    // -a single edge rising within a solar diameter of the end of the strip
-    
-    // To handle the second two cases, we'll add an artificial crossing at the image edge.
-    if ((edges.size() == 1) && (abs(edges[0]) < 2*solarRadius) && (edges[0] < 0))
-    {
-        edge = abs(edges[0]);
-        //std::cout << "Special falling edge for " << edge << std::endl;
-        edges.resize(2);
-        edges[0] = 0;
-        edges[1] = -edge;
-    }
-    else if ((edges.size() == 1) && (abs(edges[0]) > K-2*solarRadius) && (edges[0] > 0))
-    {
-        edge = abs(edges[0]);
-        //std::cout << "Special rising edge for " << edge << std::endl;
-        edges.resize(2);
-        edges[0] = edge;
-        edges[1] = -(K-1);
-    }
-
     // at this point we're reasonably certain we've found a valid chord
     if ((edges.size() == 2) && (edges[0] >= 0)  && (edges[1] < 0))
     {
-       // for each edge, perform a fit to find the limb crossing
-       crossings.clear();
-       for (int k = 0; k < 2; k++)
-       {
-           // Throw away slope information, use just edge
-           edge = abs(edges[k]);
-           // If the edge was artificially added, proceed without fitting
-           if (edge == 0 || edge == K-1)
-           {
-               crossings.push_back(edge);
-           }
-           // Otherwise, fit a line to the edge to refine its position
-           else
-           {
-               if ((edge-limbFitWidth) < 0) min = 0;
-               else min = edge-limbFitWidth;
+        // for each edge, perform a fit to find the limb crossing
+        crossings.clear();
+        for (int k = 0; k < 2; k++)
+        {
+            // Throw away slope information, use just edge
+            edge = abs(edges[k]);
+            // If the edge was artificially added, proceed without fitting
+            if (edge == 0 || edge == K-1)
+            {
+                crossings.push_back(edge);
+            }
+            // Otherwise, fit a line to the edge to refine its position
+            else
+            {
+                if ((edge-limbFitWidth) < 0) min = 0;
+                else min = edge-limbFitWidth;
                
-               if ((edge+limbFitWidth) > K) max = K;
-               else max = edge+limbFitWidth;
+                if ((edge+limbFitWidth) > K) max = K;
+                else max = edge+limbFitWidth;
                
-               //if that neighborhood is large enough
-               N = max-min+1;
-               if (N < 2)
-               {
-                   return -1;
-               }
-               //compute fit to neighborhood
-               x.clear(); y.clear();
-               for (int l = min; l <= max; l++)
-               {
-                   x.push_back(l-edge);
-                   y.push_back((float) chord.at<unsigned char>(l));
-               }
-               LinearFit(x,y,fit);
-               fittedEdge = (threshold - fit[0])/fit[1] + edge;
+                //if that neighborhood is large enough
+                N = max-min+1;
+                if (N < 2)
+                {
+                    return -1;
+                }
+                //compute fit to neighborhood
+                x.clear(); y.clear();
+                for (int l = min; l <= max; l++)
+                {
+                    x.push_back(l-edge);
+                    y.push_back((float) chord.at<unsigned char>(l));
+                }
+                LinearFit(x,y,fit);
+                fittedEdge = (threshold - fit[0])/fit[1] + edge;
                
-               if (!std::isfinite(fittedEdge))
-               {
-                   //std::cout << "Limb crossing was given a non-finite value" << std::endl;
-                   return -2;
-               }
-               else if ((fittedEdge < min) || (fittedEdge > max))
-               {
-                   //std::cout << "Limb crossing was given a value out of bounds." << std::endl;
-                   return -3;
-               }
-               else
-               {
-                   crossings.push_back(fittedEdge);
-                   slopes.push_back(fabs(fit[1]));
-               }
-           }
-       }
-       return 0;
+                if (!std::isfinite(fittedEdge))
+                {
+                    //std::cout << "Limb crossing was given a non-finite value" << std::endl;
+                    return -2;
+                }
+                else if ((fittedEdge < min) || (fittedEdge > max))
+                {
+                    //std::cout << "Limb crossing was given a value out of bounds." << std::endl;
+                    return -3;
+                }
+                else
+                {
+                    //std::cout << "Refined an edge" << std::endl;
+                    crossings.push_back(fittedEdge);
+                    slopes.push_back(fabs(fit[1]));
+                }
+            }
+        }
+        if (crossings.size() == 2)
+        {
+            return 0;
+        }
+        else
+        {
+            //std::cout << "Couldn't fit to both edges" << std::endl;
+            return -1;
+        }
     }
+    //std::cout << "Too few edges" << std::endl;
     return -1;
 }
 
@@ -865,13 +886,28 @@ void Aspect::FindPixelCenter()
             if (dim) error = FindLimbCrossings(frame.row(rows[k]), crossings);
             else error = FindLimbCrossings(frame.col(cols[k]), crossings);
             
-            if (error == -2)
+            //Skip this chord if the crossings had some error
+            if (error == -1)
+            {
+                continue;
+            }
+            // Or the crossing was non-finite
+            else if (error == -2)
+            {
                 infinite++;
+                continue;
+            }
+            // Or the crossing was out of bounds
             else if (error == -3)
+            {
                 outOfBounds++;
-
-            //If there seems to be a pair of crossings
-            if (crossings.size() != 2) continue;
+                continue;
+            }
+            // Or there's not a pair of crossings
+            else if(crossings.size() != 2)
+            {
+                continue;
+            }
 
             //Save the crossings if they're finite
             else if (std::isfinite(crossings[0]) && std::isfinite(crossings[1]))
@@ -974,7 +1010,7 @@ void Aspect::FindPixelFiducials(const cv::Mat &image, cv::Point offset)
                         {
                             redundant = true;
                             thatValue = correlation.at<float>((int) pixelFiducials[k].y,
-                                                               (int) pixelFiducials[k].x);
+                                                              (int) pixelFiducials[k].x);
                             if ( thisValue > thatValue)
                             {
                                 pixelFiducials[k] = cv::Point2f(n,m);
@@ -996,12 +1032,12 @@ void Aspect::FindPixelFiducials(const cv::Mat &image, cv::Point offset)
                         for (int k = 0; k < numFiducials; k++)
                         {
                             if (correlation.at<float>((int) pixelFiducials[k].y,
-                                                       (int) pixelFiducials[k].x) 
+                                                      (int) pixelFiducials[k].x) 
                                 < minValue)
                             {
                                 minIndex = k;
                                 minValue = correlation.at<float>((int) pixelFiducials[k].y,
-                                                                  (int) pixelFiducials[k].x);
+                                                                 (int) pixelFiducials[k].x);
                             }   
                         }
                         if (thisValue > minValue)
