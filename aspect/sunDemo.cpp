@@ -10,10 +10,10 @@
 #define SAVE_LOCATION2 "/mnt/disk2/"
 
 //Calibrated parameters
-#define CLOCKING_ANGLE_PYASF -30
+#define CLOCKING_ANGLE_PYASF -33.26
 #define CENTER_X_PYASF 0
 #define CENTER_Y_PYASF 0
-#define CLOCKING_ANGLE_PYASR -60
+#define CLOCKING_ANGLE_PYASR -53.26
 #define CENTER_X_PYASR 0
 #define CENTER_Y_PYASR 0
 
@@ -30,6 +30,11 @@
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 #define SLEEP_KILL             2 // waits when killing all threads
+
+//Relay off
+#define RELAY_OFF false
+#define RELAY_ON true
+#define NUM_RELAYS 16
 
 //Sleep settings (microseconds)
 #define USLEEP_CMD_SEND     5000 // period for popping off the command queue
@@ -57,6 +62,7 @@
 #define PORT_SAS2     3000 // commands output from SAS2 to CTL are redirected here
 #define PORT_SBC_INFO 3456 // incoming port to retrieve temperature data
 #define PORT_SBC_SHUTDOWN 3789 // outgoing port to signal a shutdown
+#define PORT_RELAY_CONTROL 4567 // outgoing port to control relays
 
 //HEROES target ID for commands, source ID for telemetry
 #define TARGET_ID_CTL 0x01
@@ -91,6 +97,12 @@
 #define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
 
+//Operations commands for controlling relays
+#define SKEY_TURN_RELAY_ON       0x0101
+#define SKEY_TURN_RELAY_OFF      0x0111
+#define SKEY_TURN_ON_ALL_RELAYS  0x0120
+#define SKEY_TURN_OFF_ALL_RELAYS 0x0130
+
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
 #define SKEY_SET_IMAGESAVEFLAG   0x0421
@@ -117,7 +129,8 @@
 #define SKEY_GET_ASPECT_INT      0x0B11
 #define SKEY_GET_ASPECT_FLOAT    0x0B21
 
-#define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
+#define PASSPHRASE_SBC_SHUTDOWN "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
+#define PASSPHRASE_RELAY_CONTROL "tAzh0Sh?$:dGo4t8j$8ceh^,d;2#ob}j_VEHXtWrI_AL*5C3l/edTMoO2Q8FY&K"
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -244,6 +257,7 @@ void *SaveTemperaturesThread(void *threadargs);
 void identifySAS();
 uint16_t get_disk_usage( uint16_t disk );
 void send_shutdown();
+void send_relay_control(uint8_t relay_number, bool on_if_true);
 uint8_t build_status_bitfield( void );
 
 template <class T>
@@ -678,10 +692,9 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
         argHeader.solarTarget[1] = localSolarTarget.y();
     }
     else if((camera_id == 1) && !argFrame.empty()) {
-        double min, max;
-        cv::minMaxLoc(frame[1], &min, &max, NULL, NULL);
-        argHeader.imageMinMax[0] = (uint8_t)min;
-        argHeader.imageMinMax[1] = (uint8_t)max;
+        calcMinMax(frame[1], localMin, localMax);
+        argHeader.imageMinMax[0] = localMin;
+        argHeader.imageMinMax[1] = localMax;
     }
     else
     {
@@ -763,7 +776,7 @@ void *SBCInfoThread(void *threadargs)
         packet >> ntp_drift;
         packet >> ntp_offset_ms;
         packet >> ntp_stability;
-        if (ntp_offset_ms * 1000 < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockedSynced = false; }
+        if (ntp_offset_ms * 1000 < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockSynced = false; }
         delete array;
     }
 
@@ -913,59 +926,39 @@ void *TelemetryPackagerThread(void *threadargs)
         //Housekeeping fields, two of them
         switch (tm_frame_sequence_number % 8){
             case 0:
-                tp << (uint16_t)localSensors.sbc_temperature;
+                tp << (int16_t)localSensors.sbc_temperature;
+                tp << Float2B(localHeaders[0 % sas_id].cameraTemperature);
                 break;
             case 1:
-                tp << (uint16_t)localSensors.i2c_temperatures[0];
+                tp << (int16_t)localSensors.i2c_temperatures[0];
+                tp << Float2B(localHeaders[1 % sas_id].cameraTemperature);
                 break;
             case 2:
-                tp << (uint16_t)localSensors.i2c_temperatures[1];
-                break;
-            case 3:
-                tp << (uint16_t)localSensors.i2c_temperatures[2];
-                break;
-            case 4:
-                tp << (uint16_t)localSensors.i2c_temperatures[3];
-                break;
-            case 5:
-                tp << (uint16_t)localSensors.i2c_temperatures[4];
-                break;
-            case 6:
-                tp << (uint16_t)localSensors.i2c_temperatures[5];
-                break;
-            case 7:
-                tp << (uint16_t)localSensors.i2c_temperatures[6];
-                break;
-            default:
-                tp << (uint16_t)0xffff;
-        }
-        
-        switch (tm_frame_sequence_number % 8){
-            case 0:
-                tp << Float2B(localHeaders[0].cameraTemperature);
-                break;
-            case 1:
-                tp << Float2B(localHeaders[1].cameraTemperature);
-                break;
-            case 2:
+                tp << (int16_t)localSensors.i2c_temperatures[1];
                 tp << (uint16_t)localHeaders[0].cpuVoltage[0];
                 break;
             case 3:
+                tp << (int16_t)localSensors.i2c_temperatures[2];
                 tp << (uint16_t)localHeaders[0].cpuVoltage[1];
                 break;
             case 4:
+                tp << (int16_t)localSensors.i2c_temperatures[3];
                 tp << (uint16_t)localHeaders[0].cpuVoltage[2];
                 break;
             case 5:
+                tp << (int16_t)localSensors.i2c_temperatures[4];
                 tp << (uint16_t)localHeaders[0].cpuVoltage[3];
                 break;
             case 6:
+                tp << (int16_t)localSensors.i2c_temperatures[5];
                 tp << (uint16_t)localHeaders[0].cpuVoltage[4];
                 break;
             case 7:
+                tp << (int16_t)localSensors.i2c_temperatures[6];
                 tp << (uint16_t)isSavingImages;
                 break;
             default:
+                tp << (uint16_t)0xffff;
                 tp << (uint16_t)0xffff;
         }
 
@@ -1502,14 +1495,31 @@ void *CommandHandlerThread(void *threadargs)
             error_code = 0;
             break;
         case SKEY_SET_ASPECT_INT:
-            aspect.SetInteger((IntParameter)my_data->command_vars[0], my_data->command_vars[1]);
+            aspect.SetInteger((AspectInt)my_data->command_vars[0], my_data->command_vars[1]);
             error_code = 0;
             break;
         case SKEY_SET_ASPECT_FLOAT:
-            aspect.SetFloat((FloatParameter)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
+            aspect.SetFloat((AspectFloat)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
             error_code = 0;
             break;
-
+        case SKEY_TURN_OFF_ALL_RELAYS:
+            for (int i = 0; i < NUM_RELAYS-1; i++) {
+                // do we need to pause between these commands?
+                send_relay_control(i, RELAY_OFF);
+            }
+            break;
+        case SKEY_TURN_ON_ALL_RELAYS:
+            for (int i = 0; i < NUM_RELAYS-1; i++) {
+                // do we need to pause between these commands?
+                send_relay_control(i, RELAY_ON);
+            }
+            break;
+        case SKEY_TURN_RELAY_ON:
+            send_relay_control(my_data->command_vars[0], RELAY_ON);
+            break;
+        case SKEY_TURN_RELAY_OFF:
+            send_relay_control(my_data->command_vars[0], RELAY_OFF);
+            break;
         //Getting commands
         case SKEY_REQUEST_PYAS_IMAGE:
             error_code = cmd_send_image_to_ground( 0 );
@@ -1539,10 +1549,10 @@ void *CommandHandlerThread(void *threadargs)
             error_code = (uint16_t)get_disk_usage((uint16_t)my_data->command_vars[0]);
             break;
         case SKEY_GET_ASPECT_INT:
-            error_code = (int16_t)aspect.GetInteger((IntParameter)my_data->command_vars[0]);
+            error_code = (int16_t)aspect.GetInteger((AspectInt)my_data->command_vars[0]);
             break;
         case SKEY_GET_ASPECT_FLOAT:
-            error_code = (uint16_t)Float2B(aspect.GetFloat((FloatParameter)my_data->command_vars[0])).code();
+            error_code = (uint16_t)Float2B(aspect.GetFloat((AspectFloat)my_data->command_vars[0])).code();
             break;
         default:
             error_code = 0xffff;            // unknown command!
@@ -1628,7 +1638,15 @@ uint16_t get_disk_usage( uint16_t disk )
 void send_shutdown()
 {
     UDPSender out(IP_LOOPBACK, PORT_SBC_SHUTDOWN);
-    Packet pkt((const uint8_t *)PASSPHRASE, strlen(PASSPHRASE));
+    Packet pkt((const uint8_t *)PASSPHRASE_SBC_SHUTDOWN, strlen(PASSPHRASE_SBC_SHUTDOWN));
+    out.send(&pkt);
+}
+
+void send_relay_control(uint8_t relay_number, bool on_if_true)
+{
+    UDPSender out(IP_LOOPBACK, PORT_RELAY_CONTROL);
+    Packet pkt((const uint8_t *)PASSPHRASE_RELAY_CONTROL, strlen(PASSPHRASE_RELAY_CONTROL));
+    pkt << relay_number << (uint8_t)on_if_true;
     out.send(&pkt);
 }
 

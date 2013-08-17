@@ -38,6 +38,7 @@ echo "Setting up services..."
 sudo cp network-sas${sas_id}.service /etc/systemd/system/network.service
 sudo cp sbc_info.service /etc/systemd/system/sbc_info.service
 sudo cp sbc_shutdown.service /etc/systemd/system/sbc_shutdown.service
+sudo cp relay_control.service /etc/systemd/system/relay_control.service
 sudo cp sas.service /etc/systemd/system/sas.service
 
 echo "Copying executable scripts..."
@@ -49,6 +50,7 @@ sudo systemctl enable network
 sudo systemctl enable lm_sensors
 sudo systemctl enable sbc_info
 sudo systemctl enable sbc_shutdown
+sudo systemctl enable relay_control
 sudo systemctl enable ntpd
 #sudo systemctl enable sas
 
