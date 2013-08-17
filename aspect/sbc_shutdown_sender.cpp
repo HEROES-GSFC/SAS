@@ -1,14 +1,15 @@
+/*
+Sends the shutdown command to a certain IP (command-line argument)
+*/
+
 #define PORT_SBC_SHUTDOWN 3789
 
 #define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 
-#include <stdlib.h>
 #include <string.h>
 
 #include "Packet.hpp"
 #include "UDPSender.hpp"
-
-#define CTL_CMD_PORT 2000 /* The default port to send on */
 
 int main(int argc, char *argv[])
 {

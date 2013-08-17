@@ -32,8 +32,8 @@
 #define SLEEP_KILL             2 // waits when killing all threads
 
 //Relay off
-#define RELAY_OFF 0
-#define RELAY_ON 1
+#define RELAY_OFF false
+#define RELAY_ON true
 #define NUM_RELAYS 16
 
 //Sleep settings (microseconds)
@@ -62,6 +62,7 @@
 #define PORT_SAS2     3000 // commands output from SAS2 to CTL are redirected here
 #define PORT_SBC_INFO 3456 // incoming port to retrieve temperature data
 #define PORT_SBC_SHUTDOWN 3789 // outgoing port to signal a shutdown
+#define PORT_RELAY_CONTROL 4567 // outgoing port to control relays
 
 //HEROES target ID for commands, source ID for telemetry
 #define TARGET_ID_CTL 0x01
@@ -128,9 +129,8 @@
 #define SKEY_GET_ASPECT_INT      0x0B11
 #define SKEY_GET_ASPECT_FLOAT    0x0B21
 
-#define SKEY_GET_RELAY_BANK      0x0A10
-
-#define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
+#define PASSPHRASE_SBC_SHUTDOWN "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
+#define PASSPHRASE_RELAY_CONTROL "tAzh0Sh?$:dGo4t8j$8ceh^,d;2#ob}j_VEHXtWrI_AL*5C3l/edTMoO2Q8FY&K"
 
 #include <cstring>
 #include <stdio.h>      /* for printf() and fprintf() */
@@ -158,7 +158,6 @@
 #include "processing.hpp"
 #include "compression.hpp"
 #include "utilities.hpp"
-#include "pmm/DiamondPMM.h"
 
 // global declarations
 uint16_t command_sequence_number = -1;      // last SAS command packet number
@@ -177,10 +176,6 @@ bool isSunFound = false;                    // is the Sun found on the screen?
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
 CommandPacketQueue cm_packet_queue;
-
-// the relays
-DiamondPMM relayBoard;
-DiamondPMMStateRelay relays(relayBoard);
 
 // related to threads
 bool stop_message[MAX_THREADS];
@@ -262,6 +257,7 @@ void *SaveTemperaturesThread(void *threadargs);
 void identifySAS();
 uint16_t get_disk_usage( uint16_t disk );
 void send_shutdown();
+void send_relay_control(uint8_t relay_number, bool on_if_true);
 uint8_t build_status_bitfield( void );
 
 template <class T>
@@ -932,11 +928,11 @@ void *TelemetryPackagerThread(void *threadargs)
         switch (tm_frame_sequence_number % 8){
             case 0:
                 tp << (int16_t)localSensors.sbc_temperature;
-                tp << Float2B(localHeaders[0].cameraTemperature);
+                tp << Float2B(localHeaders[0 % sas_id].cameraTemperature);
                 break;
             case 1:
                 tp << (int16_t)localSensors.i2c_temperatures[0];
-                tp << Float2B(localHeaders[1].cameraTemperature);
+                tp << Float2B(localHeaders[1 % sas_id].cameraTemperature);
                 break;
             case 2:
                 tp << (int16_t)localSensors.i2c_temperatures[1];
@@ -1510,20 +1506,20 @@ void *CommandHandlerThread(void *threadargs)
         case SKEY_TURN_OFF_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 // do we need to pause between these commands?
-                relays.setPort(RELAY_OFF, i);
+                send_relay_control(i, RELAY_OFF);
             }
             break;
         case SKEY_TURN_ON_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 // do we need to pause between these commands?
-                relays.setPort(RELAY_ON, i);
+                send_relay_control(i, RELAY_ON);
             }
             break;
         case SKEY_TURN_RELAY_ON:
-            relays.setPort(RELAY_ON, my_data->command_vars[0]);
+            send_relay_control(my_data->command_vars[0], RELAY_ON);
             break;
         case SKEY_TURN_RELAY_OFF:
-            relays.setPort(RELAY_OFF, my_data->command_vars[0]);
+            send_relay_control(my_data->command_vars[0], RELAY_OFF);
             break;
         //Getting commands
         case SKEY_REQUEST_PYAS_IMAGE:
@@ -1558,13 +1554,6 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_GET_ASPECT_FLOAT:
             error_code = (uint16_t)Float2B(aspect.GetFloat((FloatParameter)my_data->command_vars[0])).code();
-            break;
-        case SKEY_GET_RELAY_BANK:
-            bool state;
-            for (int i = 0; i < NUM_RELAYS-1; i++) {
-                relays.getRelay(my_data->command_vars[0], state);
-                error_code += state << i;
-            }
             break;
         default:
             error_code = 0xffff;            // unknown command!
@@ -1650,7 +1639,15 @@ uint16_t get_disk_usage( uint16_t disk )
 void send_shutdown()
 {
     UDPSender out(IP_LOOPBACK, PORT_SBC_SHUTDOWN);
-    Packet pkt((const uint8_t *)PASSPHRASE, strlen(PASSPHRASE));
+    Packet pkt((const uint8_t *)PASSPHRASE_SBC_SHUTDOWN, strlen(PASSPHRASE_SBC_SHUTDOWN));
+    out.send(&pkt);
+}
+
+void send_relay_control(uint8_t relay_number, bool on_if_true)
+{
+    UDPSender out(IP_LOOPBACK, PORT_RELAY_CONTROL);
+    Packet pkt((const uint8_t *)PASSPHRASE_RELAY_CONTROL, strlen(PASSPHRASE_RELAY_CONTROL));
+    pkt << relay_number << (uint8_t)on_if_true;
     out.send(&pkt);
 }
 
