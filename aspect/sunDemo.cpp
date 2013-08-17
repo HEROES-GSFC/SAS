@@ -867,7 +867,7 @@ void *ImageSaveThread(void *threadargs)
 
         sprintf(filename, "%s%s_%s_%06d.fits",
                 ((localHeader.frameCount / MOD_SAVE) % 2 == 0 ? SAVE_LOCATION1 : SAVE_LOCATION2),
-                (camera_id == 1 ? "ras" : "pyas"),
+                (camera_id == 1 ? "ras" : (sas_id == 1 ? "pyasf" : "pyasr")),
                 stringtemp, (int)localHeader.frameCount);
 
         printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", filename, localHeader.exposure, localHeader.analogGain, localHeader.preampGain);
