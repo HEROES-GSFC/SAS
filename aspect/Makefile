@@ -34,11 +34,13 @@ ifeq "$(GCC_VERSION_GE_43)" "1"
 endif
 
 TESTS = AspectTest AspectVideo MeasureScreen BlackFrames ClockReader
-EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
+EXEC_CORE = sunDemo sbc_info sbc_shutdown relay_control
+EXEC_ALL = $(EXEC_CORE) sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
 RELAYS = pmm/DiamondPMM.o pmm/DiamondBoard.o pmm/StateRelay.o
-default: sunDemo sbc_info sbc_shutdown
 
-all: $(EXEC)
+default: $(EXEC_CORE)
+
+all: $(EXEC_ALL)
 
 fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS)
@@ -106,7 +108,7 @@ lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
 Transform.o: Transform.cpp Transform.hpp spa/spa.c spa/spa.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
-install: sunDemo sbc_info sbc_shutdown
+install: $(EXEC_CORE)
 	sudo systemctl stop sas
 	sudo systemctl stop sbc_info
 	sudo systemctl stop sbc_shutdown
@@ -121,4 +123,4 @@ install: sunDemo sbc_info sbc_shutdown
 	sudo systemctl start sas
 
 clean:
-	rm -rf *.o *.out $(EXEC) $(TESTS) pmm/*.o
+	rm -rf *.o *.out $(EXEC_ALL) $(TESTS) pmm/*.o

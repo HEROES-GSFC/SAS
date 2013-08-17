@@ -1,0 +1,13 @@
+[Unit]
+Description=Relay Control by Albert
+Requires=network.target
+After=network.target
+
+[Service]
+User=root
+Type=simple
+Restart=always
+ExecStart=/usr/local/bin/relay_control.runtime
+
+[Install]
+WantedBy=multi-user.target
