@@ -287,7 +287,7 @@ int main(int argc, char* argv[])
                     if(IDs.size() == fiducials.size())
                         csvFiducials << " " << IDs[k].x << " " << IDs[k].y << "],";
                     else
-                        csvFiducials << "-300, -300],";
+                        csvFiducials << " -300 -300],";
                 }
                 csvFiducials << "\n";
             }

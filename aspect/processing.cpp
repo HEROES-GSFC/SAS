@@ -60,7 +60,9 @@ Aspect::Aspect()
     // fiducialSpacing is how far apart fiducial pairs are in one axis.
     // fiducialSpacingTol is how much slack to allow on this distance
     // Value measured in lab for fiducialSpacing is 15.7
-    fiducialSpacing = 15.7;
+    // Changed back at Ft Sumner to 15.6. This is a compromise to try to
+    // account for all  collected test data up to Sun Test 4
+    fiducialSpacing = 15.6;
     fiducialSpacingTol = 1.5;
     
     fiducialTwist = 0.0;
@@ -1126,17 +1128,15 @@ void Aspect::FindFiducialIDs()
             rowDiff = rotatedFiducials[k].y - rotatedFiducials[l].y;
             colDiff = rotatedFiducials[k].x - rotatedFiducials[l].x;
 
-            if (fabs(rowDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
-                fabs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol && 
-                fabs(colDiff) > (float) 43 - fiducialSpacingTol &&
-                fabs(colDiff) < (float) 84 + fiducialSpacingTol)
+            if (fabs(fabs(rowDiff) - fiducialSpacing) < fiducialSpacingTol &&
+                fabs(colDiff) > (float) nDistances[7] - fiducialSpacingTol &&
+                fabs(colDiff) < (float) nDistances[0] + fiducialSpacingTol)
 
                 colPairs.push_back(cv::Point(k,l));
 
-            else if (fabs(colDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
-                     fabs(colDiff) < (float) fiducialSpacing + fiducialSpacingTol && 
-                     fabs(rowDiff) > (float) 43 - fiducialSpacingTol &&
-                     fabs(rowDiff) < (float) 84 + fiducialSpacingTol)
+            else if (fabs(fabs(colDiff) - fiducialSpacing) < fiducialSpacingTol &&
+                     fabs(rowDiff) > (float) mDistances[7] - fiducialSpacingTol &&
+                     fabs(rowDiff) < (float) mDistances[0] + fiducialSpacingTol)
                 
                 rowPairs.push_back(cv::Point(k,l));
             else

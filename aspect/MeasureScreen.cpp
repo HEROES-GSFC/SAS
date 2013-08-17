@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
     aspect.SetInteger(NUM_FIDUCIALS, 225);
     aspect.SetFloat(ERROR_LIMIT, 1296);
     aspect.SetFloat(CHORD_THRESHOLD, .1);
-    aspect.SetFloat(RADIUS_TOL, 20);
+    aspect.SetFloat(RADIUS_MARGIN, 20);
     aspect.SetFloat(FIDUCIAL_THRESHOLD, 3.5);
 
     if (!frames.good())
