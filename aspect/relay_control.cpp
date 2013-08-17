@@ -36,7 +36,7 @@ int main()
             uint8_t relay_number = array[packet_length-2];
             bool on_if_true = array[packet_length-1];
             printf("Valid relay-control passphrase received: %d %s\n", relay_number, (on_if_true ? "ON" : "OFF"));
-            relays.setRelay(relay_number, state);
+            relays.setRelay(relay_number, on_if_true);
         } else {
             printf("Invalid relay-control passphrase received: %s\n", array);
         }
