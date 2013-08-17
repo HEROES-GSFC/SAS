@@ -980,13 +980,17 @@ void Aspect::FindPixelFiducials(const cv::Mat &image, cv::Point offset)
 
     //cv::namedWindow("Correlation", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
     
+    min(input, frameMax, input);
+
+    //cv::normalize(input, input,0,1,cv::NORM_MINMAX);
+    //cv::imshow("Correlation", input);
+
     matchTemplate(input, kernel, correlation, CV_TM_CCORR);
 
     offset.x += (kernel.cols/2);
     offset.y += (kernel.rows/2);
 
-    //cv::normalize(correlation,correlation,0,1,cv::NORM_MINMAX);
-    //cv::imshow("Correlation", kernel);
+
     //cv::waitKey(0);
     cv::meanStdDev(correlation, mean, stddev);
 

@@ -293,7 +293,7 @@ int main(int argc, char* argv[])
             }
 
             cv::imshow("Solution", image);
-            cv::waitKey(1);
+            cv::waitKey(0);
             index++;
         }
     }
