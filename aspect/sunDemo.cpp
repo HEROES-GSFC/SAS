@@ -10,10 +10,10 @@
 #define SAVE_LOCATION2 "/mnt/disk2/"
 
 //Calibrated parameters
-#define CLOCKING_ANGLE_PYASF -30
+#define CLOCKING_ANGLE_PYASF -33.26
 #define CENTER_X_PYASF 0
 #define CENTER_Y_PYASF 0
-#define CLOCKING_ANGLE_PYASR -60
+#define CLOCKING_ANGLE_PYASR -53.26
 #define CENTER_X_PYASR 0
 #define CENTER_Y_PYASR 0
 
@@ -692,10 +692,9 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
         argHeader.solarTarget[1] = localSolarTarget.y();
     }
     else if((camera_id == 1) && !argFrame.empty()) {
-        double min, max;
-        cv::minMaxLoc(frame[1], &min, &max, NULL, NULL);
-        argHeader.imageMinMax[0] = (uint8_t)min;
-        argHeader.imageMinMax[1] = (uint8_t)max;
+        calcMinMax(frame[1], localMin, localMax);
+        argHeader.imageMinMax[0] = localMin;
+        argHeader.imageMinMax[1] = localMax;
     }
     else
     {
@@ -1496,11 +1495,11 @@ void *CommandHandlerThread(void *threadargs)
             error_code = 0;
             break;
         case SKEY_SET_ASPECT_INT:
-            aspect.SetInteger((IntParameter)my_data->command_vars[0], my_data->command_vars[1]);
+            aspect.SetInteger((AspectInt)my_data->command_vars[0], my_data->command_vars[1]);
             error_code = 0;
             break;
         case SKEY_SET_ASPECT_FLOAT:
-            aspect.SetFloat((FloatParameter)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
+            aspect.SetFloat((AspectFloat)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
             error_code = 0;
             break;
         case SKEY_TURN_OFF_ALL_RELAYS:
@@ -1550,10 +1549,10 @@ void *CommandHandlerThread(void *threadargs)
             error_code = (uint16_t)get_disk_usage((uint16_t)my_data->command_vars[0]);
             break;
         case SKEY_GET_ASPECT_INT:
-            error_code = (int16_t)aspect.GetInteger((IntParameter)my_data->command_vars[0]);
+            error_code = (int16_t)aspect.GetInteger((AspectInt)my_data->command_vars[0]);
             break;
         case SKEY_GET_ASPECT_FLOAT:
-            error_code = (uint16_t)Float2B(aspect.GetFloat((FloatParameter)my_data->command_vars[0])).code();
+            error_code = (uint16_t)Float2B(aspect.GetFloat((AspectFloat)my_data->command_vars[0])).code();
             break;
         default:
             error_code = 0xffff;            // unknown command!

@@ -33,17 +33,18 @@ ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
 
-TESTS = AspectTest AspectVideo MeasureScreen BlackFrames ClockReader
+TESTS = AspectTest MeasureScreen BlackFrames ClockReader
 EXEC_CORE = sunDemo sbc_info sbc_shutdown relay_control
 EXEC_ALL = $(EXEC_CORE) sbc_info_reader sbc_shutdown_sender relay_control_sender CTLCommandSimulator CTLSimulator SRVSimulator
 RELAYS = pmm/DiamondPMM.o pmm/DiamondBoard.o pmm/StateRelay.o
 PACKET = Packet.o lib_crc.o
+ASPECT = processing.o AspectError.o AspectParameter.o
 
 default: $(EXEC_CORE)
 
 all: $(EXEC_ALL)
 
-fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
+fullDemo: fullDemo.cpp $(ASPECT) utilities.o ImperxStream.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS)
 
 CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o $(PACKET)
@@ -55,7 +56,7 @@ CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o $(PACKET)
 SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o $(PACKET)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sunDemo: sunDemo.cpp $(PACKET) Command.o Telemetry.o UDPSender.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
+sunDemo: sunDemo.cpp $(PACKET) Command.o Telemetry.o UDPSender.o UDPReceiver.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o $(ASPECT)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
 test_telemetry: test_telemetry.cpp Telemetry.o $(PACKET) UDPSender.o types.o
@@ -100,7 +101,7 @@ pmm/%.o: pmm/%.cpp pmm/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ $(DSCUD_LIBS) $(THREAD)
 
 #This pattern is for any of Alex's weird test programs
-$(TESTS): % : %.cpp processing.o utilities.o compression.o
+$(TESTS): % : %.cpp $(ASPECT) utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 smbus.o: smbus/smbus.c smbus/smbus.h
