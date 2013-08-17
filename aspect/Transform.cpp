@@ -32,8 +32,9 @@ Transform::Transform(Location location, Environment environment)
             break;
         case FORT_SUMNER:
         default:
-            spa.longitude     = -104.2450;
-            spa.latitude      = 34.4717;
+            //New hangar, values from Google Earth
+            spa.longitude     = -104.221800;
+            spa.latitude      = 34.490000;
     }
 
     switch(environment) {
@@ -55,20 +56,21 @@ Transform::Transform(Location location, Environment environment)
     spa.function      = SPA_ALL;
 }
 
-void Transform::prep()
+void Transform::calculate(struct tm *input_time)
 {
     time_t t;
-    time(&t);
-    struct tm *now;
-    now = gmtime(&t);
+    if (input_time == NULL) {
+        time(&t);
+        input_time = gmtime(&t);
+    }
 
     spa.timezone      = -0.0;
-    spa.year          = now->tm_year+1900;
-    spa.month         = now->tm_mon+1;
-    spa.day           = now->tm_mday;
-    spa.hour          = now->tm_hour;
-    spa.minute        = now->tm_min;
-    spa.second        = now->tm_sec;
+    spa.year          = input_time->tm_year+1900;
+    spa.month         = input_time->tm_mon+1;
+    spa.day           = input_time->tm_mday;
+    spa.hour          = input_time->tm_hour;
+    spa.minute        = input_time->tm_min;
+    spa.second        = input_time->tm_sec;
 
     spa_calculate2(&spa, &spa2);
 
@@ -112,8 +114,6 @@ void Transform::set_solar_target(const Pair& arg)
 
 Pair Transform::getSunAzEl()
 {
-    prep();
-
     return Pair(spa.azimuth, 90.-spa.zenith);
 }
 
@@ -160,15 +160,14 @@ Pair Transform::getAngularShift(const Pair& sunPixel)
     return Pair(magnitudeAngle, direction+clocking);
 }
 
-double Transform::getOrientation()
+double Transform::getOrientation() const
 {
-    prep();
-
     return orientation;
 }
 
-double Transform::getOrientationWithoutRecalculation() const
+double Transform::calculateOrientation(struct tm *input_time)
 {
+    calculate(input_time);
     return orientation;
 }
 
@@ -209,9 +208,9 @@ Pair Transform::translateAzEl(const Pair& amount, const Pair& azel)
     return Pair(outAzimuth, outElevation);
 }
 
-void Transform::report()
+void Transform::report(struct tm *input_time)
 {
-    prep();
+    calculate(input_time);
 
     std::cout << "*** Sun center ***\n";
     std::cout << "Azimuth: " << spa.azimuth << std::endl;
@@ -231,8 +230,10 @@ void Transform::report()
     std::cout << "Angle: " << orientation << std::endl;
 }
 
-Pair Transform::calculateOffset(const Pair& sunPixel)
+Pair Transform::calculateOffset(const Pair& sunPixel, struct tm *input_time)
 {
+    calculate(input_time);
+
     //If we get (0,0), assume that it's not a valid Sun center, and return a "no-move" offset
     if ((sunPixel.x() == 0) && (sunPixel.y() == 0)) return Pair(0,0);
 

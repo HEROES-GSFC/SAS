@@ -111,6 +111,13 @@ uint32_t TelemetryPacket::getSeconds()
     return value;
 }
 
+uint32_t TelemetryPacket::getNanoseconds()
+{
+    uint32_t value;
+    this->readAtTo(INDEX_NANOSECONDS, value);
+    return value;
+}
+
 int TelemetryPacket::getSAS()
 {
     uint16_t value;
