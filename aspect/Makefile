@@ -35,8 +35,9 @@ endif
 
 TESTS = AspectTest AspectVideo MeasureScreen BlackFrames ClockReader
 EXEC_CORE = sunDemo sbc_info sbc_shutdown relay_control
-EXEC_ALL = $(EXEC_CORE) sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
+EXEC_ALL = $(EXEC_CORE) sbc_info_reader sbc_shutdown_sender relay_control_sender CTLCommandSimulator CTLSimulator SRVSimulator
 RELAYS = pmm/DiamondPMM.o pmm/DiamondBoard.o pmm/StateRelay.o
+PACKET = Packet.o lib_crc.o
 
 default: $(EXEC_CORE)
 
@@ -45,26 +46,26 @@ all: $(EXEC_ALL)
 fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS)
 
-CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o Packet.o lib_crc.o
+CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o $(PACKET)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
+CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o $(PACKET)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o Packet.o lib_crc.o
+SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o $(PACKET)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
+sunDemo: sunDemo.cpp $(PACKET) Command.o Telemetry.o UDPSender.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
-test_telemetry: test_telemetry.cpp Telemetry.o Packet.o lib_crc.o UDPSender.o types.o
+test_telemetry: test_telemetry.cpp Telemetry.o $(PACKET) UDPSender.o types.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 evaluate: evaluate.cpp compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 #This executable need to be copied to /usr/local/bin/ after it is built
-sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
+sbc_info: sbc_info.cpp $(PACKET) UDPSender.o smbus.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 #This executable need to be copied to /usr/local/bin/ after it is built
@@ -75,13 +76,16 @@ sbc_shutdown: sbc_shutdown.cpp UDPReceiver.o
 relay_control: relay_control.cpp UDPReceiver.o $(RELAYS)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(DSCUD_LIBS)
 
-sbc_info_reader: sbc_info_reader.cpp UDPReceiver.o Packet.o lib_crc.o
+sbc_info_reader: sbc_info_reader.cpp UDPReceiver.o $(PACKET)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sbc_shutdown_sender: sbc_shutdown_sender.cpp Packet.o lib_crc.o UDPSender.o
+sbc_shutdown_sender: sbc_shutdown_sender.cpp $(PACKET) UDPSender.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-tmbin_reader: tmbin_reader.cpp Packet.o lib_crc.o Telemetry.o types.o
+relay_control_sender: relay_control_sender.cpp $(PACKET) UDPSender.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
+tmbin_reader: tmbin_reader.cpp $(PACKET) Telemetry.o types.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 #This pattern matching will catch all "simple" object dependencies
