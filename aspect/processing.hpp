@@ -3,6 +3,8 @@
 #include <list>
 #include <opencv.hpp>
 #include <cstring>
+#include "AspectError.hpp"
+#include "AspectParameter.hpp"
 
 class CoordList : public std::vector<cv::Point2f>
 {
@@ -35,68 +37,6 @@ public:
     void add(cv::Point2f c, float r) {this->push_back(Circle(c.x, c.y, r)); }
 };
 
-enum IntParameter
-{
-    NUM_CHORDS_SEARCHING = 0,
-    NUM_CHORDS_OPERATING,
-    LIMB_WIDTH,
-    SOLAR_RADIUS,
-    FIDUCIAL_LENGTH,
-    FIDUCIAL_WIDTH,
-    FIDUCIAL_NEIGHBORHOOD,
-    NUM_FIDUCIALS
-};
-
-enum FloatParameter
-{
-    CHORD_THRESHOLD = 0,
-    ERROR_LIMIT,
-    RADIUS_MARGIN,
-    FIDUCIAL_THRESHOLD,
-    FIDUCIAL_SPACING,
-    FIDUCIAL_SPACING_TOL,
-    FIDUCIAL_TWIST
-};
-    
-enum AspectCode
-{
-    NO_ERROR = 0,
-
-    MAPPING_ERROR,
-    MAPPING_ILL_CONDITIONED,
-
-    ID_ERROR,
-    FEW_IDS,
-    NO_IDS,
-    FIDUCIAL_ERROR,
-    FEW_FIDUCIALS,
-    NO_FIDUCIALS,
-
-    SOLAR_IMAGE_ERROR,
-    SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS,
-    SOLAR_IMAGE_SMALL,
-    SOLAR_IMAGE_EMPTY,
-
-    CENTER_ERROR,
-    CENTER_ERROR_LARGE,
-    CENTER_OUT_OF_BOUNDS,
-
-    LIMB_ERROR,
-    FEW_LIMB_CROSSINGS,
-    NO_LIMB_CROSSINGS,
-
-    RANGE_ERROR,
-    DYNAMIC_RANGE_LOW,
-    MIN_MAX_BAD,
-
-    FRAME_EMPTY,
-
-    STALE_DATA
-};
-
-AspectCode GeneralizeError(AspectCode code);
-const char * GetMessage(const AspectCode& code);
-
 class Aspect
 {
 public:
@@ -116,10 +56,10 @@ public:
     AspectCode GetScreenCenter(cv::Point2f& center);
     AspectCode GetScreenFiducials(CoordList& fiducials);
     
-    float GetFloat(FloatParameter variable);
-    int GetInteger(IntParameter variable);
-    void SetFloat(FloatParameter, float value);
-    void SetInteger(IntParameter, int value);
+    float GetFloat(AspectFloat variable);
+    int GetInteger(AspectInt variable);
+    void SetFloat(AspectFloat, float value);
+    void SetInteger(AspectInt, int value);
 
     AspectCode ReportFocus();
 
@@ -129,7 +69,9 @@ private:
     int initialNumChords;
     int chordsPerAxis;
     float chordThreshold;
-    int limbWidth;
+    int minLimbWidth;
+    int limbFitWidth;
+
     float errorLimit;
 
     int solarRadius;
@@ -199,3 +141,8 @@ template <class T> std::vector<T> Mode(std::vector<T> data);
 
 cv::Point2f rotate(float angle, cv::Point2f point);
 void rotate(float angle, const CoordList &inPoints, CoordList &outPoints); 
+
+//This calculates the min/max of an image after ignoring the extremes of the
+//histogram (approximately the 0.5% on each end)
+void calcMinMax(cv::Mat frame, unsigned char& min, unsigned char& max);
+

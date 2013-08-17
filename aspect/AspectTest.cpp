@@ -5,6 +5,9 @@
 #include <iostream>
 #include <string>
 
+#define AVI 0
+#define CSV 1
+
 int main(int argc, char* argv[])
 {
 
@@ -38,11 +41,36 @@ int main(int argc, char* argv[])
     Aspect aspect;
     AspectCode runResult;
     cv::namedWindow("Solution", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
-    std::ifstream frames(argv[1]);
-    std::ofstream csvFile(argv[2]);
 
     std::string message;
     timespec startTime, stopTime, diffTime;
+
+    std::string outfile(argv[2]);
+    std::string outExtension(outfile.substr(outfile.length()-3, outfile.length()-1));
+    outfile = outfile.substr(0, outfile.length()-4);
+    std::ifstream frames(argv[1]);
+
+    std::ofstream csvCenter(outfile+"_centers.csv");
+    std::ofstream csvLimbs(outfile+"_limbs.csv");
+    std::ofstream csvFiducials(outfile+"_fiducials.csv");
+
+    cv::VideoWriter summary;
+    bool videoReady = false;
+    int outType = -1;
+
+    if (!outExtension.compare("avi") || !outExtension.compare("AVI"))
+    {
+        outType = AVI;
+    }
+    else if (!outExtension.compare("csv") || !outExtension.compare("CSV"))
+    {
+        outType = CSV;
+    }
+    else
+    {
+        std::cout << "File extension " << outExtension << " not supported" << std::endl;
+        return -1;
+    }
 
     if (!frames.good())
     {
@@ -51,6 +79,8 @@ int main(int argc, char* argv[])
     else 
     {
         index = 0;
+        if (outType == AVI)
+            videoReady = false;
         while (frames.getline(line,256))
         {
             filename = line;
@@ -71,7 +101,7 @@ int main(int argc, char* argv[])
             }
             else
             {
-                std::cout << "ERROR: " << filename << "isn't a valid type";
+                //std::cout << "ERROR: " << filename << "isn't a valid type";
                 break;
             }
 //            }
@@ -111,6 +141,7 @@ int main(int argc, char* argv[])
             default:
                 break;
             }
+            //std::cout << "AspectTest: Just hangin' out" << std::endl;
             clock_gettime(CLOCK_REALTIME, &stopTime);
             diffTime = TimespecDiff(startTime, stopTime);
             //std::cout << "Runtime : " << diffTime.tv_sec << nanoString(diffTime.tv_nsec) << std::endl;
@@ -148,7 +179,7 @@ int main(int argc, char* argv[])
                     cv::putText(image, label, fiducials[k] - offset, cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
 //                    std::cout << "[" << label << "] ";
                 }
-                std::cout << std::endl;
+//                std::cout << std::endl;
 
 
 /*                float rowDiff, colDiff;
@@ -219,23 +250,59 @@ int main(int argc, char* argv[])
             cv::putText(image, filename, cv::Point(0,(frame.size()).height-20), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             message = GetMessage(runResult);
             cv::putText(image, message, cv::Point(0,(frame.size()).height-10), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
-            
+            if (outType == AVI)
+            {
+                if (!videoReady)
+                {
+                    summary.open(argv[2], CV_FOURCC('F','F','V','1'), 10, frame.size(), true);
+                    videoReady = true;
+                }
+                summary << image;
+            }
+            else if(outType == CSV)
+            {
+                // Generate CSV of center data
+                csvCenter << index << ";";
+                csvCenter << filename << ";";
+                csvCenter << (int) runResult << ";";
+                csvCenter << center.x << ";" << center.y << ";";
+                csvCenter << IDCenter.x << ";" << IDCenter.y << ";";
+                csvCenter << "\n";
+
+                // Generate CSV of limb data
+                csvLimbs << index << ";";
+                csvLimbs << filename << ";";
+                csvLimbs << crossings.size() << ";";
+                for (int k = 0; k < crossings.size(); k++)
+                    csvLimbs << "[" << crossings[k].x << " " << crossings[k].y << "],";
+                csvLimbs << "\n";
+
+                // Generate CSV of fiducial data
+                csvFiducials << index << ";";
+                csvFiducials << filename << ";";
+                csvFiducials << fiducials.size() << ";";
+                for (int k = 0; k < fiducials.size(); k++)
+                {
+                    csvFiducials << "[" << fiducials[k].x << " " << fiducials[k].y;
+                    if(IDs.size() == fiducials.size())
+                        csvFiducials << " " << IDs[k].x << " " << IDs[k].y << "],";
+                    else
+                        csvFiducials << "-300, -300],";
+                }
+                csvFiducials << "\n";
+            }
+
             cv::imshow("Solution", image);
             cv::waitKey(1);
-
-            // Generate CSV of center data
-            csvFile << "Someday"  << ";";
-            csvFile << index << ";";
-            csvFile << center.x << ";" << center.y << ";";
-            csvFile << IDCenter.x << ";" << IDCenter.y << ";";
-            csvFile << filename << ";";
-            csvFile << ";;";
-            csvFile << "\n";
-
             index++;
         }
     }
-    csvFile.close();
+    if (outType == CSV)
+    {
+        csvCenter.close();
+        csvLimbs.close();
+        csvFiducials.close();
+    }
     frames.close();
     return 0;
 }
