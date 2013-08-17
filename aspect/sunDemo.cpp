@@ -928,11 +928,11 @@ void *TelemetryPackagerThread(void *threadargs)
         switch (tm_frame_sequence_number % 8){
             case 0:
                 tp << (int16_t)localSensors.sbc_temperature;
-                tp << Float2B(localHeaders[0].cameraTemperature);
+                tp << Float2B(localHeaders[0 % sas_id].cameraTemperature);
                 break;
             case 1:
                 tp << (int16_t)localSensors.i2c_temperatures[0];
-                tp << Float2B(localHeaders[1].cameraTemperature);
+                tp << Float2B(localHeaders[1 % sas_id].cameraTemperature);
                 break;
             case 2:
                 tp << (int16_t)localSensors.i2c_temperatures[1];
