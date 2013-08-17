@@ -33,49 +33,60 @@ ifeq "$(GCC_VERSION_GE_43)" "1"
     CCFITS += -lrt
 endif
 
-TESTS = AspectTest AspectVideo MeasureScreen BlackFrames ClockReader
-EXEC = sunDemo sbc_info sbc_shutdown sbc_info_reader sbc_shutdown_sender CTLCommandSimulator CTLSimulator SRVSimulator
+TESTS = AspectTest MeasureScreen BlackFrames ClockReader
+EXEC_CORE = sunDemo sbc_info sbc_shutdown relay_control
+EXEC_ALL = $(EXEC_CORE) sbc_info_reader sbc_shutdown_sender relay_control_sender CTLCommandSimulator CTLSimulator SRVSimulator
 RELAYS = pmm/DiamondPMM.o pmm/DiamondBoard.o pmm/StateRelay.o
-default: sunDemo sbc_info sbc_shutdown
+PACKET = Packet.o lib_crc.o
+ASPECT = processing.o AspectError.o AspectParameter.o
 
-all: $(EXEC)
+default: $(EXEC_CORE)
 
-fullDemo: fullDemo.cpp processing.o utilities.o ImperxStream.o compression.o
+all: $(EXEC_ALL)
+
+fullDemo: fullDemo.cpp $(ASPECT) utilities.o ImperxStream.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS)
 
-CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o Packet.o lib_crc.o
+CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o $(PACKET)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o Packet.o lib_crc.o
+CTLSimulator: CTLSimulator.cpp UDPReceiver.o Command.o $(PACKET)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o Packet.o lib_crc.o
+SRVSimulator: SRVSimulator.cpp UDPReceiver.o Telemetry.o $(PACKET)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sunDemo: sunDemo.cpp Packet.o Command.o Telemetry.o UDPSender.o lib_crc.o UDPReceiver.o processing.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o $(RELAYS)
-	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) $(DSCUD_LIBS) -pg
+sunDemo: sunDemo.cpp $(PACKET) Command.o Telemetry.o UDPSender.o UDPReceiver.o utilities.o ImperxStream.o compression.o types.o Transform.o TCPSender.o Image.o $(ASPECT)
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
-test_telemetry: test_telemetry.cpp Telemetry.o Packet.o lib_crc.o UDPSender.o types.o
+test_telemetry: test_telemetry.cpp Telemetry.o $(PACKET) UDPSender.o types.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 evaluate: evaluate.cpp compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 #This executable need to be copied to /usr/local/bin/ after it is built
-sbc_info: sbc_info.cpp Packet.o lib_crc.o UDPSender.o smbus.o
+sbc_info: sbc_info.cpp $(PACKET) UDPSender.o smbus.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 #This executable need to be copied to /usr/local/bin/ after it is built
 sbc_shutdown: sbc_shutdown.cpp UDPReceiver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sbc_info_reader: sbc_info_reader.cpp UDPReceiver.o Packet.o lib_crc.o
+#This executable need to be copied to /usr/local/bin/ after it is built
+relay_control: relay_control.cpp UDPReceiver.o $(RELAYS)
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(DSCUD_LIBS)
+
+sbc_info_reader: sbc_info_reader.cpp UDPReceiver.o $(PACKET)
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-sbc_shutdown_sender: sbc_shutdown_sender.cpp Packet.o lib_crc.o UDPSender.o
+sbc_shutdown_sender: sbc_shutdown_sender.cpp $(PACKET) UDPSender.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
-tmbin_reader: tmbin_reader.cpp Packet.o lib_crc.o Telemetry.o types.o
+relay_control_sender: relay_control_sender.cpp $(PACKET) UDPSender.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
+
+tmbin_reader: tmbin_reader.cpp $(PACKET) Telemetry.o types.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 #This pattern matching will catch all "simple" object dependencies
@@ -93,7 +104,7 @@ pmm/%.o: pmm/%.cpp pmm/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ $(DSCUD_LIBS) $(THREAD)
 
 #This pattern is for any of Alex's weird test programs
-$(TESTS): % : %.cpp processing.o utilities.o compression.o
+$(TESTS): % : %.cpp $(ASPECT) utilities.o compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 smbus.o: smbus/smbus.c smbus/smbus.h
@@ -105,16 +116,19 @@ lib_crc.o: lib_crc/lib_crc.c lib_crc/lib_crc.h
 Transform.o: Transform.cpp Transform.hpp spa/spa.c spa/spa.h
 	$(CC) -c $(CFLAGS) $< -o $@
 
-install: sunDemo sbc_info sbc_shutdown
+install: $(EXEC_CORE)
 	sudo systemctl stop sas
 	sudo systemctl stop sbc_info
 	sudo systemctl stop sbc_shutdown
+	sudo systemctl stop relay_control
 	sudo cp sunDemo /usr/local/bin/sas.runtime
 	sudo cp sbc_info /usr/local/bin/sbc_info.runtime
 	sudo cp sbc_shutdown /usr/local/bin/sbc_shutdown.runtime
+	sudo cp relay_control /usr/local/bin/relay_control.runtime
+	sudo systemctl start relay_control
 	sudo systemctl start sbc_shutdown
 	sudo systemctl start sbc_info
 	sudo systemctl start sas
 
 clean:
-	rm -rf *.o *.out $(EXEC) $(TESTS) pmm/*.o
+	rm -rf *.o *.out $(EXEC_ALL) $(TESTS) pmm/*.o
