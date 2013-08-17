@@ -58,6 +58,7 @@ public:
     
     uint16_t getSync();
     uint32_t getSeconds();
+    uint32_t getNanoseconds();
 
     //Helper functions for SAS usage
     int getSAS(); //returns 1 or 2, throws exception otherwise
