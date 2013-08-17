@@ -1,7 +1,7 @@
 #define TARGET_ID_SAS 0x30
 #define TM_SAS_GENERIC 0x70
 #define IP_LOOPBACK "127.0.0.1"
-#define PORT_TM 2003
+#define PORT_TM 2002
 
 #include <unistd.h>
 #include <iostream>
