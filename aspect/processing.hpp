@@ -56,6 +56,8 @@ public:
     AspectCode GetScreenCenter(cv::Point2f& center);
     AspectCode GetScreenFiducials(CoordList& fiducials);
     
+    AspectCode FiducialRun();
+
     float GetFloat(AspectFloat variable);
     int GetInteger(AspectInt variable);
     void SetFloat(AspectFloat, float value);
@@ -93,13 +95,17 @@ private:
     void GenerateKernel();
     int FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossings);
     void FindPixelCenter();
-    void FindPixelFiducials(const cv::Mat &image, cv::Point offset);
+    void FindPixelFiducials();
     void FindFiducialIDs();
     void FindMapping();
     cv::Point2f PixelToScreen(cv::Point2f point);
 
     cv::Mat frame;
     cv::Size frameSize;
+    
+    cv::Mat solarImage;
+    cv::Size solarImageSize;
+    cv::Point2i solarImageOffset;
 
     unsigned char frameMax, frameMin;
 
