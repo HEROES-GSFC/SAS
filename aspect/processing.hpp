@@ -70,7 +70,8 @@ private:
 
     int initialNumChords;
     int chordsPerAxis;
-    float chordThreshold;
+    float limbThreshold;
+    float diskThreshold;
     int minLimbWidth;
     int limbFitWidth;
 

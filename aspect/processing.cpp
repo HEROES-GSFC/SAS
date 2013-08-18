@@ -41,7 +41,8 @@ Aspect::Aspect()
     // when the sun has been found
     chordsPerAxis = 10;
 
-    chordThreshold = .25;
+    limbThreshold = .25;
+    diskThreshold = .75;
 
     solarImageSize = solarImage.size();
     solarImageOffset = cv::Point2i(0,0);
@@ -450,8 +451,10 @@ float Aspect::GetFloat(AspectFloat variable)
 {
     switch(variable)
     {
-    case CHORD_THRESHOLD:
-        return chordThreshold;
+    case LIMB_THRESHOLD:
+        return limbThreshold;   
+    case DISK_THRESHOLD:
+        return diskThreshold;
     case ERROR_LIMIT:
         return errorLimit;
     case RADIUS_MARGIN:
@@ -498,8 +501,11 @@ void Aspect::SetFloat(AspectFloat variable, float value)
 {
     switch(variable)
     {
-    case CHORD_THRESHOLD:
-        chordThreshold = value;
+    case LIMB_THRESHOLD:
+        limbThreshold = value;
+        break;    
+    case DISK_THRESHOLD:
+        diskThreshold = value;
         break;
     case ERROR_LIMIT:
         errorLimit = value;
@@ -635,38 +641,47 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
     std::vector<int> edges;
     std::vector<bool> edgeFlag;
     std::vector<float> x, y, fit;
-    unsigned char thisValue, lastValue, pixelThreshold;
+    unsigned char thisValue, lastValue, pixelLowerThreshold, pixelUpperThreshold, pixelMax;
     int K = chord.total();
     int edgeSpread;
     int edge, min, max;
     int N;
     double fittedEdge;
 
-    float threshold = frameMin + chordThreshold*(frameMax-frameMin);
-    pixelThreshold = (unsigned char) threshold;
+    float lowerThreshold = frameMin + limbThreshold*(frameMax-frameMin);
+    float upperThreshold = frameMin + diskThreshold*(frameMax-frameMin);
+    pixelLowerThreshold = (unsigned char) lowerThreshold;
+    pixelUpperThreshold = (unsigned char) upperThreshold;
 
     //for each pixel, check if the pixel lies on a potential limb
     lastValue = (int) chord.at<unsigned char>(0);
+    pixelMax = lastValue;
     edges.clear();
     edgeFlag.clear();
     for (int k = 1; k < K; k++)
     {
         thisValue = (int) chord.at<unsigned char>(k);
-
+        if (thisValue > pixelMax)
+            pixelMax = thisValue;
         //check for a rising edge, save the index above the threshold
-        if (lastValue <= pixelThreshold && thisValue > pixelThreshold)
+        if (lastValue <= pixelLowerThreshold && thisValue > pixelLowerThreshold)
         {
             edges.push_back(k);
         }
         //check for a falling edge
-        else if(lastValue > pixelThreshold && thisValue <= pixelThreshold)
+        else if(lastValue > pixelLowerThreshold && thisValue <= pixelLowerThreshold)
         {
             edges.push_back(-(k-1));
         }
         lastValue = thisValue;
     }
 
-    if (edges.size() <= 0)
+    if (pixelMax < upperThreshold)
+    {
+        //std::cout << "Chord is too dim to be the sun." << std::endl;
+        return -1;
+    }
+    else if (edges.size() <= 0)
     {
         //std::cout << "No edges found" << std::endl;
         return -1;
@@ -772,7 +787,7 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
                     y.push_back((float) chord.at<unsigned char>(l));
                 }
                 LinearFit(x,y,fit);
-                fittedEdge = (threshold - fit[0])/fit[1] + edge;
+                fittedEdge = (lowerThreshold - fit[0])/fit[1] + edge;
                
                 if (!std::isfinite(fittedEdge))
                 {
@@ -992,7 +1007,7 @@ void Aspect::FindPixelFiducials()
     matchTemplate(input, kernel, correlation, CV_TM_CCORR);
 
     offset.x = solarImageOffset.x + (kernel.cols/2);
-    offset.y + (kernel.rows/2);
+    offset.y = solarImageOffset.y + (kernel.rows/2);
 
 
     //cv::waitKey(0);
