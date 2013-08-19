@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
 
     Circle circle[2];
 
-    std::vector<float> mapping, crap;
+    std::vector<float> mapping, spacing;
         
     Aspect aspect;
     AspectCode runResult;
@@ -42,14 +42,12 @@ int main(int argc, char* argv[])
     timespec startTime, stopTime, diffTime;
     
     aspect.SetInteger(NUM_FIDUCIALS, 225);
-    aspect.SetFloat(ERROR_LIMIT, 1296);
-    aspect.SetFloat(CHORD_THRESHOLD, .1);
     aspect.SetFloat(RADIUS_MARGIN, 20);
     aspect.SetFloat(FIDUCIAL_THRESHOLD, 3.5);
 
     if (!frames.good())
     {
-        std::cout << "Failed to whatever file list" << std::endl;
+        std::cout << "Failed to open file list" << std::endl;
     }
     else 
     {
@@ -84,7 +82,7 @@ int main(int argc, char* argv[])
             //std::cout << "AspectTest: Load Frame" << std::endl;
             aspect.LoadFrame(frame);
             //std::cout << "AspectTest: Run Aspect" << std::endl;
-            runResult = aspect.Run();
+            runResult = aspect.FiducialRun();
             
             //Get aspect data products depending on error severity
             switch(GeneralizeError(runResult))
@@ -132,7 +130,7 @@ int main(int argc, char* argv[])
 
                 float rowDiff, colDiff;
                 std::cout << "Pair distances: \n";
-                crap.clear();
+                spacing.clear();
                 pairs.clear();
                 for (int d = 0; d < 2; d++)
                 {
@@ -150,9 +148,9 @@ int main(int argc, char* argv[])
 
                         std::cout << " | " << rowDiff << " " << colDiff << std::endl;
                         if (fabs(rowDiff - 15.7) < 1.5)
-                            crap.push_back(rowDiff);
+                            spacing.push_back(rowDiff);
                         else if (fabs(colDiff - 15.7) < 1.5)
-                            crap.push_back(colDiff);
+                            spacing.push_back(colDiff);
                     }
                 }
             case ID_ERROR:
@@ -164,7 +162,7 @@ int main(int argc, char* argv[])
                 break;
             }            
 
-            std::cout << "Mean whatever bullshit is: " << Mean(crap) << std::endl;
+            std::cout << "Mean fiducial spacing is: " << Mean(spacing) << std::endl;
 
             cv::putText(image, filename, cv::Point(0,(frame.size()).height-20), cv::FONT_HERSHEY_SIMPLEX, .5, textColor,1.5);
             message = GetMessage(runResult);

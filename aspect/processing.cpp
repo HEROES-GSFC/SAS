@@ -299,6 +299,130 @@ AspectCode Aspect::Run()
     return state;
 }
 
+AspectCode Aspect::FiducialRun()
+{
+
+    cv::Range rowRange, colRange;
+    unsigned char max, min;
+    limbCrossings.clear();    
+    slopes.clear();    
+    pixelFiducials.clear();
+    fiducialIDs.clear();
+    int validIDs = 0;
+    mapping.clear();
+    mapping.resize(4);
+    conditionNumbers.clear();
+    conditionNumbers.resize(2);
+    
+    //cv::namedWindow("ROI", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
+
+    if (state == FRAME_EMPTY)
+    {
+        //std::cout << "Aspect: Frame is empty." << std::endl;
+        state = FRAME_EMPTY;
+        return state;
+    }
+    else
+    {
+        //std::cout << "Aspect: Finding max and min pixel values" << std::endl;
+        calcMinMax(frame, min, max);
+        frameMin = (unsigned char) min;
+        frameMax = (unsigned char) max;
+        if (min >= max || std::isnan(min) || std::isnan(max))
+        {
+            //std::cout << "Aspect: Max/Min value bad" << std::endl;
+            state = MIN_MAX_BAD;
+            return state;
+        }
+        else if(max - min < 32)
+        {
+            state = DYNAMIC_RANGE_LOW;
+            return state;
+        }
+        
+        solarImage = frame;
+        //cv::imshow("ROI", solarImage);
+        if (solarImage.empty())
+        {
+            //std::cout << "Aspect: Solar Image too empty." << std::endl;
+            state = SOLAR_IMAGE_EMPTY;
+            return state;  
+        }
+        else
+        {
+            solarImageSize = solarImage.size();
+        }
+
+        if (solarImageSize.width < (int) fiducialSpacing + 2*fiducialLength || 
+            solarImageSize.height < (int) fiducialSpacing + 2*fiducialLength)
+        {
+            //std::cout << "Aspect: Solar Image too small." << std::endl;
+            state = SOLAR_IMAGE_SMALL;
+            return state;
+        }
+
+        //Define offset for converting subimage locations to frame locations
+        solarImageOffset = cv::Point(colRange.start, rowRange.start);
+        if (solarImageOffset.x < 0 || solarImageOffset.x >= (frameSize.width - solarImageSize.width + 1) ||
+            solarImageOffset.y < 0 || solarImageOffset.y >= (frameSize.height - solarImageSize.height + 1))
+        {
+            //std::cout << "Aspect: Solar Image Offset out of bounds." << std::endl;
+            state = SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS;
+            return state;
+        }
+          
+        //Find fiducials
+        //std::cout << "Aspect: Finding Fiducials" << std::endl;
+        FindPixelFiducials();
+        if (pixelFiducials.size() == 0)
+        {
+            //std::cout << "Aspect: No Fiducials found" << std::endl;
+            state = NO_FIDUCIALS;
+            return state;
+        }
+        else if (pixelFiducials.size() < 3)
+        {
+            //std::cout << "Aspect: Too Few Fiducials" << std::endl;
+            state = FEW_FIDUCIALS;
+            return state;
+        }
+
+        //Find fiducial IDs
+        //std::cout << "Aspect: Finding fiducial IDs" << std::endl;
+        FindFiducialIDs();
+        //count number of valid IDs
+        for (int k = 0; k < fiducialIDs.size(); k++)
+        {
+            if (fiducialIDs[k].x < -10 || fiducialIDs[k].y < -10) continue;
+            else validIDs++;
+        }
+
+        if (validIDs == 0)
+        {
+            //std::cout << "Aspect: No Valid IDs" << std::endl;
+            state = NO_IDS;
+            return state;
+        }
+        else if (validIDs < 3)
+        {
+            //std::cout << "Aspect: Too Few IDs" << std::endl;
+            state = FEW_IDS;
+            return state;
+        }
+
+        //std::cout << "Aspect: Finding Mapping" << std::endl;
+        FindMapping();
+        if (/*ILL CONDITIONED*/ false)
+        {
+            //std::cout << "Aspect: Mapping is ill-conditioned." << std::endl;
+            state = MAPPING_ILL_CONDITIONED;
+            return state;
+        }
+
+    }
+    state = NO_ERROR;
+    return state;
+}
 
 /****************************************************
 

@@ -45,6 +45,8 @@ public:
 
     AspectCode LoadFrame(cv::Mat inputFrame);
     AspectCode Run();
+    AspectCode FiducialRun();
+
     AspectCode GetPixelMinMax(unsigned char& min, unsigned char& max);
     AspectCode GetPixelCrossings(CoordList& crossings);
     AspectCode GetPixelCenter(cv::Point2f& center);
@@ -56,7 +58,7 @@ public:
     AspectCode GetScreenCenter(cv::Point2f& center);
     AspectCode GetScreenFiducials(CoordList& fiducials);
     
-    AspectCode FiducialRun();
+
 
     float GetFloat(AspectFloat variable);
     int GetInteger(AspectInt variable);
