@@ -924,6 +924,7 @@ void *TelemetryPackagerThread(void *threadargs)
         }
 
         //Housekeeping fields, two of them
+        //Note that all voltages are multiplied by 500 before sending
         switch (tm_frame_sequence_number % 8){
             case 0:
                 tp << (int16_t)localSensors.sbc_temperature;
@@ -935,23 +936,23 @@ void *TelemetryPackagerThread(void *threadargs)
                 break;
             case 2:
                 tp << (int16_t)localSensors.i2c_temperatures[1];
-                tp << (uint16_t)localHeaders[0].cpuVoltage[0];
+                tp << Float2B(localHeaders[0].cpuVoltage[0]*500);
                 break;
             case 3:
                 tp << (int16_t)localSensors.i2c_temperatures[2];
-                tp << (uint16_t)localHeaders[0].cpuVoltage[1];
+                tp << Float2B(localHeaders[0].cpuVoltage[1]*500);
                 break;
             case 4:
                 tp << (int16_t)localSensors.i2c_temperatures[3];
-                tp << (uint16_t)localHeaders[0].cpuVoltage[2];
+                tp << Float2B(localHeaders[0].cpuVoltage[2]*500);
                 break;
             case 5:
                 tp << (int16_t)localSensors.i2c_temperatures[4];
-                tp << (uint16_t)localHeaders[0].cpuVoltage[3];
+                tp << Float2B(localHeaders[0].cpuVoltage[3]*500);
                 break;
             case 6:
                 tp << (int16_t)localSensors.i2c_temperatures[5];
-                tp << (uint16_t)localHeaders[0].cpuVoltage[4];
+                tp << Float2B(localHeaders[0].cpuVoltage[4]*500);
                 break;
             case 7:
                 tp << (int16_t)localSensors.i2c_temperatures[6];
