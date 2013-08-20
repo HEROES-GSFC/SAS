@@ -101,7 +101,7 @@ pmm/%.o: pmm/%.cpp pmm/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ $(DSCUD_LIBS) $(THREAD)
 
 #This pattern is for any of Alex's weird test programs
-$(TESTS): % : %.cpp $(ASPECT) utilities.o compression.o
+$(TESTS): % : %.cpp utilities.o $(ASPECT) compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 smbus.o: smbus/smbus.c smbus/smbus.h

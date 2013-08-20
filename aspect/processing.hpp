@@ -1,7 +1,6 @@
 #include <opencv.hpp>
 #include <vector>
 #include <list>
-#include <opencv.hpp>
 #include <cstring>
 #include "AspectError.hpp"
 #include "AspectParameter.hpp"
