@@ -58,8 +58,10 @@ Transform::Transform(Location location, Environment environment)
 
 void Transform::calculate(timespec *seconds)
 {
+    timespec now;
     if (seconds == NULL) {
-        clock_getttime(CLOCK_REALTIME, seconds);
+        clock_gettime(CLOCK_REALTIME, &now);
+        seconds = &now;
     }
 
     struct tm *input_time;
@@ -268,7 +270,7 @@ int spa_calculate2(spa_data *spa, spa_data *spa2, long nanoseconds)
     {
         spa->jd = julian_day (spa->year, spa->month,  spa->day,
                               spa->hour, spa->minute, spa->second, spa->timezone);
-        spa->jd += nanoseconds/1.e9;
+        spa->jd += nanoseconds/1.e9/86400.;
 
         //Begin code adapted from calculate_geocentric_sun_right_ascension_and_declination
         double x[TERM_X_COUNT];

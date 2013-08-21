@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
 
     if (argc != 3)
     {
-        std::cout << "Correct usage is: AspectTest frameList.txt outfile.csv\n";
+        std::cout << "Correct usage is: PointingTest frameList.txt outfile.csv\n";
         return -1;
     }
 
@@ -296,8 +296,8 @@ int main(int argc, char* argv[])
                 if (runResult == 0) {
                     solarTransform.set_conversion(Pair(mapping[0],mapping[2]),
                                                   Pair(mapping[1],mapping[3]));
-                    solution = solarTransform.calculateOffset(Pair(center.x,center.y),keys.captureTime);
-                    screenCenter = solarTransform.getPointingAxEl(Pair(center.x,center.y));
+                    solution = solarTransform.calculateOffset(Pair(center.x,center.y),&keys.captureTime);
+                    screenCenter = solarTransform.getPointingAzEl(Pair(center.x,center.y));
                     csvPointing << solution.x() << ";" << solution.y() << ";";
                     csvPointing << solarTransform.getSunAzEl().x() << ";" << solarTransform.getSunAzEl().y() << ";";
                     csvPointing << screenCenter.x() << ";" << screenCenter.y() << ";";
