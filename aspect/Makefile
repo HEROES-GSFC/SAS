@@ -60,7 +60,7 @@ sunDemo: sunDemo.cpp $(PACKET) Command.o Telemetry.o UDPSender.o UDPReceiver.o u
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD) $(OPENCV) $(IMPERX) $(CCFITS) -pg
 
 test_telemetry: test_telemetry.cpp Telemetry.o $(PACKET) UDPSender.o types.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 evaluate: evaluate.cpp compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
