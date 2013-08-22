@@ -939,11 +939,11 @@ void *TelemetryPackagerThread(void *threadargs)
 
         housekeeping2[0] += localHeaders[0 % sas_id].cameraTemperature;
         housekeeping2[1] += localHeaders[1 % sas_id].cameraTemperature;
-        housekeeping2[2] += localHeaders[0].cpuVoltage[0];
-        housekeeping2[3] += localHeaders[0].cpuVoltage[1];
-        housekeeping2[4] += localHeaders[0].cpuVoltage[2];
-        housekeeping2[5] += localHeaders[0].cpuVoltage[3];
-        housekeeping2[6] += localHeaders[0].cpuVoltage[4];
+        housekeeping2[2] += localSensors.sbc_v105;
+        housekeeping2[3] += localSensors.sbc_v25;
+        housekeeping2[4] += localSensors.sbc_v33;
+        housekeeping2[5] += localSensors.sbc_v50;
+        housekeeping2[6] += localSensors.sbc_v120;
 
         //Scale factors to make good use of Float2B range
         //  Temperatures multiplied by 10
