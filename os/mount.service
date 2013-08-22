@@ -1,0 +1,16 @@
+[Unit]
+Description=Mount by Albert
+Wants=network.target
+Before=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=-/bin/mount /mnt/disk1
+ExecStart=-/bin/mount /mnt/disk2
+
+ExecStop=-/bin/umount /mnt/disk1
+ExecStop=-/bin/umount /mnt/disk2
+
+[Install]
+WantedBy=multi-user.target

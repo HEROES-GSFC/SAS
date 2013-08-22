@@ -25,17 +25,18 @@ echo "Installation script for SAS-${sas_id}"
 echo "-----------------------------"
 
 echo "Copying configuration files..."
-sudo cp sysctl.conf /etc/sysctl.conf
+sudo cp etc-sysctl.conf /etc/sysctl.conf
 sudo cp etc-resolv.conf /etc/resolv.conf
 sudo cp etc-conf.d-network /etc/conf.d/network
 sudo cp etc-conf.d-lm_sensors /etc/conf.d/lm_sensors
-sudo cp ntp.conf /etc/ntp.conf
+sudo cp etc-ntp.conf /etc/ntp.conf
 
 echo "Configuring NIC device names based on known MAC addresses..."
 sudo cp 10-network-sas${sas_id}.rules /etc/udev/rules.d/10-network.rules
 
 echo "Setting up services..."
 sudo cp network-sas${sas_id}.service /etc/systemd/system/network.service
+sudo cp mount.service /etc/systemd/system/mount.service
 sudo cp sbc_info.service /etc/systemd/system/sbc_info.service
 sudo cp sbc_shutdown.service /etc/systemd/system/sbc_shutdown.service
 sudo cp relay_control.service /etc/systemd/system/relay_control.service
@@ -47,6 +48,7 @@ sudo chmod a+x /usr/local/bin/sas
 
 echo "Enabling services..."
 sudo systemctl enable network
+sudo systemctl enable mount
 sudo systemctl enable lm_sensors
 sudo systemctl enable sbc_info
 sudo systemctl enable sbc_shutdown
