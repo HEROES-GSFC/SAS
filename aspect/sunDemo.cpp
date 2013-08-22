@@ -898,6 +898,9 @@ void *TelemetryPackagerThread(void *threadargs)
     HeaderData localHeaders[2];
     Sensors localSensors;
 
+    float housekeeping1[7], housekeeping2[7];
+    for (int j = 0; j < 7; j++) housekeeping1[j] = housekeeping2[j] = 0;
+
     while(!stop_message[tid])
     {
         usleep(USLEEP_TM_GENERIC);
@@ -924,37 +927,46 @@ void *TelemetryPackagerThread(void *threadargs)
         }
 
         //Housekeeping fields, two of them
-        switch (tm_frame_sequence_number % 8){
+        //All temperatures and voltages will be 8-frame averages
+        //Especially on startup, these averages can be peculiar
+        housekeeping1[0] += localSensors.sbc_temperature;
+        housekeeping1[1] += localSensors.i2c_temperatures[0];
+        housekeeping1[2] += localSensors.i2c_temperatures[1];
+        housekeeping1[3] += localSensors.i2c_temperatures[2];
+        housekeeping1[4] += localSensors.i2c_temperatures[3];
+        housekeeping1[5] += localSensors.i2c_temperatures[4];
+        housekeeping1[6] += localSensors.i2c_temperatures[5];
+
+        housekeeping2[0] += localHeaders[0 % sas_id].cameraTemperature;
+        housekeeping2[1] += localHeaders[1 % sas_id].cameraTemperature;
+        housekeeping2[2] += localSensors.sbc_v105;
+        housekeeping2[3] += localSensors.sbc_v25;
+        housekeeping2[4] += localSensors.sbc_v33;
+        housekeeping2[5] += localSensors.sbc_v50;
+        housekeeping2[6] += localSensors.sbc_v120;
+
+        //Scale factors to make good use of Float2B range
+        //  Temperatures multiplied by 10
+        //  Voltages multiplied by 500
+        int which = tm_frame_sequence_number % 8;
+        switch (which){
             case 0:
-                tp << (int16_t)localSensors.sbc_temperature;
-                tp << Float2B(localHeaders[0 % sas_id].cameraTemperature);
-                break;
             case 1:
-                tp << (int16_t)localSensors.i2c_temperatures[0];
-                tp << Float2B(localHeaders[1 % sas_id].cameraTemperature);
+                tp << Float2B(housekeeping1[which]/8*10);
+                tp << Float2B(housekeeping2[which]/8*10);
+                housekeeping1[which] = housekeeping2[which] = 0;
                 break;
             case 2:
-                tp << (int16_t)localSensors.i2c_temperatures[1];
-                tp << (uint16_t)localHeaders[0].cpuVoltage[0];
-                break;
             case 3:
-                tp << (int16_t)localSensors.i2c_temperatures[2];
-                tp << (uint16_t)localHeaders[0].cpuVoltage[1];
-                break;
             case 4:
-                tp << (int16_t)localSensors.i2c_temperatures[3];
-                tp << (uint16_t)localHeaders[0].cpuVoltage[2];
-                break;
             case 5:
-                tp << (int16_t)localSensors.i2c_temperatures[4];
-                tp << (uint16_t)localHeaders[0].cpuVoltage[3];
-                break;
             case 6:
-                tp << (int16_t)localSensors.i2c_temperatures[5];
-                tp << (uint16_t)localHeaders[0].cpuVoltage[4];
+                tp << Float2B(housekeeping1[which]/8*10);
+                tp << Float2B(housekeeping2[which]/8*500);
+                housekeeping1[which] = housekeeping2[which] = 0;
                 break;
             case 7:
-                tp << (int16_t)localSensors.i2c_temperatures[6];
+                tp << (uint16_t)0xffff;
                 tp << (uint16_t)isSavingImages;
                 break;
             default:
