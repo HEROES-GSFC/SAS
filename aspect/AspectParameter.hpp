@@ -15,7 +15,8 @@ enum AspectInt
 
 enum AspectFloat
 {
-    CHORD_THRESHOLD = 0,
+    LIMB_THRESHOLD = 0,
+    DISK_THRESHOLD,
     ERROR_LIMIT,
     RADIUS_MARGIN,
     FIDUCIAL_THRESHOLD,

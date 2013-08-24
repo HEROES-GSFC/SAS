@@ -10,8 +10,6 @@
 
 #include <vector>
 
-#include <sys/time.h>
-
 #include "Telemetry.hpp"
 
 #define SECTION_MAX_PIXELS 1000
@@ -33,10 +31,6 @@
 #define TDBLCOMPLEX 163
 
 class ImagePacket : public TelemetryPacket {
-protected:
-    virtual void finish() { TelemetryPacket::finish(); };
-    virtual void writeTime() { /* disables automatic timestamp */ };
-
 public:
     ImagePacket(uint8_t typeID, uint8_t sourceID);
 
@@ -44,8 +38,6 @@ public:
     //Pass in NULL
     //This packet is non-functional!  Be sure not to use without reassignment!
     ImagePacket(const void *ptr);
-
-    void setTimeAndFinish(const timeval &time);
 };
 
 class ImageSectionPacket : public ImagePacket {

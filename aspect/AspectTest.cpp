@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
     char line[256];
     int index;
     std::string filename, label;
-    char number[4] = "000";
+    char number[5] = "000";
     cv::Mat frame;
     cv::Mat image;
     cv::Point2f center,error, offset, IDCenter;
@@ -50,9 +50,7 @@ int main(int argc, char* argv[])
     outfile = outfile.substr(0, outfile.length()-4);
     std::ifstream frames(argv[1]);
 
-    std::ofstream csvCenter(outfile+"_centers.csv");
-    std::ofstream csvLimbs(outfile+"_limbs.csv");
-    std::ofstream csvFiducials(outfile+"_fiducials.csv");
+    std::ofstream csvCenter, csvLimbs, csvFiducials;
 
     cv::VideoWriter summary;
     bool videoReady = false;
@@ -65,6 +63,10 @@ int main(int argc, char* argv[])
     else if (!outExtension.compare("csv") || !outExtension.compare("CSV"))
     {
         outType = CSV;
+
+        csvCenter.open(outfile+"_centers.csv");
+        csvLimbs.open(outfile+"_limbs.csv");
+        csvFiducials.open(outfile+"_fiducials.csv");
     }
     else
     {
@@ -254,7 +256,7 @@ int main(int argc, char* argv[])
             {
                 if (!videoReady)
                 {
-                    summary.open(argv[2], CV_FOURCC('F','F','V','1'), 10, frame.size(), true);
+                    summary.open(argv[2], CV_FOURCC('X','V','I','D'), 10, frame.size(), true);
                     videoReady = true;
                 }
                 summary << image;
@@ -267,6 +269,7 @@ int main(int argc, char* argv[])
                 csvCenter << (int) runResult << ";";
                 csvCenter << center.x << ";" << center.y << ";";
                 csvCenter << IDCenter.x << ";" << IDCenter.y << ";";
+                csvCenter << diffTime.tv_sec+((float)diffTime.tv_nsec)/1e9 << ";";
                 csvCenter << "\n";
 
                 // Generate CSV of limb data
@@ -287,13 +290,13 @@ int main(int argc, char* argv[])
                     if(IDs.size() == fiducials.size())
                         csvFiducials << " " << IDs[k].x << " " << IDs[k].y << "],";
                     else
-                        csvFiducials << "-300, -300],";
+                        csvFiducials << " -300 -300],";
                 }
                 csvFiducials << "\n";
             }
 
             cv::imshow("Solution", image);
-            cv::waitKey(1);
+            //cv::waitKey(1);
             index++;
         }
     }

@@ -1,3 +1,5 @@
+#include <time.h>
+
 #include "utilities.hpp"
 
 Semaphore::Semaphore(int maximum) : count(0), max(maximum)
@@ -135,4 +137,13 @@ const std::string MonoTimeSince(timespec &start)
     output += "ns ";
     start = end;
     return output;
+}
+
+void writeCurrentUT(char *buffer)
+{
+    time_t now;
+    time(&now);
+    struct tm *now_tm;
+    now_tm = gmtime(&now);
+    strftime(buffer,14,"%y%m%d_%H%M%S",now_tm);
 }
