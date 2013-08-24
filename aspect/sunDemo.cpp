@@ -898,6 +898,8 @@ void *TelemetryPackagerThread(void *threadargs)
     HeaderData localHeaders[2];
     Sensors localSensors;
 
+    timespec systemTime; //used if there isn't a capture time in the header
+
     float housekeeping1[7], housekeeping2[7];
     for (int j = 0; j < 7; j++) housekeeping1[j] = housekeeping2[j] = 0;
 
@@ -1016,6 +1018,13 @@ void *TelemetryPackagerThread(void *threadargs)
         //Tacking on the offset numbers intended for CTL as floats
         tp << (float)(localHeaders[0].CTLsolution[0]);
         tp << (float)(localHeaders[0].CTLsolution[1]);
+
+        if (localHeaders[0].captureTime.tv_sec != 0) {
+            tp.setTimeAndFinish(localHeaders[0].captureTime);
+        } else {
+            clock_gettime(CLOCK_REALTIME, &systemTime);
+            tp.setTimeAndFinish(systemTime);
+        }
 
         //add telemetry packet to the queue if not being suppressed
         if (tm_frames_to_suppress > 0) tm_frames_to_suppress--;
