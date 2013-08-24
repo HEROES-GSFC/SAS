@@ -40,8 +40,11 @@ const char * GetAspectFloatName(const AspectFloat& code)
 {
     switch(code)
     {
-    case CHORD_THRESHOLD:
+    case LIMB_THRESHOLD:
         return "Limb Threshold";
+
+    case DISK_THRESHOLD:
+        return "Disk Threshold";
 
     case ERROR_LIMIT:
         return "Center Error Limit";

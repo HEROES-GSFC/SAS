@@ -1,7 +1,6 @@
 #include <opencv.hpp>
 #include <vector>
 #include <list>
-#include <opencv.hpp>
 #include <cstring>
 #include "AspectError.hpp"
 #include "AspectParameter.hpp"
@@ -45,6 +44,8 @@ public:
 
     AspectCode LoadFrame(cv::Mat inputFrame);
     AspectCode Run();
+    AspectCode FiducialRun();
+
     AspectCode GetPixelMinMax(unsigned char& min, unsigned char& max);
     AspectCode GetPixelCrossings(CoordList& crossings);
     AspectCode GetPixelCenter(cv::Point2f& center);
@@ -56,6 +57,8 @@ public:
     AspectCode GetScreenCenter(cv::Point2f& center);
     AspectCode GetScreenFiducials(CoordList& fiducials);
     
+
+
     float GetFloat(AspectFloat variable);
     int GetInteger(AspectInt variable);
     void SetFloat(AspectFloat, float value);
@@ -68,7 +71,8 @@ private:
 
     int initialNumChords;
     int chordsPerAxis;
-    float chordThreshold;
+    float limbThreshold;
+    float diskThreshold;
     int minLimbWidth;
     int limbFitWidth;
 
@@ -93,13 +97,17 @@ private:
     void GenerateKernel();
     int FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossings);
     void FindPixelCenter();
-    void FindPixelFiducials(const cv::Mat &image, cv::Point offset);
+    void FindPixelFiducials();
     void FindFiducialIDs();
     void FindMapping();
     cv::Point2f PixelToScreen(cv::Point2f point);
 
     cv::Mat frame;
     cv::Size frameSize;
+
+    cv::Mat solarImage;
+    cv::Size solarImageSize;
+    cv::Point2i solarImageOffset;
 
     unsigned char frameMax, frameMin;
 
