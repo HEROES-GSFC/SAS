@@ -852,7 +852,7 @@ void *ImageSaveThread(void *threadargs)
         struct tm *capturetime;
 
         capturetime = gmtime(&localHeader.captureTime.tv_sec);
-        strftime(stringtemp,14,"%y%m%d_%H%M%S",capturetime);
+        strftime(timestamp,14,"%y%m%d_%H%M%S",capturetime);
 
         sprintf(filename, "%s%s_%s_%03d_%06d.fits",
                 ((localHeader.frameCount / MOD_SAVE) % 2 == 0 ? SAVE_LOCATION1 : SAVE_LOCATION2),
