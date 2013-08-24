@@ -5,14 +5,12 @@
   Azimuth is defined as eastward from North
   Elevation is defined as poleward from horizontal
 
-  To specify a particular time, some methods accept a tm struct from time.h
-  It has members:
-    tm_year (year minus 1900)
-    tm_mon (month minus 1)
-    tm_mday (1-31)
-    tm_hour (specify in UT)
-    tm_min
-    tm_sec
+  To specify a particular time, some methods accept a time_t value
+    Under most implementations, should be seconds since 1970 Jan 1 UT
+    Use time() or clock_gettime() to retrieve
+    If you have a tm struct, use mktime() to convert to time_t
+      Beware of timezones!  mktime() takes input in local time
+      That is, mktime() inverts localtime(), not gmtime()
 */
 
 #ifndef _TRANSFORM_HPP_
@@ -75,7 +73,7 @@ public:
               Environment environment = GROUND);
 
     //This function must be called sometime before any get* methods
-    void calculate(struct tm *input_time);
+    void calculate(time_t seconds);
 
     //These functions return the azimuth/elevation of points of interest
     Pair getSunAzEl(); // Sun center
@@ -85,9 +83,9 @@ public:
     double getOrientation() const;
 
     //These three methods *do* call calculate() internally
-    void report(struct tm *input_time = NULL);
-    Pair calculateOffset(const Pair& sunPixel, struct tm *input_time = NULL);
-    double calculateOrientation(struct tm *input_time = NULL);
+    void report(time_t seconds = 0);
+    Pair calculateOffset(const Pair& sunPixel, time_t seconds = 0);
+    double calculateOrientation(time_t seconds = 0);
 
     void set_conversion(const Pair& intercept, const Pair& slope);
     void set_calibrated_center(const Pair& arg);
