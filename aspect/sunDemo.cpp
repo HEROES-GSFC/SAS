@@ -707,17 +707,13 @@ void *TelemetrySenderThread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("TelemetrySender thread #%ld!\n", tid);
 
-    char stringtemp[80];
+    char timestamp[14];
     char filename[128];
-    time_t ltime;
-    struct tm *times;
     std::ofstream log;
 
     if (LOG_PACKETS) {
-        time(&ltime);
-        times = localtime(&ltime);
-        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-        sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION1, stringtemp);
+        writeCurrentUT(timestamp);
+        sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION1, timestamp);
         filename[128 - 1] = '\0';
         printf("Creating telemetry log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
@@ -790,22 +786,18 @@ void *SaveTemperaturesThread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("SaveTemperatures thread #%ld!\n", tid);
 
-    char stringtemp[80];
-    char obsfilespec[128];
+    char timestamp[14];
+    char filename[128];
     FILE *file;
-    time_t ltime;
-    struct tm *times;
 
-    time(&ltime);
-    times = localtime(&ltime);
-    strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-    sprintf(obsfilespec, "%stemp_data_%s.dat", SAVE_LOCATION1, stringtemp);
-    obsfilespec[128 - 1] = '\0';
-    printf("Creating file %s \n",obsfilespec);
+    writeCurrentUT(timestamp);
+    sprintf(filename, "%stemp_data_%s.dat", SAVE_LOCATION1, timestamp);
+    filename[128 - 1] = '\0';
+    printf("Creating file %s \n",filename);
 
     int count = 0;
 
-    if((file = fopen(obsfilespec, "w")) == NULL){
+    if((file = fopen(filename, "w")) == NULL){
         printf("Cannot open file\n");
         stop_message[tid] = true;
     } else {
@@ -815,16 +807,13 @@ void *SaveTemperaturesThread(void *threadargs)
 
     while(!stop_message[tid])
     {
-        char current_time[25];
         sleep(SLEEP_LOG_TEMPERATURE);
 
-        time(&ltime);
-        times = localtime(&ltime);
-        strftime(current_time,25,"%y/%m/%d %H:%M:%S",times);
-        fprintf(file, "%s, %f, %d", current_time, sensors.camera_temperature[count % sas_id], sensors.sbc_temperature);
+        writeCurrentUT(timestamp);
+        fprintf(file, "%s, %f, %d", timestamp, sensors.camera_temperature[count % sas_id], sensors.sbc_temperature);
         for (int i=0; i<8; i++) fprintf(file, ", %d", sensors.i2c_temperatures[i]);
         fprintf(file, "\n");
-        printf("%s, %f, %d", current_time, sensors.camera_temperature[count % sas_id], sensors.sbc_temperature);
+        printf("%s, %f, %d", timestamp, sensors.camera_temperature[count % sas_id], sensors.sbc_temperature);
         for (int i=0; i<8; i++) printf(", %d", sensors.i2c_temperatures[i]);
         printf("\n");
         count++;
@@ -858,17 +847,18 @@ void *ImageSaveThread(void *threadargs)
 
     if(!localFrame.empty())
     {
-        char stringtemp[80];
+        char timestamp[14];
         char filename[128];
-        struct tm *times;
+        struct tm *capturetime;
 
-        times = localtime(&localHeader.captureTime.tv_sec);
-        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
+        capturetime = gmtime(&localHeader.captureTime.tv_sec);
+        strftime(stringtemp,14,"%y%m%d_%H%M%S",capturetime);
 
-        sprintf(filename, "%s%s_%s_%06d.fits",
+        sprintf(filename, "%s%s_%s_%03d_%06d.fits",
                 ((localHeader.frameCount / MOD_SAVE) % 2 == 0 ? SAVE_LOCATION1 : SAVE_LOCATION2),
                 (camera_id == 1 ? "ras" : (sas_id == 1 ? "pyasf" : "pyasr")),
-                stringtemp, (int)localHeader.frameCount);
+                timestamp, (int)(localHeader.captureTime.tv_nsec/1000000l),
+                (int)localHeader.frameCount);
 
         printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", filename, localHeader.exposure, localHeader.analogGain, localHeader.preampGain);
         writeFITSImage(localFrame, localHeader, filename);
@@ -1142,17 +1132,13 @@ void *CommandSenderThread( void *threadargs )
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("CommandSender thread #%ld!\n", tid);
 
-    char stringtemp[80];
+    char timestamp[14];
     char filename[128];
-    time_t ltime;
-    struct tm *times;
     std::ofstream log;
 
     if (LOG_PACKETS) {
-        time(&ltime);
-        times = localtime(&ltime);
-        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-        sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION1, stringtemp);
+        writeCurrentUT(timestamp);
+        sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION1, timestamp);
         filename[128 - 1] = '\0';
         printf("Creating command log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
@@ -1247,17 +1233,13 @@ uint16_t cmd_send_image_to_ground( int camera_id )
     cv::Mat localFrame;
     HeaderData localHeader;
 
-    char stringtemp[80];
+    char timestamp[14];
     char filename[128];
-    time_t ltime;
-    struct tm *times;
     std::ofstream log;
 
     if (LOG_PACKETS) {
-        time(&ltime);
-        times = localtime(&ltime);
-        strftime(stringtemp,40,"%y%m%d_%H%M%S",times);
-        sprintf(filename, "%slog_sc_%s.bin", SAVE_LOCATION1, stringtemp);
+        writeCurrentUT(timestamp);
+        sprintf(filename, "%slog_sc_%s.bin", SAVE_LOCATION1, timestamp);
         filename[128 - 1] = '\0';
         printf("Creating science log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
