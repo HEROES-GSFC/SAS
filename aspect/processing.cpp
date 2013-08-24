@@ -143,7 +143,7 @@ AspectCode Aspect::Run()
     mapping.resize(4);
     conditionNumbers.clear();
     conditionNumbers.resize(2);
-    
+
     //cv::namedWindow("ROI", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
 
     if (state == FRAME_EMPTY)
@@ -820,17 +820,22 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
         // -a single edge rising within a solar diameter of the end of the strip
     
         // To handle these cases, we'll add an artificial crossing at the image edge.
-        // This will have to be handled outside the function.
         
         if ((abs(edges[0]) < 2*solarRadius) && (edges[0] < 0))
         {
             edge = abs(edges[0]);
             //std::cout << "Special falling edge for " << edge << std::endl;
+            edges.resize(2);
+            edges[0] = -1;
+            edges[1] = -edge;
         }
         else if ((abs(edges[0]) > K-2*solarRadius) && (edges[0] > 0))
         {
             edge = abs(edges[0]);
             //std::cout << "Special rising edge for " << edge << std::endl;
+            edges.resize(2);
+            edges[0] = edge;
+            edges[1] = -K;
         }
         else
             return -1;
@@ -870,60 +875,62 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
     }
     
     // at this point we're reasonably certain we've found a valid chord
-    if ((edges.size() == 2) && (edges[0] >= 0)  && (edges[1] < 0))
+    if ((edges.size() == 2) && (edges[0] >= -1)  && (edges[1] < 0))
     {
         // for each edge, perform a fit to find the limb crossing
         crossings.clear();
         for (int k = 0; k < 2; k++)
         {
-            // Throw away slope information, use just edge
-            edge = abs(edges[k]);
+            // If the edge was artificially added, proceed without fitting
+            if ((k == 0) && (edges[k] == -1)) crossings.push_back(-1);
+            else if ((k == 1) && (edges[k] == -K)) crossings.push_back(K);
 
             // Otherwise, fit a line to the edge to refine its position
-            
-            if ((edge-limbFitWidth) < 0) min = 0;
-            else min = edge-limbFitWidth;
-            
-            if ((edge+limbFitWidth) > K) max = K;
-            else max = edge+limbFitWidth;
-            
-            //if that neighborhood is large enough
-            N = max-min+1;
-            if (N < 2)
-            {
-                return -1;
-            }
-            //compute fit to neighborhood
-            x.clear(); y.clear();
-            for (int l = min; l <= max; l++)
-            {
-                x.push_back(l-edge);
-                y.push_back((float) chord.at<unsigned char>(l));
-            }
-            LinearFit(x,y,fit);
-            fittedEdge = (lowerThreshold - fit[0])/fit[1] + edge;
-            
-            if (!std::isfinite(fittedEdge))
-            {
-                //std::cout << "Limb crossing was given a non-finite value" << std::endl;
-                return -2;
-            }
-            else if ((fittedEdge < min) || (fittedEdge > max))
-            {
-                //std::cout << "Limb crossing was given a value out of bounds." << std::endl;
-                return -3;
-            }
             else
             {
-                //std::cout << "Refined an edge" << std::endl;
-                if (edges.size() == 1)
-                    crossings.push_back(((edges[0] > 0) - (edges[0] < 0))*fittedEdge);
+                // Throw away slope information, use just edge
+                edge = abs(edges[k]);
+
+                if ((edge-limbFitWidth) < 0) min = 0;
+                else min = edge-limbFitWidth;
+               
+                if ((edge+limbFitWidth) > K) max = K;
+                else max = edge+limbFitWidth;
+               
+                //if that neighborhood is large enough
+                N = max-min+1;
+                if (N < 2)
+                {
+                    return -1;
+                }
+                //compute fit to neighborhood
+                x.clear(); y.clear();
+                for (int l = min; l <= max; l++)
+                {
+                    x.push_back(l-edge);
+                    y.push_back((float) chord.at<unsigned char>(l));
+                }
+                LinearFit(x,y,fit);
+                fittedEdge = (lowerThreshold - fit[0])/fit[1] + edge;
+               
+                if (!std::isfinite(fittedEdge))
+                {
+                    //std::cout << "Limb crossing was given a non-finite value" << std::endl;
+                    return -2;
+                }
+                else if ((fittedEdge < min) || (fittedEdge > max))
+                {
+                    //std::cout << "Limb crossing was given a value out of bounds." << std::endl;
+                    return -3;
+                }
                 else
+                {
+                    //std::cout << "Refined an edge" << std::endl;
                     crossings.push_back(fittedEdge);
-                slopes.push_back(fabs(fit[1]));
+                    slopes.push_back(fabs(fit[1]));
+                }
             }
         }
-        
         if (crossings.size() == 2)
         {
             return 0;
@@ -943,10 +950,10 @@ void Aspect::FindPixelCenter()
     cv::Mat input;
     std::vector<int> rows, cols;
     std::vector<float> crossings, midpoints;
-    float mean, std, offset;
+    float mean, std;
     int rowStart, colStart, rowStep, colStep, limit, K, M;
     cv::Range rowRange, colRange;
-    int error, infinite, outOfBounds, upperBound;
+    int error, infinite, outOfBounds;
     infinite = 0;
     outOfBounds = 0;
 
@@ -974,11 +981,11 @@ void Aspect::FindPixelCenter()
         input = solarImage;
         limit = chordsPerAxis;
     }
-    rowStep = input.rows/limit;
-    colStep = input.cols/limit;
+        rowStep = input.rows/limit;
+        colStep = input.cols/limit;
 
-    rowStart = rowStep/2;
-    colStart = colStep/2;
+        rowStart = rowStep/2;
+        colStart = colStep/2;
 
     //Generate vectors of chord locations
     //std::cout << "Aspect: Generating chord location list" << std::endl;
@@ -1029,95 +1036,91 @@ void Aspect::FindPixelCenter()
                 outOfBounds++;
                 continue;
             }
-            // If there's a single crossing, generate an artificial crossing to match
-            else if(crossings.size() == 1)
+            // Or there's not a pair of crossings
+            else if(crossings.size() != 2)
             {
-                
-                if (dim)
-                {
-                    offset = solarImageOffset.x;
-                    upperBound = solarImageSize.width;
-                }
-                else
-                {
-                    offset = solarImageOffset.y;
-                    upperBound = solarImageSize.height;
-                }
-                
-                if ((abs(crossings[0]) + offset < 2*solarRadius) && (crossings[0] < 0))
-                {
-                    crossings.push_back(0);
-                }
-                else if ((abs(crossings[0]) + offset > upperBound-2*solarRadius) && (crossings[0] > 0))
+                continue;
+            }
+
+            //Save the crossings if they're finite
+            else if (std::isfinite(crossings[0]) && std::isfinite(crossings[1]))
             {
-                crossings.push_back(upperBound);
+                // Check if first limb is a virtual one, and reject the chord if it's not at the sensor edge
+                if (crossings[0] == -1) {
+                    //std::cout << "Crossing == -1: " << dim << " " << solarImageOffset << " " << input.size() << " " << frame.size() << std::endl;
+                    if ((dim ? (!search)*solarImageOffset.x
+                             : (!search)*solarImageOffset.y) > 0) {
+                        //std::cout << "  Reject\n";
+                        continue;
+                    }
+                }
+                // Check if second limb is a virtual one, and reject the chord if it's not at the sensor edge
+                if (crossings[1] == (dim ? input.cols : input.rows)) {
+                    //std::cout << "Crossing == K: " << dim << " " << solarImageOffset << " " << input.size() << " " << frame.size() << std::endl;
+                    if ((dim ? (!search)*solarImageOffset.x+input.cols < frame.cols
+                             : (!search)*solarImageOffset.y+input.rows < frame.rows)) {
+                        //std::cout << "  Reject\n";
+                        continue;
+                    }
+                }
+
+                for (unsigned int l = 0; l < crossings.size(); l++)
+                {
+                    if (dim) limbCrossings.add(crossings[l], rows[k]);
+                    else limbCrossings.add(cols[k], crossings[l]);
+                }
+                midpoints.push_back((crossings[0]+crossings[1])/2.0);
             }
         }
-        //Finally see if there's two crossings in this chord
-        else if(crossings.size() != 2)
-            continue;
-        
 
-        //Save the crossings if they're finite
-        else if (std::isfinite(crossings[0]) && std::isfinite(crossings[1]))
+        //Determine the mean of the midpoints for this dimension
+        mean = 0;
+        M =  midpoints.size();
+        for (int m = 0; m < M; m++)
+            mean += midpoints[m];
+        mean = (float)mean/M;
+        
+        //Determine the std dev of the midpoints
+        std = 0;
+        for (int m = 0; m < M; m++)
         {
-            for (unsigned int l = 0; l < crossings.size(); l++)
-            {
-                if (dim) limbCrossings.add(crossings[l], rows[k]);
-                else limbCrossings.add(cols[k], crossings[l]);
-            }
-            midpoints.push_back((crossings[0]+crossings[1])/2.0);
+            std += pow(midpoints[m]-mean,2);
+        }
+        std = sqrt(std/M);
+
+        //Store the Center and RMS Error for this dimension
+        //std::cout << "Aspect: Setting Center and Error for this dimension." << std::endl;
+        if (dim)
+        {
+            pixelCenter.x = mean;
+            pixelError.x = std;
+        }
+        else
+        {
+            pixelCenter.y = mean;
+            pixelError.y = std;
+        }       
+    }
+    
+    //Dying to use this. Does a least squares fit to limb crossings instead of using chord midpoints.
+    //CircleFit(limbCrossings, sun);
+    //pixelCenter = sun.center();
+    
+
+    //std::cout << "Infinite error: " << infinite << ", Out of Bounds errors: " << outOfBounds << std::endl;
+    //std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
+    if (!search)
+    {
+        pixelCenter.y = pixelCenter.y + (float) solarImageOffset.y;
+        pixelCenter.x = pixelCenter.x + (float) solarImageOffset.x;
+        for (int k = 0; k < limbCrossings.size(); k++)
+        {
+            limbCrossings[k].y = limbCrossings[k].y + solarImageOffset.y;
+            limbCrossings[k].x = limbCrossings[k].x + solarImageOffset.x;
         }
     }
-
-    //Determine the mean of the midpoints for this dimension
-    mean = 0;
-    M =  midpoints.size();
-    for (int m = 0; m < M; m++)
-        mean += midpoints[m];
-    mean = (float)mean/M;
-        
-    //Determine the std dev of the midpoints
-    std = 0;
-    for (int m = 0; m < M; m++)
-    {
-        std += pow(midpoints[m]-mean,2);
-    }
-    std = sqrt(std/M);
-
-    //Store the Center and RMS Error for this dimension
-    //std::cout << "Aspect: Setting Center and Error for this dimension." << std::endl;
-    if (dim)
-    {
-        pixelCenter.x = mean;
-        pixelError.x = std;
-    }
-    else
-    {
-        pixelCenter.y = mean;
-        pixelError.y = std;
-    }       
-}
-    
-//Dying to use this. Does a least squares fit to limb crossings instead of using chord midpoints.
-//CircleFit(limbCrossings, sun);
-//pixelCenter = sun.center();
-    
-
-//std::cout << "Infinite error: " << infinite << ", Out of Bounds errors: " << outOfBounds << std::endl;
-//std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
-if (!search)
-{
-    pixelCenter.y = pixelCenter.y + (float) solarImageOffset.y;
-    pixelCenter.x = pixelCenter.x + (float) solarImageOffset.x;
-    for (int k = 0; k < limbCrossings.size(); k++)
-    {
-        limbCrossings[k].y = limbCrossings[k].y + solarImageOffset.y;
-        limbCrossings[k].x = limbCrossings[k].x + solarImageOffset.x;
-    }
-}
             
-return;
+    return;
 }
 
 void Aspect::FindPixelFiducials()
