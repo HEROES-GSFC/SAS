@@ -56,13 +56,14 @@ Transform::Transform(Location location, Environment environment)
     spa.function      = SPA_ALL;
 }
 
-void Transform::calculate(struct tm *input_time)
+void Transform::calculate(time_t seconds)
 {
-    time_t t;
-    if (input_time == NULL) {
-        time(&t);
-        input_time = gmtime(&t);
+    if (seconds == 0) {
+        time(&seconds);
     }
+
+    struct tm *input_time;
+    input_time = gmtime(&seconds);
 
     spa.timezone      = -0.0;
     spa.year          = input_time->tm_year+1900;
@@ -165,9 +166,9 @@ double Transform::getOrientation() const
     return orientation;
 }
 
-double Transform::calculateOrientation(struct tm *input_time)
+double Transform::calculateOrientation(time_t seconds)
 {
-    calculate(input_time);
+    calculate(seconds);
     return orientation;
 }
 
@@ -208,9 +209,9 @@ Pair Transform::translateAzEl(const Pair& amount, const Pair& azel)
     return Pair(outAzimuth, outElevation);
 }
 
-void Transform::report(struct tm *input_time)
+void Transform::report(time_t seconds)
 {
-    calculate(input_time);
+    calculate(seconds);
 
     std::cout << "*** Sun center ***\n";
     std::cout << "Azimuth: " << spa.azimuth << std::endl;
@@ -230,9 +231,9 @@ void Transform::report(struct tm *input_time)
     std::cout << "Angle: " << orientation << std::endl;
 }
 
-Pair Transform::calculateOffset(const Pair& sunPixel, struct tm *input_time)
+Pair Transform::calculateOffset(const Pair& sunPixel, time_t seconds)
 {
-    calculate(input_time);
+    calculate(seconds);
 
     //If we get (0,0), assume that it's not a valid Sun center, and return a "no-move" offset
     if ((sunPixel.x() == 0) && (sunPixel.y() == 0)) return Pair(0,0);

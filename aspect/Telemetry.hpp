@@ -22,6 +22,9 @@ if(!tpq.empty()) tpq >> tp;
 #ifndef _TELEMETRY_HPP_
 #define _TELEMETRY_HPP_
 
+#include <sys/time.h>
+#include <time.h>
+
 #include <list>
 #include <iostream>
 
@@ -36,7 +39,6 @@ protected:
     virtual void finish();
     virtual void writePayloadLength();
     virtual void writeChecksum();
-    virtual void writeTime();
 
 public:
     //Use this constructor when assembling a telemetry packet for sending
@@ -64,6 +66,9 @@ public:
     int getSAS(); //returns 1 or 2, throws exception otherwise
                   //also moves read pointer to after sync word
     void setSAS(int id); //only pass this 1 or 2, throws exception otherwise
+
+    void setTimeAndFinish(const struct timespec &time);
+    void setTimeAndFinish(const timeval &time);
 };
 
 class TelemetryPacketQueue : public ByteStringQueue {

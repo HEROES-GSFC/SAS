@@ -81,13 +81,6 @@ ImagePacket::ImagePacket(const void *ptr)
     //Assumes that NULL was passed in
 }
 
-void ImagePacket::setTimeAndFinish(const timeval &time)
-{
-    replace(INDEX_NANOSECONDS, (uint32_t)time.tv_usec*1000);
-    replace(INDEX_SECONDS, (uint32_t)time.tv_sec);
-    finish();
-}
-
 ImageSectionPacket::ImageSectionPacket(uint8_t camera,
                                        uint16_t xpixels, uint16_t ypixels,
                                        uint32_t offset, bool last)
@@ -254,10 +247,7 @@ void ImagePacketQueue::synchronize()
 
     if(empty()) throw iqEmptyException;
     for (ImagePacketQueue::iterator it=begin(); it != end(); ++it) {
-        //Have to go through some contortions to make sure derived finish() is called
-        im = ImagePacket(*((ImagePacket *)&(*it)));
-        im.setTimeAndFinish(now);
-        *it = im;
+        ((ImagePacket *)&(*it))->setTimeAndFinish(now);
     }
 
     unlock();

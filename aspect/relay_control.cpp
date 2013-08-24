@@ -26,6 +26,10 @@ int main()
     uint16_t packet_length;
     uint8_t *array;
 
+    //Energizing the camera-power relays by default
+    relays.setRelay(0, true);
+    relays.setRelay(1, true);
+
     while(1)
     {
         packet_length = receiver.listen();

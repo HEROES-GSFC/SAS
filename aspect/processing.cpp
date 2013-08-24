@@ -41,7 +41,11 @@ Aspect::Aspect()
     // when the sun has been found
     chordsPerAxis = 10;
 
-    chordThreshold = .25;
+    limbThreshold = .25;
+    diskThreshold = .75;
+
+    solarImageSize = solarImage.size();
+    solarImageOffset = cv::Point2i(0,0);
 
     solarRadius = 98;
     radiusMargin = .25;
@@ -60,7 +64,9 @@ Aspect::Aspect()
     // fiducialSpacing is how far apart fiducial pairs are in one axis.
     // fiducialSpacingTol is how much slack to allow on this distance
     // Value measured in lab for fiducialSpacing is 15.7
-    fiducialSpacing = 15.7;
+    // Changed back at Ft Sumner to 15.6. This is a compromise to try to
+    // account for all  collected test data up to Sun Test 4
+    fiducialSpacing = 15.6;
     fiducialSpacingTol = 1.5;
     
     fiducialTwist = 0.0;
@@ -127,9 +133,6 @@ AspectCode Aspect::LoadFrame(cv::Mat inputFrame)
 AspectCode Aspect::Run()
 {
     cv::Range rowRange, colRange;
-    cv::Mat solarImage;
-    cv::Size solarSize;
-    cv::Point offset;
     unsigned char max, min;
     limbCrossings.clear();    
     slopes.clear();    
@@ -140,7 +143,8 @@ AspectCode Aspect::Run()
     mapping.resize(4);
     conditionNumbers.clear();
     conditionNumbers.resize(2);
-    
+
+    //cv::namedWindow("ROI", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
 
     if (state == FRAME_EMPTY)
     {
@@ -212,7 +216,7 @@ AspectCode Aspect::Run()
                              frameSize.width);
 
         solarImage = frame(rowRange, colRange);
-
+        //cv::imshow("ROI", solarImage);
         if (solarImage.empty())
         {
             //std::cout << "Aspect: Solar Image too empty." << std::endl;
@@ -221,11 +225,11 @@ AspectCode Aspect::Run()
         }
         else
         {
-            solarSize = solarImage.size();
+            solarImageSize = solarImage.size();
         }
 
-        if (solarSize.width < (int) fiducialSpacing + 2*fiducialLength || 
-            solarSize.height < (int) fiducialSpacing + 2*fiducialLength)
+        if (solarImageSize.width < (int) fiducialSpacing + 2*fiducialLength ||
+            solarImageSize.height < (int) fiducialSpacing + 2*fiducialLength)
         {
             //std::cout << "Aspect: Solar Image too small." << std::endl;
             state = SOLAR_IMAGE_SMALL;
@@ -233,9 +237,9 @@ AspectCode Aspect::Run()
         }
 
         //Define offset for converting subimage locations to frame locations
-        offset = cv::Point(colRange.start, rowRange.start);
-        if (offset.x < 0 || offset.x >= (frameSize.width - solarSize.width + 1) ||
-            offset.y < 0 || offset.y >= (frameSize.height - solarSize.height + 1))
+        solarImageOffset = cv::Point(colRange.start, rowRange.start);
+        if (solarImageOffset.x < 0 || solarImageOffset.x >= (frameSize.width - solarImageSize.width + 1) ||
+            solarImageOffset.y < 0 || solarImageOffset.y >= (frameSize.height - solarImageSize.height + 1))
         {
             //std::cout << "Aspect: Solar Image Offset out of bounds." << std::endl;
             state = SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS;
@@ -244,7 +248,7 @@ AspectCode Aspect::Run()
           
         //Find fiducials
         //std::cout << "Aspect: Finding Fiducials" << std::endl;
-        FindPixelFiducials(solarImage, offset);
+        FindPixelFiducials();
         if (pixelFiducials.size() == 0)
         {
             //std::cout << "Aspect: No Fiducials found" << std::endl;
@@ -295,6 +299,130 @@ AspectCode Aspect::Run()
     return state;
 }
 
+AspectCode Aspect::FiducialRun()
+{
+
+    cv::Range rowRange, colRange;
+    unsigned char max, min;
+    limbCrossings.clear();
+    slopes.clear();
+    pixelFiducials.clear();
+    fiducialIDs.clear();
+    int validIDs = 0;
+    mapping.clear();
+    mapping.resize(4);
+    conditionNumbers.clear();
+    conditionNumbers.resize(2);
+
+    //cv::namedWindow("ROI", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
+
+    if (state == FRAME_EMPTY)
+    {
+        //std::cout << "Aspect: Frame is empty." << std::endl;
+        state = FRAME_EMPTY;
+        return state;
+    }
+    else
+    {
+        //std::cout << "Aspect: Finding max and min pixel values" << std::endl;
+        calcMinMax(frame, min, max);
+        frameMin = (unsigned char) min;
+        frameMax = (unsigned char) max;
+        if (min >= max || std::isnan(min) || std::isnan(max))
+        {
+            //std::cout << "Aspect: Max/Min value bad" << std::endl;
+            state = MIN_MAX_BAD;
+            return state;
+        }
+        else if(max - min < 32)
+        {
+            state = DYNAMIC_RANGE_LOW;
+            return state;
+        }
+
+        solarImage = frame;
+        //cv::imshow("ROI", solarImage);
+        if (solarImage.empty())
+        {
+            //std::cout << "Aspect: Solar Image too empty." << std::endl;
+            state = SOLAR_IMAGE_EMPTY;
+            return state;
+        }
+        else
+        {
+            solarImageSize = solarImage.size();
+        }
+
+        if (solarImageSize.width < (int) fiducialSpacing + 2*fiducialLength ||
+            solarImageSize.height < (int) fiducialSpacing + 2*fiducialLength)
+        {
+            //std::cout << "Aspect: Solar Image too small." << std::endl;
+            state = SOLAR_IMAGE_SMALL;
+            return state;
+        }
+
+        //Define offset for converting subimage locations to frame locations
+        solarImageOffset = cv::Point(colRange.start, rowRange.start);
+        if (solarImageOffset.x < 0 || solarImageOffset.x >= (frameSize.width - solarImageSize.width + 1) ||
+            solarImageOffset.y < 0 || solarImageOffset.y >= (frameSize.height - solarImageSize.height + 1))
+        {
+            //std::cout << "Aspect: Solar Image Offset out of bounds." << std::endl;
+            state = SOLAR_IMAGE_OFFSET_OUT_OF_BOUNDS;
+            return state;
+        }
+
+        //Find fiducials
+        //std::cout << "Aspect: Finding Fiducials" << std::endl;
+        FindPixelFiducials();
+        if (pixelFiducials.size() == 0)
+        {
+            //std::cout << "Aspect: No Fiducials found" << std::endl;
+            state = NO_FIDUCIALS;
+            return state;
+        }
+        else if (pixelFiducials.size() < 3)
+        {
+            //std::cout << "Aspect: Too Few Fiducials" << std::endl;
+            state = FEW_FIDUCIALS;
+            return state;
+        }
+
+        //Find fiducial IDs
+        //std::cout << "Aspect: Finding fiducial IDs" << std::endl;
+        FindFiducialIDs();
+        //count number of valid IDs
+        for (int k = 0; k < fiducialIDs.size(); k++)
+        {
+            if (fiducialIDs[k].x < -10 || fiducialIDs[k].y < -10) continue;
+            else validIDs++;
+        }
+
+        if (validIDs == 0)
+        {
+            //std::cout << "Aspect: No Valid IDs" << std::endl;
+            state = NO_IDS;
+            return state;
+        }
+        else if (validIDs < 3)
+        {
+            //std::cout << "Aspect: Too Few IDs" << std::endl;
+            state = FEW_IDS;
+            return state;
+        }
+
+        //std::cout << "Aspect: Finding Mapping" << std::endl;
+        FindMapping();
+        if (/*ILL CONDITIONED*/ false)
+        {
+            //std::cout << "Aspect: Mapping is ill-conditioned." << std::endl;
+            state = MAPPING_ILL_CONDITIONED;
+            return state;
+        }
+
+    }
+    state = NO_ERROR;
+    return state;
+}
 
 /****************************************************
 
@@ -447,8 +575,10 @@ float Aspect::GetFloat(AspectFloat variable)
 {
     switch(variable)
     {
-    case CHORD_THRESHOLD:
-        return chordThreshold;
+    case LIMB_THRESHOLD:
+        return limbThreshold;
+    case DISK_THRESHOLD:
+        return diskThreshold;
     case ERROR_LIMIT:
         return errorLimit;
     case RADIUS_MARGIN:
@@ -495,8 +625,11 @@ void Aspect::SetFloat(AspectFloat variable, float value)
 {
     switch(variable)
     {
-    case CHORD_THRESHOLD:
-        chordThreshold = value;
+    case LIMB_THRESHOLD:
+        limbThreshold = value;
+        break;
+    case DISK_THRESHOLD:
+        diskThreshold = value;
         break;
     case ERROR_LIMIT:
         errorLimit = value;
@@ -632,38 +765,47 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
     std::vector<int> edges;
     std::vector<bool> edgeFlag;
     std::vector<float> x, y, fit;
-    unsigned char thisValue, lastValue, pixelThreshold;
+    unsigned char thisValue, lastValue, pixelLowerThreshold, pixelUpperThreshold, pixelMax;
     int K = chord.total();
     int edgeSpread;
     int edge, min, max;
     int N;
     double fittedEdge;
 
-    float threshold = frameMin + chordThreshold*(frameMax-frameMin);
-    pixelThreshold = (unsigned char) threshold;
+    float lowerThreshold = frameMin + limbThreshold*(frameMax-frameMin);
+    float upperThreshold = frameMin + diskThreshold*(frameMax-frameMin);
+    pixelLowerThreshold = (unsigned char) lowerThreshold;
+    pixelUpperThreshold = (unsigned char) upperThreshold;
 
     //for each pixel, check if the pixel lies on a potential limb
     lastValue = (int) chord.at<unsigned char>(0);
+    pixelMax = lastValue;
     edges.clear();
     edgeFlag.clear();
     for (int k = 1; k < K; k++)
     {
         thisValue = (int) chord.at<unsigned char>(k);
-
+        if (thisValue > pixelMax)
+            pixelMax = thisValue;
         //check for a rising edge, save the index above the threshold
-        if (lastValue <= pixelThreshold && thisValue > pixelThreshold)
+        if (lastValue <= pixelLowerThreshold && thisValue > pixelLowerThreshold)
         {
             edges.push_back(k);
         }
         //check for a falling edge
-        else if(lastValue > pixelThreshold && thisValue <= pixelThreshold)
+        else if(lastValue > pixelLowerThreshold && thisValue <= pixelLowerThreshold)
         {
             edges.push_back(-(k-1));
         }
         lastValue = thisValue;
     }
 
-    if (edges.size() <= 0)
+    if (pixelMax < upperThreshold)
+    {
+        //std::cout << "Chord is too dim to be the sun." << std::endl;
+        return -1;
+    }
+    else if (edges.size() <= 0)
     {
         //std::cout << "No edges found" << std::endl;
         return -1;
@@ -684,7 +826,7 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
             edge = abs(edges[0]);
             //std::cout << "Special falling edge for " << edge << std::endl;
             edges.resize(2);
-            edges[0] = 0;
+            edges[0] = -1;
             edges[1] = -edge;
         }
         else if ((abs(edges[0]) > K-2*solarRadius) && (edges[0] > 0))
@@ -693,7 +835,7 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
             //std::cout << "Special rising edge for " << edge << std::endl;
             edges.resize(2);
             edges[0] = edge;
-            edges[1] = -(K-1);
+            edges[1] = -K;
         }
         else
             return -1;
@@ -733,22 +875,22 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
     }
     
     // at this point we're reasonably certain we've found a valid chord
-    if ((edges.size() == 2) && (edges[0] >= 0)  && (edges[1] < 0))
+    if ((edges.size() == 2) && (edges[0] >= -1)  && (edges[1] < 0))
     {
         // for each edge, perform a fit to find the limb crossing
         crossings.clear();
         for (int k = 0; k < 2; k++)
         {
-            // Throw away slope information, use just edge
-            edge = abs(edges[k]);
             // If the edge was artificially added, proceed without fitting
-            if (edge == 0 || edge == K-1)
-            {
-                crossings.push_back(edge);
-            }
+            if ((k == 0) && (edges[k] == -1)) crossings.push_back(-1);
+            else if ((k == 1) && (edges[k] == -K)) crossings.push_back(K);
+
             // Otherwise, fit a line to the edge to refine its position
             else
             {
+                // Throw away slope information, use just edge
+                edge = abs(edges[k]);
+
                 if ((edge-limbFitWidth) < 0) min = 0;
                 else min = edge-limbFitWidth;
                
@@ -769,7 +911,7 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
                     y.push_back((float) chord.at<unsigned char>(l));
                 }
                 LinearFit(x,y,fit);
-                fittedEdge = (threshold - fit[0])/fit[1] + edge;
+                fittedEdge = (lowerThreshold - fit[0])/fit[1] + edge;
                
                 if (!std::isfinite(fittedEdge))
                 {
@@ -805,6 +947,7 @@ int Aspect::FindLimbCrossings(const cv::Mat &chord, std::vector<float> &crossing
 
 void Aspect::FindPixelCenter()
 {
+    cv::Mat input;
     std::vector<int> rows, cols;
     std::vector<float> crossings, midpoints;
     float mean, std;
@@ -814,45 +957,35 @@ void Aspect::FindPixelCenter()
     infinite = 0;
     outOfBounds = 0;
 
-    Circle sun;
+    bool search = (pixelCenter.x < 0 || pixelCenter.x >= frameSize.width ||
+                   pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
+                   !std::isfinite(pixelCenter.x) || !std::isfinite(pixelCenter.y) ||
+                   solarImage.empty());
+
+    //Circle sun;
 
     rows.clear();
     cols.clear();
 
     //Determine new row and column locations for chords
     //If the past center was invalid, search the whole frame
-    if(pixelCenter.x < 0 || pixelCenter.x >= frameSize.width ||
-       pixelCenter.y < 0 || pixelCenter.y >= frameSize.height ||
-       !std::isfinite(pixelCenter.x) || !std::isfinite(pixelCenter.y))
+    if (search)
     {
-        ////std::cout << "Aspect: Finding new center" << std::endl;
+        //std::cout << "Aspect: Finding new center" << std::endl;
+        input = frame;
         limit = initialNumChords;
-
-        rowStep = frameSize.height/limit;
-        colStep = frameSize.width/limit;
+    }
+    else
+    {
+        //std::cout << "Aspect: Using old center" << std::endl;
+        input = solarImage;
+        limit = chordsPerAxis;
+    }
+        rowStep = input.rows/limit;
+        colStep = input.cols/limit;
 
         rowStart = rowStep/2;
         colStart = colStep/2;
-    }
-    //Otherwise, only use the solar subimage
-    else
-    {
-        //std::cout << "Aspect: Searching around old center" << std::endl;
-        limit = chordsPerAxis;
-        rowRange = SafeRange(pixelCenter.y - solarRadius,
-                             pixelCenter.y + solarRadius, 
-                             frameSize.height);
-
-        colRange = SafeRange(pixelCenter.x - solarRadius,
-                             pixelCenter.x + solarRadius, 
-                             frameSize.width);
-
-        rowStep = (rowRange.end - rowRange.start)/limit;
-        colStep = (colRange.end - colRange.start)/limit;
-
-        rowStart = rowRange.start + rowStep/2;
-        colStart = colRange.start + colStep/2;
-    }
 
     //Generate vectors of chord locations
     //std::cout << "Aspect: Generating chord location list" << std::endl;
@@ -883,8 +1016,8 @@ void Aspect::FindPixelCenter()
         {
             //Determine the limb crossings in that chord
             crossings.clear();
-            if (dim) error = FindLimbCrossings(frame.row(rows[k]), crossings);
-            else error = FindLimbCrossings(frame.col(cols[k]), crossings);
+            if (dim) error = FindLimbCrossings(input.row(rows[k]), crossings);
+            else error = FindLimbCrossings(input.col(cols[k]), crossings);
             
             //Skip this chord if the crossings had some error
             if (error == -1)
@@ -912,6 +1045,25 @@ void Aspect::FindPixelCenter()
             //Save the crossings if they're finite
             else if (std::isfinite(crossings[0]) && std::isfinite(crossings[1]))
             {
+                // Check if first limb is a virtual one, and reject the chord if it's not at the sensor edge
+                if (crossings[0] == -1) {
+                    //std::cout << "Crossing == -1: " << dim << " " << solarImageOffset << " " << input.size() << " " << frame.size() << std::endl;
+                    if ((dim ? (!search)*solarImageOffset.x
+                             : (!search)*solarImageOffset.y) > 0) {
+                        //std::cout << "  Reject\n";
+                        continue;
+                    }
+                }
+                // Check if second limb is a virtual one, and reject the chord if it's not at the sensor edge
+                if (crossings[1] == (dim ? input.cols : input.rows)) {
+                    //std::cout << "Crossing == K: " << dim << " " << solarImageOffset << " " << input.size() << " " << frame.size() << std::endl;
+                    if ((dim ? (!search)*solarImageOffset.x+input.cols < frame.cols
+                             : (!search)*solarImageOffset.y+input.rows < frame.rows)) {
+                        //std::cout << "  Reject\n";
+                        continue;
+                    }
+                }
+
                 for (unsigned int l = 0; l < crossings.size(); l++)
                 {
                     if (dim) limbCrossings.add(crossings[l], rows[k]);
@@ -957,34 +1109,50 @@ void Aspect::FindPixelCenter()
 
     //std::cout << "Infinite error: " << infinite << ", Out of Bounds errors: " << outOfBounds << std::endl;
     //std::cout << "Aspect: Leaving FindPixelCenter" << std::endl;
+    if (!search)
+    {
+        pixelCenter.y = pixelCenter.y + (float) solarImageOffset.y;
+        pixelCenter.x = pixelCenter.x + (float) solarImageOffset.x;
+        for (int k = 0; k < limbCrossings.size(); k++)
+        {
+            limbCrossings[k].y = limbCrossings[k].y + solarImageOffset.y;
+            limbCrossings[k].x = limbCrossings[k].x + solarImageOffset.x;
+        }
+    }
+
     return;
 }
 
-void Aspect::FindPixelFiducials(const cv::Mat &image, cv::Point offset)
+void Aspect::FindPixelFiducials()
 {
     cv::Mat input;
     cv::Scalar mean, stddev;
     cv::Size imageSize;
     cv::Mat correlation, nbhd;
     cv::Range rowRange, colRange;
+    cv::Point2f offset;
     float threshold, thisValue, thatValue, minValue;
     float Cm, Cn, average;
     int minIndex;
     bool redundant;
 
     pixelFiducials.clear();
-    image.convertTo(input, CV_32FC1);
-    correlation.create(image.size(), CV_32FC1);
+    solarImage.convertTo(input, CV_32FC1);
+    correlation.create(solarImage.size(), CV_32FC1);
 
     //cv::namedWindow("Correlation", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
     
+    min(input, frameMax, input);
+
+    //cv::normalize(input, input,0,1,cv::NORM_MINMAX);
+    //cv::imshow("Correlation", input);
+
     matchTemplate(input, kernel, correlation, CV_TM_CCORR);
 
-    offset.x += (kernel.cols/2);
-    offset.y += (kernel.rows/2);
+    offset.x = solarImageOffset.x + (kernel.cols/2);
+    offset.y = solarImageOffset.y + (kernel.rows/2);
 
-    //cv::normalize(correlation,correlation,0,1,cv::NORM_MINMAX);
-    //cv::imshow("Correlation", kernel);
+
     //cv::waitKey(0);
     cv::meanStdDev(correlation, mean, stddev);
 
@@ -1126,17 +1294,15 @@ void Aspect::FindFiducialIDs()
             rowDiff = rotatedFiducials[k].y - rotatedFiducials[l].y;
             colDiff = rotatedFiducials[k].x - rotatedFiducials[l].x;
 
-            if (fabs(rowDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
-                fabs(rowDiff) < (float) fiducialSpacing + fiducialSpacingTol && 
-                fabs(colDiff) > (float) 43 - fiducialSpacingTol &&
-                fabs(colDiff) < (float) 84 + fiducialSpacingTol)
+            if (fabs(fabs(rowDiff) - fiducialSpacing) < fiducialSpacingTol &&
+                fabs(colDiff) > (float) nDistances[7] - fiducialSpacingTol &&
+                fabs(colDiff) < (float) nDistances[0] + fiducialSpacingTol)
 
                 colPairs.push_back(cv::Point(k,l));
 
-            else if (fabs(colDiff) > (float) fiducialSpacing - fiducialSpacingTol &&
-                     fabs(colDiff) < (float) fiducialSpacing + fiducialSpacingTol && 
-                     fabs(rowDiff) > (float) 43 - fiducialSpacingTol &&
-                     fabs(rowDiff) < (float) 84 + fiducialSpacingTol)
+            else if (fabs(fabs(colDiff) - fiducialSpacing) < fiducialSpacingTol &&
+                     fabs(rowDiff) > (float) mDistances[7] - fiducialSpacingTol &&
+                     fabs(rowDiff) < (float) mDistances[0] + fiducialSpacingTol)
                 
                 rowPairs.push_back(cv::Point(k,l));
             else
