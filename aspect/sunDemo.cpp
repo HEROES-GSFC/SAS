@@ -1659,6 +1659,8 @@ void send_relay_control(uint8_t relay_number, bool on_if_true)
 
 uint16_t cmd_send_test_ctl_solution( int type )
 {
+	uint16_t error_code = 0;
+	
     int num_test_solutions = 200;
     int test_solution_azimuth[num_test_solutions] = { 1, -1, 0, 0, 1, -1, 1, -1 };
     int test_solution_elevation[num_test_solutions] = { 0, 0, 1, -1, 1, 1, -1, -1 };
@@ -1689,7 +1691,10 @@ uint16_t cmd_send_test_ctl_solution( int type )
         cp << (double)0.003; // error
         cp << (uint32_t)localSolutionTime.tv_sec; //seconds
         cp << (uint16_t)(localSolutionTime.tv_nsec/1e6+0.5); //milliseconds, rounded
-
+	}
+	// no way to check if this worked so just always send 1cmd_send_test_ctl_solution
+	error_code = 1;
+	return error_code;
 }
 
 void cmd_process_sas_command(Command &command)
