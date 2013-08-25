@@ -5,6 +5,7 @@
 
 #include <unistd.h>
 #include <iostream>
+#include <stdlib.h>
 
 #include "UDPSender.hpp"
 #include "Telemetry.hpp"
@@ -38,6 +39,8 @@ int main()
         //Housekeeping field 0 (SBC and I2C temperatures)
         tp << (uint16_t)((count % 30)+30);
 
+		float value;
+
         //Housekeeping field 1 (camera temperature, SBC voltages, and flag)
         switch (count/2 % 8) {
             case 0:
@@ -45,11 +48,24 @@ int main()
                 tp << Float2B((float)((count % 20)+20+(count/2 % 8)));
                 break;
             case 2:
+            	value = (1.05 + 0.6* (rand() / (float)RAND_MAX - 0.5)) * 500;
+            	tp << Float2B((float)value);
+            	break;
             case 3:
+            	value = (2.5 + 0.6* (rand() / (float)RAND_MAX  - 0.5)) * 500;
+            	tp << Float2B((float)value);
+            	break;
             case 4:
+            	value = (3.3 + 1.0* (rand() / (float)RAND_MAX - 0.5)) * 500;
+            	tp << Float2B((float)value);
+            	break;
             case 5:
+            	value = (5.0 + 3.2* (rand() / (float)RAND_MAX - 0.5)) * 500;
+            	tp << Float2B((float)value);
+            	break;
             case 6:
-                tp << (uint16_t)(count/2 % 8);
+                value = (12.0 + 5.2*(rand() / (float)RAND_MAX - 0.5)) * 500;
+            	tp << Float2B((float)value);
                 break;
             case 7:
                 tp << (uint16_t)true;

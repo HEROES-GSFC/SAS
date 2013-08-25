@@ -96,6 +96,8 @@
 #define SKEY_STOP_OUTPUTTING     0x0040
 #define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
+#define SKEY_CTL_TEST_CMD        0x0081
+
 
 //Operations commands for controlling relays
 #define SKEY_TURN_RELAY_ON       0x0101
@@ -249,6 +251,8 @@ void cmd_process_sas_command(Command &command);
 void *CommandHandlerThread(void *threadargs);
 void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
 uint16_t cmd_send_image_to_ground( int camera_id );
+
+uint16_t cmd_send_test_ctl_solution( int type );
 
 void *ForwardCommandsFromSAS2Thread( void *threadargs );
 void *SBCInfoThread(void *threadargs);
@@ -1470,6 +1474,9 @@ void *CommandHandlerThread(void *threadargs)
             settings[0].preampGain = (int16_t)my_data->command_vars[0];
             if( settings[0].preampGain == (int16_t)my_data->command_vars[0] ) error_code = 0;
             break;
+        case SKEY_CTL_TEST_CMD:
+             error_code = cmd_send_test_ctl_solution( my_data->command_vars[0] );
+             break;
         case SKEY_SET_PYAS_ANALOGGAIN:    // set analog gain
             settings[0].analogGain = my_data->command_vars[0];
             if( settings[0].analogGain == my_data->command_vars[0] ) error_code = 0;
@@ -1648,6 +1655,41 @@ void send_relay_control(uint8_t relay_number, bool on_if_true)
     Packet pkt((const uint8_t *)PASSPHRASE_RELAY_CONTROL, strlen(PASSPHRASE_RELAY_CONTROL));
     pkt << relay_number << (uint8_t)on_if_true;
     out.send(&pkt);
+}
+
+uint16_t cmd_send_test_ctl_solution( int type )
+{
+    int num_test_solutions = 8;
+    int test_solution_azimuth[num_test_solutions] = { 1, -1, 0, 0, 1, -1, 1, -1 };
+    int test_solution_elevation[num_test_solutions] = { 0, 0, 1, -1, 1, 1, -1, -1 };
+    for( int i = 0; i < 3; i++ ){
+    
+        timespec localSolutionTime
+        clock_gettime(CLOCK_REALTIME, &localSolutionTime);
+        // first send time of next solution
+        ctl_sequence_number++;
+        CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
+        cp << (uint16_t)HKEY_SAS_TIMESTAMP;
+        cp << (uint16_t)0x0001;             // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
+        cp << (double)(localSolutionTime.tv_sec + (double)localSolutionTime.tv_nsec/1e9);  // timestamp 
+        cm_packet_queue << cp;
+        
+        ctl_sequence_number++;
+        CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
+
+        cp << (uint16_t)HKEY_SAS_SOLUTION;
+        if (type < num_test_solutions) {
+        cp << (double)test_solution_azimuth[type]; // azimuth offset
+        cp << (double)test_solution_elevation[type]; // elevation offset
+        } else {
+            cp << (double)0; // azimuth offset
+            cp << (double)0; // elevation offset
+        }
+        cp << (double)0; // roll offset
+        cp << (double)0.003; // error
+        cp << (uint32_t)localSolutionTime.tv_sec; //seconds
+        cp << (uint16_t)(localSolutionTime.tv_nsec/1e6+0.5); //milliseconds, rounded
+
 }
 
 void cmd_process_sas_command(Command &command)
