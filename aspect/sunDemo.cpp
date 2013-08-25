@@ -2,7 +2,7 @@
 #define MAX_THREADS 30
 #define REPORT_FOCUS false
 #define LOG_PACKETS true
-#define USE_MOCK_PYAS_IMAGE true
+#define USE_MOCK_PYAS_IMAGE false
 #define MOCK_PYAS_IMAGE "/mnt/disk1/mock.fits"
 
 //Save locations for FITS files, alternates between the two locations
@@ -24,7 +24,7 @@
 //It's best if MOD_CTL and MOD_SAVE are multiples of MOD_PROCESS
 #define MOD_PROCESS 1 //process the image
 #define MOD_CTL     4 //send the processing results to CTL
-#define MOD_SAVE    20 //save the image to a local FITS file
+#define MOD_SAVE    1 //save the image to a local FITS file
 
 //Sleep settings (seconds)
 #define SLEEP_LOG_TEMPERATURE 10 // period for logging temperature locally
