@@ -1659,11 +1659,11 @@ void send_relay_control(uint8_t relay_number, bool on_if_true)
 
 uint16_t cmd_send_test_ctl_solution( int type )
 {
-    int num_test_solutions = 8;
+    int num_test_solutions = 200;
     int test_solution_azimuth[num_test_solutions] = { 1, -1, 0, 0, 1, -1, 1, -1 };
     int test_solution_elevation[num_test_solutions] = { 0, 0, 1, -1, 1, 1, -1, -1 };
-    for( int i = 0; i < 3; i++ ){
     
+    for( int i = 0; i < 200; i++ ){
         timespec localSolutionTime
         clock_gettime(CLOCK_REALTIME, &localSolutionTime);
         // first send time of next solution
@@ -1679,8 +1679,8 @@ uint16_t cmd_send_test_ctl_solution( int type )
 
         cp << (uint16_t)HKEY_SAS_SOLUTION;
         if (type < num_test_solutions) {
-        cp << (double)test_solution_azimuth[type]; // azimuth offset
-        cp << (double)test_solution_elevation[type]; // elevation offset
+        cp << (double)test_solution_azimuth[type] * (199.0-(float)i)/200.0; // azimuth offset
+        cp << (double)test_solution_elevation[type] * (199.0-(float)i)/200.0; // elevation offset
         } else {
             cp << (double)0; // azimuth offset
             cp << (double)0; // elevation offset
