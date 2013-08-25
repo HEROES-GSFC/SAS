@@ -208,7 +208,7 @@ cv::Mat frame[2]; //protected by mutexHeader
 HeaderData header[2]; //protected by mutexHeader
 
 Aspect aspect;
-Transform solarTransform(HUNTSVILLE, GROUND); //see Transform.hpp for options
+Transform solarTransform(FORT_SUMNER, GROUND); //see Transform.hpp for options
 
 CameraSettings settings[2]; //not protected!
 
@@ -1661,12 +1661,12 @@ uint16_t cmd_send_test_ctl_solution( int type )
 {
 	uint16_t error_code = 0;
 	
-    int num_test_solutions = 200;
-    int test_solution_azimuth[num_test_solutions] = { 1, -1, 0, 0, 1, -1, 1, -1 };
-    int test_solution_elevation[num_test_solutions] = { 0, 0, 1, -1, 1, 1, -1, -1 };
+    int num_test_solutions = 8;
+    int test_solution_azimuth[] = { 1, -1, 0, 0, 1, -1, 1, -1 };
+    int test_solution_elevation[] = { 0, 0, 1, -1, 1, 1, -1, -1 };
     
     for( int i = 0; i < 200; i++ ){
-        timespec localSolutionTime
+        timespec localSolutionTime;
         clock_gettime(CLOCK_REALTIME, &localSolutionTime);
         // first send time of next solution
         ctl_sequence_number++;
@@ -1677,20 +1677,20 @@ uint16_t cmd_send_test_ctl_solution( int type )
         cm_packet_queue << cp;
         
         ctl_sequence_number++;
-        CommandPacket cp(TARGET_ID_CTL, ctl_sequence_number);
+        CommandPacket cp2(TARGET_ID_CTL, ctl_sequence_number);
 
-        cp << (uint16_t)HKEY_SAS_SOLUTION;
+        cp2 << (uint16_t)HKEY_SAS_SOLUTION;
         if (type < num_test_solutions) {
-        cp << (double)test_solution_azimuth[type] * (199.0-(float)i)/200.0; // azimuth offset
-        cp << (double)test_solution_elevation[type] * (199.0-(float)i)/200.0; // elevation offset
+        cp2 << (double)test_solution_azimuth[type] * (199.0-(float)i)/200.0; // azimuth offset
+        cp2 << (double)test_solution_elevation[type] * (199.0-(float)i)/200.0; // elevation offset
         } else {
-            cp << (double)0; // azimuth offset
-            cp << (double)0; // elevation offset
+            cp2 << (double)0; // azimuth offset
+            cp2 << (double)0; // elevation offset
         }
-        cp << (double)0; // roll offset
-        cp << (double)0.003; // error
-        cp << (uint32_t)localSolutionTime.tv_sec; //seconds
-        cp << (uint16_t)(localSolutionTime.tv_nsec/1e6+0.5); //milliseconds, rounded
+        cp2 << (double)0; // roll offset
+        cp2 << (double)0.003; // error
+        cp2 << (uint32_t)localSolutionTime.tv_sec; //seconds
+        cp2 << (uint16_t)(localSolutionTime.tv_nsec/1e6+0.5); //milliseconds, rounded
 	}
 	// no way to check if this worked so just always send 1cmd_send_test_ctl_solution
 	error_code = 1;
