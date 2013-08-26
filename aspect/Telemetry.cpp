@@ -154,13 +154,6 @@ void TelemetryPacket::setTimeAndFinish(const struct timespec &time)
     finish();
 }
 
-void TelemetryPacket::setTimeAndFinish(const timeval &time)
-{
-    replace(INDEX_NANOSECONDS, (uint32_t)time.tv_usec*1000);
-    replace(INDEX_SECONDS, (uint32_t)time.tv_sec);
-    finish();
-}
-
 TelemetryPacketQueue::TelemetryPacketQueue() : filter_typeID(false), filter_sourceID(false)
 {
 }

@@ -68,7 +68,6 @@ public:
     void setSAS(int id); //only pass this 1 or 2, throws exception otherwise
 
     void setTimeAndFinish(const struct timespec &time);
-    void setTimeAndFinish(const timeval &time);
 };
 
 class TelemetryPacketQueue : public ByteStringQueue {
