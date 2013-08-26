@@ -19,7 +19,7 @@ Transform::Transform(Location location, Environment environment)
 
     solar_target = Pair(0, 0);
 
-    spa.delta_t       = 67.1116;
+    spa.delta_t       = 32.184+35-0.03975; //as of 2013 Aug 26
 
     switch(location) {
         case GREENBELT:
@@ -56,14 +56,16 @@ Transform::Transform(Location location, Environment environment)
     spa.function      = SPA_ALL;
 }
 
-void Transform::calculate(time_t seconds)
+void Transform::calculate(timespec *seconds)
 {
-    if (seconds == 0) {
-        time(&seconds);
+    timespec now;
+    if (seconds == NULL) {
+        clock_gettime(CLOCK_REALTIME, &now);
+        seconds = &now;
     }
 
     struct tm *input_time;
-    input_time = gmtime(&seconds);
+    input_time = gmtime(&seconds->tv_sec);
 
     spa.timezone      = -0.0;
     spa.year          = input_time->tm_year+1900;
@@ -73,7 +75,7 @@ void Transform::calculate(time_t seconds)
     spa.minute        = input_time->tm_min;
     spa.second        = input_time->tm_sec;
 
-    spa_calculate2(&spa, &spa2);
+    spa_calculate2(&spa, &spa2, seconds->tv_nsec);
 
     elevation = 90.-spa.zenith;
     elevation2 = 90.-spa2.zenith;
@@ -155,10 +157,13 @@ Pair Transform::getAngularShift(const Pair& sunPixel)
     double magnitudeAngle = rad2deg(atan2(magnitudeScreen/1000, distance/25.4));
 
     //Direction is clockwise from +Y in screen coordinates
-    double direction = atan2(shiftScreen.x(), shiftScreen.y()) * 180/PI;
+    double direction = rad2deg(atan2(shiftScreen.x(), shiftScreen.y()));
 
-    //return direction as CW from "up" in optical bench coordinates
-    return Pair(magnitudeAngle, direction+clocking);
+    //Direction+clocking gives rotation CW from "up" in optical bench
+    //  coordinates, when looking from the front towards the screen
+    //Multiply by -1 to give rotation CW from "up" when looking in the
+    //  pointing direction
+    return Pair(magnitudeAngle, -(direction+clocking));
 }
 
 double Transform::getOrientation() const
@@ -166,7 +171,7 @@ double Transform::getOrientation() const
     return orientation;
 }
 
-double Transform::calculateOrientation(time_t seconds)
+double Transform::calculateOrientation(timespec *seconds)
 {
     calculate(seconds);
     return orientation;
@@ -209,7 +214,7 @@ Pair Transform::translateAzEl(const Pair& amount, const Pair& azel)
     return Pair(outAzimuth, outElevation);
 }
 
-void Transform::report(time_t seconds)
+void Transform::report(timespec *seconds)
 {
     calculate(seconds);
 
@@ -231,7 +236,7 @@ void Transform::report(time_t seconds)
     std::cout << "Angle: " << orientation << std::endl;
 }
 
-Pair Transform::calculateOffset(const Pair& sunPixel, time_t seconds)
+Pair Transform::calculateOffset(const Pair& sunPixel, timespec *seconds)
 {
     calculate(seconds);
 
@@ -254,7 +259,7 @@ Pair result(angularShift.x()*sin(angularShift.y()*PI/180), angularShift.x()*cos(
     return result;
 }
 
-int spa_calculate2(spa_data *spa, spa_data *spa2)
+int spa_calculate2(spa_data *spa, spa_data *spa2, long nanoseconds)
 {
     //Code adapated from spa_calculate
     int result;
@@ -265,6 +270,7 @@ int spa_calculate2(spa_data *spa, spa_data *spa2)
     {
         spa->jd = julian_day (spa->year, spa->month,  spa->day,
                               spa->hour, spa->minute, spa->second, spa->timezone);
+        spa->jd += nanoseconds/1.e9/86400.;
 
         //Begin code adapted from calculate_geocentric_sun_right_ascension_and_declination
         double x[TERM_X_COUNT];
