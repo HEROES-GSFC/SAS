@@ -67,6 +67,7 @@ public:
                   //also moves read pointer to after sync word
     void setSAS(int id); //only pass this 1 or 2, throws exception otherwise
 
+    void setTimeAndFinish();
     void setTimeAndFinish(const struct timespec &time);
 };
 

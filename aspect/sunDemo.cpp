@@ -610,7 +610,7 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
         {
             case NO_ERROR:
                 solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
-                localOffset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y), &argHeader.captureTime);
+                localOffset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y), argHeader.captureTime);
                 argHeader.northAngle = solarTransform.getOrientation();
 
                 argHeader.CTLsolution[0] = localOffset.x();
@@ -683,7 +683,7 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
         }
 
         if (GeneralizeError(runResult) != NO_ERROR) {
-            argHeader.northAngle = solarTransform.calculateOrientation(&argHeader.captureTime);
+            argHeader.northAngle = solarTransform.calculateOrientation(argHeader.captureTime);
         }
 
         argHeader.isTracking = isTracking;
