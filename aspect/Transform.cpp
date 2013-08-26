@@ -19,7 +19,7 @@ Transform::Transform(Location location, Environment environment)
 
     solar_target = Pair(0, 0);
 
-    spa.delta_t       = 67.1116;
+    spa.delta_t       = 32.184+35-0.03975; //as of 2013 Aug 26
 
     switch(location) {
         case GREENBELT:

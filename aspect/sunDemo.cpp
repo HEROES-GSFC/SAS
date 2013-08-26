@@ -1662,13 +1662,13 @@ void send_relay_control(uint8_t relay_number, bool on_if_true)
 
 uint16_t cmd_send_test_ctl_solution( int type )
 {
-	uint16_t error_code = 0;
-	float num_solutions_to_send = 60;
-	
+    uint16_t error_code = 0;
+    float num_solutions_to_send = 60;
+
     int num_test_solutions = 8;
     int test_solution_azimuth[] = { 1, -1, 0, 0, 1, -1, 1, -1 };
     int test_solution_elevation[] = { 0, 0, 1, -1, 1, 1, -1, -1 };
-    
+
     for( int i = 0; i < num_solutions_to_send; i++ ){
         timespec localSolutionTime;
         clock_gettime(CLOCK_REALTIME, &localSolutionTime);
@@ -1679,7 +1679,7 @@ uint16_t cmd_send_test_ctl_solution( int type )
         cp << (uint16_t)0x0001; // Camera ID (=1 for SAS, irrespective which SAS is providing solutions) 
         cp << (double)(localSolutionTime.tv_sec + (double)localSolutionTime.tv_nsec/1e9);  // timestamp 
         cm_packet_queue << cp;
-        
+
         ctl_sequence_number++;
         CommandPacket cp2(TARGET_ID_CTL, ctl_sequence_number);
 
@@ -1697,10 +1697,10 @@ uint16_t cmd_send_test_ctl_solution( int type )
         cp2 << (uint16_t)(localSolutionTime.tv_nsec/1e6+0.5); //milliseconds, rounded
         cm_packet_queue << cp2;
         sleep(1);
-	}
-	// no way to check if this worked so just always send 1cmd_send_test_ctl_solution
-	error_code = 1;
-	return error_code;
+    }
+    // no way to check if this worked so just always send 1
+    error_code = 1;
+    return error_code;
 }
 
 void cmd_process_sas_command(Command &command)
