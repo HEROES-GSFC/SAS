@@ -1016,8 +1016,7 @@ void *TelemetryPackagerThread(void *threadargs)
         if (localHeaders[0].captureTime.tv_sec != 0) {
             tp.setTimeAndFinish(localHeaders[0].captureTime);
         } else {
-            clock_gettime(CLOCK_REALTIME, &systemTime);
-            tp.setTimeAndFinish(systemTime);
+            tp.setTimeAndFinish();
         }
 
         //add telemetry packet to the queue if not being suppressed
@@ -1062,6 +1061,7 @@ void *CommandListenerThread(void *threadargs)
                 // add command ack packet
                 TelemetryPacket ack_tp(TM_ACK_RECEIPT, SOURCE_ID_SAS);
                 ack_tp << command_sequence_number;
+                ack_tp.setTimeAndFinish();
                 tm_packet_queue << ack_tp;
             }
 
@@ -1226,6 +1226,7 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
     ack_tp << command_sequence_number;
     ack_tp << latest_sas_command_key;
     ack_tp << error_code;
+    ack_tp.setTimeAndFinish();
     tm_packet_queue << ack_tp;
 }
 
