@@ -155,10 +155,13 @@ Pair Transform::getAngularShift(const Pair& sunPixel)
     double magnitudeAngle = rad2deg(atan2(magnitudeScreen/1000, distance/25.4));
 
     //Direction is clockwise from +Y in screen coordinates
-    double direction = atan2(shiftScreen.x(), shiftScreen.y()) * 180/PI;
+    double direction = rad2deg(atan2(shiftScreen.x(), shiftScreen.y()));
 
-    //return direction as CW from "up" in optical bench coordinates
-    return Pair(magnitudeAngle, direction+clocking);
+    //Direction+clocking gives rotation CW from "up" in optical bench
+    //  coordinates, when looking from the front towards the screen
+    //Multiply by -1 to give rotation CW from "up" when looking in the
+    //  pointing direction
+    return Pair(magnitudeAngle, -(direction+clocking));
 }
 
 double Transform::getOrientation() const
