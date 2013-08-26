@@ -73,7 +73,7 @@ public:
               Environment environment = GROUND);
 
     //This function must be called sometime before any get* methods
-    void calculate(time_t seconds);
+    void calculate(timespec *seconds);
 
     //These functions return the azimuth/elevation of points of interest
     Pair getSunAzEl(); // Sun center
@@ -83,9 +83,9 @@ public:
     double getOrientation() const;
 
     //These three methods *do* call calculate() internally
-    void report(time_t seconds = 0);
-    Pair calculateOffset(const Pair& sunPixel, time_t seconds = 0);
-    double calculateOrientation(time_t seconds = 0);
+    void report(timespec *seconds = NULL);
+    Pair calculateOffset(const Pair& sunPixel, timespec *seconds = NULL);
+    double calculateOrientation(timespec *seconds = NULL);
 
     void set_conversion(const Pair& intercept, const Pair& slope);
     void set_calibrated_center(const Pair& arg);
@@ -98,7 +98,7 @@ public:
 };
 
 //Follows the scheme in spa.c but extends the calculation
-int spa_calculate2(spa_data *spa, spa_data *spa2);
+int spa_calculate2(spa_data *spa, spa_data *spa2, long nanoseconds = 0);
 
 
 #endif
