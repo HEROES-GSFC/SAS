@@ -103,6 +103,9 @@ test_relays: test_relays.cpp $(RELAYS)
 pmm/%.o: pmm/%.cpp pmm/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ $(DSCUD_LIBS) $(THREAD)
 
+PointingTest: PointingTest.cpp $(ASPECT) utilities.o compression.o Transform.o types.o $(PACKET)
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
+
 #This pattern is for any of Alex's weird test programs
 $(TESTS): % : %.cpp utilities.o $(ASPECT) compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
