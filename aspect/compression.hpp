@@ -1,5 +1,6 @@
 #include "opencv.hpp"
 #include "utilities.hpp"
+#include "AspectError.hpp"
 #include <string>
 #include <ctime>
 
