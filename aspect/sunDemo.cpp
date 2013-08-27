@@ -262,7 +262,6 @@ void identifySAS();
 uint16_t get_disk_usage( uint16_t disk );
 void send_shutdown();
 void send_relay_control(uint8_t relay_number, bool on_if_true);
-uint8_t build_status_bitfield( void );
 
 template <class T>
 bool set_if_different(T& variable, T value); //returns true if the value is different
@@ -347,17 +346,6 @@ void *PYASCameraThread( void *threadargs)
 void *RASCameraThread( void *threadargs)
 {
     return CameraThread(threadargs, 1);
-}
-
-uint8_t build_status_bitfield( void )
-{
-    uint8_t result = 0xff;
-    result = (uint8_t) isTracking << 7;
-    result += (uint8_t) isSunFound << 6;
-    result += (uint8_t) isOutputting << 5;
-    result += (uint8_t) isClockSynced << 4;
-    result += (uint8_t) aspect_error_code & 0x0f;
-    return result;
 }
 
 void *CameraThread( void * threadargs, int camera_id)
@@ -573,7 +561,7 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
     {
         aspect.LoadFrame(argFrame);
 
-        runResult = aspect.Run();
+        argHeader.runResult = runResult = aspect.Run();
 
         switch(GeneralizeError(runResult))
         {
@@ -903,8 +891,14 @@ void *TelemetryPackagerThread(void *threadargs)
         TelemetryPacket tp(TM_SAS_GENERIC, SOURCE_ID_SAS);
         tp.setSAS(sas_id);
         tp << (uint32_t)tm_frame_sequence_number;
-        uint8_t status_bitfield = build_status_bitfield();
+
+        uint8_t status_bitfield = 0;
+        bitwrite(&status_bitfield, 7, 1, localHeaders[0].isTracking);
+        bitwrite(&status_bitfield, 6, 1, isSunFound);
+        bitwrite(&status_bitfield, 5, 1, localHeaders[0].isOutputting);
+        bitwrite(&status_bitfield, 0, 5, localHeaders[0].runResult);
         tp << (uint8_t)status_bitfield;
+
         tp << (uint16_t)latest_sas_command_key;
 
         if(pthread_mutex_trylock(&mutexHeader[0]) == 0) {
@@ -960,7 +954,7 @@ void *TelemetryPackagerThread(void *threadargs)
                 housekeeping1[which] = housekeeping2[which] = 0;
                 break;
             case 7:
-                tp << (uint16_t)0xffff;
+                tp << (uint16_t)isClockSynced;
                 tp << (uint16_t)isSavingImages;
                 break;
             default:
@@ -1010,6 +1004,15 @@ void *TelemetryPackagerThread(void *threadargs)
         //Tacking on the offset numbers intended for CTL as floats
         tp << (float)(localHeaders[0].CTLsolution[0]);
         tp << (float)(localHeaders[0].CTLsolution[1]);
+
+        //Fiduical IDs (currently 6)
+        //7 is added to the ID number (Which ranges from -7 to 7)
+        for(uint8_t j = 0; j < 6; j++) {
+            uint8_t temp = 0;
+            bitwrite(&temp, 0, 4, localHeaders[0].fiducialIDX[j]+7);
+            bitwrite(&temp, 4, 4, localHeaders[0].fiducialIDY[j]+7);
+            tp << (uint8_t)temp;
+        }
 
         if (localHeaders[0].captureTime.tv_sec != 0) {
             tp.setTimeAndFinish(localHeaders[0].captureTime);

@@ -177,7 +177,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
             tag[5] = 'X';
             pFits->pHDU().addKey(tag, (float)keys.fiducialX[j], "");
             tag[5] = 'Y';
-        pFits->pHDU().addKey(tag, (float)keys.fiducialY[j], "");
+            pFits->pHDU().addKey(tag, (float)keys.fiducialY[j], "");
         }
 
         //Fiducial IDs
@@ -185,9 +185,9 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
             char tag[9];
             sprintf(tag, "FID%1dID_-", j);
             tag[7] = 'X';
-            pFits->pHDU().addKey(tag, (int)keys.fiducialX[j], "");
+            pFits->pHDU().addKey(tag, (int)keys.fiducialIDX[j], "");
             tag[7] = 'Y';
-        pFits->pHDU().addKey(tag, (int)keys.fiducialY[j], "");
+            pFits->pHDU().addKey(tag, (int)keys.fiducialIDY[j], "");
         }
 
         pFits->pHDU().addKey("LIMB_NUM", keys.limbCount, "Number of limbs");
