@@ -1011,6 +1011,15 @@ void *TelemetryPackagerThread(void *threadargs)
         tp << (float)(localHeaders[0].CTLsolution[0]);
         tp << (float)(localHeaders[0].CTLsolution[1]);
 
+        //Fiduical IDs (currently 6)
+        //7 is added to the ID number (Which ranges from -7 to 7)
+        for(uint8_t j = 0; j < 6; j++) {
+            uint8_t temp;
+            bitwrite(&temp, 0, 4, localHeaders[0].fiducialIDX[j]+7);
+            bitwrite(&temp, 4, 4, localHeaders[0].fiducialIDY[j]+7);
+            tp << (uint8_t)temp;
+        }
+
         if (localHeaders[0].captureTime.tv_sec != 0) {
             tp.setTimeAndFinish(localHeaders[0].captureTime);
         } else {
