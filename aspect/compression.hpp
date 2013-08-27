@@ -36,6 +36,8 @@ struct HeaderData
     bool isTracking;
     bool isOutputting;
 
+    AspectCode runResult;
+
     float solarTarget[2];
     double northAngle;
     float clockingAngle;

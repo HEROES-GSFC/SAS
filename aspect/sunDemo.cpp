@@ -262,7 +262,6 @@ void identifySAS();
 uint16_t get_disk_usage( uint16_t disk );
 void send_shutdown();
 void send_relay_control(uint8_t relay_number, bool on_if_true);
-uint8_t build_status_bitfield( void );
 
 template <class T>
 bool set_if_different(T& variable, T value); //returns true if the value is different
@@ -347,17 +346,6 @@ void *PYASCameraThread( void *threadargs)
 void *RASCameraThread( void *threadargs)
 {
     return CameraThread(threadargs, 1);
-}
-
-uint8_t build_status_bitfield( void )
-{
-    uint8_t result = 0xff;
-    result = (uint8_t) isTracking << 7;
-    result += (uint8_t) isSunFound << 6;
-    result += (uint8_t) isOutputting << 5;
-    result += (uint8_t) isClockSynced << 4;
-    result += (uint8_t) aspect_error_code & 0x0f;
-    return result;
 }
 
 void *CameraThread( void * threadargs, int camera_id)
@@ -573,7 +561,7 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
     {
         aspect.LoadFrame(argFrame);
 
-        runResult = aspect.Run();
+        argHeader.runResult = runResult = aspect.Run();
 
         switch(GeneralizeError(runResult))
         {
@@ -903,8 +891,15 @@ void *TelemetryPackagerThread(void *threadargs)
         TelemetryPacket tp(TM_SAS_GENERIC, SOURCE_ID_SAS);
         tp.setSAS(sas_id);
         tp << (uint32_t)tm_frame_sequence_number;
-        uint8_t status_bitfield = build_status_bitfield();
+
+        uint8_t status_bitfield;
+        bitwrite(&status_bitfield, 7, 1, localHeader[0].isTracking);
+        bitwrite(&status_bitfield, 6, 1, isSunFound);
+        bitwrite(&status_bitfield, 5, 1, localHeader[0].isOutputting);
+        bitwrite(&status_bitfield, 4, 1, isClockSynced);
+        bitwrite(&status_bitfield, 0, 4, localHeader[0].runResult);
         tp << (uint8_t)status_bitfield;
+
         tp << (uint16_t)latest_sas_command_key;
 
         if(pthread_mutex_trylock(&mutexHeader[0]) == 0) {
