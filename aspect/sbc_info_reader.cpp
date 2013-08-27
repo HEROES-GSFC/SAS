@@ -32,13 +32,13 @@ int main()
         packet >> ntp_drift;
         packet >> ntp_offset_ms;
         packet >> ntp_stability;
-        
+
         printf("CPU temperature: %d deg C    Voltages: %5.3f V | %5.3f V | %5.3f V | %5.3f V | %5.2f V\n", sbc_temperature, sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120);
         printf("    I2C temperatures (deg C): ");
         for (int i=0; i<7; i++) printf("%d, ", i2c_temperatures[i]);
         printf("%d\n", i2c_temperatures[7]);
         printf("NTP info: %f (offset ms), %f (stability), %f (drift)\n", ntp_offset_ms, ntp_stability, ntp_drift);
-        
+
         delete array;
     }
 

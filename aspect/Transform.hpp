@@ -5,7 +5,9 @@
   Azimuth is defined as eastward from North
   Elevation is defined as poleward from horizontal
 
-  To specify a particular time, some methods accept a time_t value
+  All methods except report() requires the time to be explicitly specified
+
+  To specify a particular time, use the timespec struct: tv_sec and tv_nsec
     Under most implementations, should be seconds since 1970 Jan 1 UT
     Use time() or clock_gettime() to retrieve
     If you have a tm struct, use mktime() to convert to time_t
@@ -73,7 +75,7 @@ public:
               Environment environment = GROUND);
 
     //This function must be called sometime before any get* methods
-    void calculate(timespec *seconds);
+    void calculate(const struct timespec &seconds);
 
     //These functions return the azimuth/elevation of points of interest
     Pair getSunAzEl(); // Sun center
@@ -82,10 +84,11 @@ public:
 
     double getOrientation() const;
 
-    //These three methods *do* call calculate() internally
-    void report(timespec *seconds = NULL);
-    Pair calculateOffset(const Pair& sunPixel, timespec *seconds = NULL);
-    double calculateOrientation(timespec *seconds = NULL);
+    //These four methods *do* call calculate() internally
+    void report();
+    void report(const struct timespec &seconds);
+    Pair calculateOffset(const Pair& sunPixel, const struct timespec &seconds);
+    double calculateOrientation(const struct timespec &seconds);
 
     void set_conversion(const Pair& intercept, const Pair& slope);
     void set_calibrated_center(const Pair& arg);

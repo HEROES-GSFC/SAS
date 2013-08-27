@@ -610,7 +610,7 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
         {
             case NO_ERROR:
                 solarTransform.set_conversion(Pair(localMapping[0],localMapping[2]),Pair(localMapping[1],localMapping[3]));
-                localOffset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y), &argHeader.captureTime);
+                localOffset = solarTransform.calculateOffset(Pair(localPixelCenter.x,localPixelCenter.y), argHeader.captureTime);
                 argHeader.northAngle = solarTransform.getOrientation();
 
                 argHeader.CTLsolution[0] = localOffset.x();
@@ -683,7 +683,7 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
         }
 
         if (GeneralizeError(runResult) != NO_ERROR) {
-            argHeader.northAngle = solarTransform.calculateOrientation(&argHeader.captureTime);
+            argHeader.northAngle = solarTransform.calculateOrientation(argHeader.captureTime);
         }
 
         argHeader.isTracking = isTracking;
@@ -892,8 +892,6 @@ void *TelemetryPackagerThread(void *threadargs)
     HeaderData localHeaders[2];
     Sensors localSensors;
 
-    timespec systemTime; //used if there isn't a capture time in the header
-
     float housekeeping1[7], housekeeping2[7];
     for (int j = 0; j < 7; j++) housekeeping1[j] = housekeeping2[j] = 0;
 
@@ -1016,8 +1014,7 @@ void *TelemetryPackagerThread(void *threadargs)
         if (localHeaders[0].captureTime.tv_sec != 0) {
             tp.setTimeAndFinish(localHeaders[0].captureTime);
         } else {
-            clock_gettime(CLOCK_REALTIME, &systemTime);
-            tp.setTimeAndFinish(systemTime);
+            tp.setTimeAndFinish();
         }
 
         //add telemetry packet to the queue if not being suppressed
@@ -1062,6 +1059,7 @@ void *CommandListenerThread(void *threadargs)
                 // add command ack packet
                 TelemetryPacket ack_tp(TM_ACK_RECEIPT, SOURCE_ID_SAS);
                 ack_tp << command_sequence_number;
+                ack_tp.setTimeAndFinish();
                 tm_packet_queue << ack_tp;
             }
 
@@ -1226,6 +1224,7 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
     ack_tp << command_sequence_number;
     ack_tp << latest_sas_command_key;
     ack_tp << error_code;
+    ack_tp.setTimeAndFinish();
     tm_packet_queue << ack_tp;
 }
 
@@ -1663,7 +1662,7 @@ void send_relay_control(uint8_t relay_number, bool on_if_true)
 uint16_t cmd_send_test_ctl_solution( int type )
 {
     uint16_t error_code = 0;
-    float num_solutions_to_send = 60;
+    float num_solutions_to_send = 120;
 
     int num_test_solutions = 8;
     int test_solution_azimuth[] = { 1, -1, 0, 0, 1, -1, 1, -1 };
@@ -1685,8 +1684,10 @@ uint16_t cmd_send_test_ctl_solution( int type )
 
         cp2 << (uint16_t)HKEY_SAS_SOLUTION;
         if (type < num_test_solutions) {
-        cp2 << (double)test_solution_azimuth[type] * (num_solutions_to_send-(float)i-1)/num_solutions_to_send * 0.5; // azimuth offset
-        cp2 << (double)test_solution_elevation[type] * (num_solutions_to_send-(float)i-1)/num_solutions_to_send * 0.5; // elevation offset
+        //cp2 << (double)test_solution_azimuth[type] * (num_solutions_to_send-(float)i-1)/num_solutions_to_send * 0.5; // azimuth offset
+        //cp2 << (double)test_solution_elevation[type] * (num_solutions_to_send-(float)i-1)/num_solutions_to_send * 0.5; // elevation offset
+        cp2 << (double)test_solution_azimuth[type] * 0.5; // azimuth offset
+        cp2 << (double)test_solution_elevation[type] * 0.5; // elevation offset
         } else {
             cp2 << (double)0; // azimuth offset
             cp2 << (double)0; // elevation offset

@@ -32,7 +32,7 @@ int main()
     int32_t ctl_res, rd_res;
     float ntp_day, ntp_drift, ntp_seconds, ntp_offset_s, ntp_offset_ms, ntp_est_error, ntp_stability, ntp_poll_intval;
     FILE *ntp_file;
-    
+
     if (iopl(3)) {
         std::cerr << "Failed to get I/O access permissions!\n";
         return 1;
@@ -40,11 +40,6 @@ int main()
 
     if ((file = open("/dev/i2c-0", O_RDWR)) < 0) {
         std::cerr << "Failed to access /dev/i2c-0!\n";
-        return 1;
-    }
-    
-    if ((ntp_file = fopen("/mnt/disk2/ntp/loops", "rb")) == NULL){
-        std::cerr << "Failed to access /mnt/disk2/ntp/loops!\n";
         return 1;
     }
 
@@ -71,16 +66,21 @@ int main()
         outb(0x24, EC_INDEX);
         p12v0 = (inb(EC_DATA)*1600)/255;
 
-        
-        fseek(ntp_file, -max_len, SEEK_END);            
-        fread(buff, max_len-1, 1, ntp_file);            
+        if ((ntp_file = fopen("/mnt/disk2/ntp/loops", "rb")) == NULL){
+            std::cerr << "Failed to access /mnt/disk2/ntp/loops!\n";
+        } else {
+            fseek(ntp_file, -max_len, SEEK_END);
+            fread(buff, max_len-1, 1, ntp_file);
 
-        buff[max_len-1] = '\0';                   
-        char *last_newline = strrchr(buff, '\n'); 
-        char *last_line = last_newline+1;         
-        sscanf (last_line, "%f %f %f %f %f %f %f", &ntp_day, &ntp_seconds, &ntp_offset_s, &ntp_drift, &ntp_est_error, &ntp_stability, &ntp_poll_intval);
-        ntp_offset_ms = ntp_offset_s * 1000;
-        
+            buff[max_len-1] = '\0';
+            char *last_newline = strrchr(buff, '\n');
+            char *last_line = last_newline+1;
+            sscanf (last_line, "%f %f %f %f %f %f %f", &ntp_day, &ntp_seconds, &ntp_offset_s, &ntp_drift, &ntp_est_error, &ntp_stability, &ntp_poll_intval);
+            ntp_offset_ms = ntp_offset_s * 1000;
+
+            fclose(ntp_file);
+        }
+
         for (i=0;i<=7;i++)
         {
             curaddr = I2C_ADDR + i;
@@ -104,7 +104,7 @@ int main()
         packet << (float) ntp_drift;
         packet << (float) ntp_offset_ms;
         packet << (float) ntp_stability;
-        
+
         //std::cout << packet << std::endl;
         sender.send(&packet);
 
@@ -112,7 +112,6 @@ int main()
     }
 
     close(file);
-    fclose(ntp_file);                               
 
     return 0;
 }
