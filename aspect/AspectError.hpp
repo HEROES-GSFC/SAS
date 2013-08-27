@@ -1,3 +1,6 @@
+#ifndef _ASPECTERROR_HPP_
+#define _ASPECTERROR_HPP_
+
 //Codes returned by the Aspect module.
 //   A code of 0 indicates error. Codes are ranked by increasing severity:
 //   MAPPING_ERROR has a lower value than FRAME_EMPTY because a missing
@@ -47,3 +50,5 @@ AspectCode GeneralizeError(AspectCode code);
 
 //  Translates an error code into a human-readable message
 const char * GetMessage(const AspectCode& code);
+
+#endif

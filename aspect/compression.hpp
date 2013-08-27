@@ -1,5 +1,6 @@
 #include "opencv.hpp"
 #include "utilities.hpp"
+#include "AspectError.hpp"
 #include <string>
 #include <ctime>
 
@@ -35,6 +36,8 @@ struct HeaderData
     float cpuVoltage[5];
     bool isTracking;
     bool isOutputting;
+
+    AspectCode runResult;
 
     float solarTarget[2];
     double northAngle;
