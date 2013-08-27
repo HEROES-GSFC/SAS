@@ -161,4 +161,15 @@ namespace pkt
     std::ostream& reset(std::ostream& os);
 }
 
+//Unlike Linux, OS X does not have a clock_gettime() function in time.h
+//Here is a wrapper for gettimeofday() in sys/time.h to allow compilation
+#if __DARWIN_UNIX03
+
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 1
+
+int clock_gettime(int clk_id, struct timespec *tp);
+
+#endif
+
 #endif

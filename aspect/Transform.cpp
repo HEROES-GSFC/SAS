@@ -56,16 +56,10 @@ Transform::Transform(Location location, Environment environment)
     spa.function      = SPA_ALL;
 }
 
-void Transform::calculate(timespec *seconds)
+void Transform::calculate(const struct timespec &seconds)
 {
-    timespec now;
-    if (seconds == NULL) {
-        clock_gettime(CLOCK_REALTIME, &now);
-        seconds = &now;
-    }
-
     struct tm *input_time;
-    input_time = gmtime(&seconds->tv_sec);
+    input_time = gmtime(&seconds.tv_sec);
 
     spa.timezone      = -0.0;
     spa.year          = input_time->tm_year+1900;
@@ -75,7 +69,7 @@ void Transform::calculate(timespec *seconds)
     spa.minute        = input_time->tm_min;
     spa.second        = input_time->tm_sec;
 
-    spa_calculate2(&spa, &spa2, seconds->tv_nsec);
+    spa_calculate2(&spa, &spa2, seconds.tv_nsec);
 
     elevation = 90.-spa.zenith;
     elevation2 = 90.-spa2.zenith;
@@ -171,7 +165,7 @@ double Transform::getOrientation() const
     return orientation;
 }
 
-double Transform::calculateOrientation(timespec *seconds)
+double Transform::calculateOrientation(const struct timespec &seconds)
 {
     calculate(seconds);
     return orientation;
@@ -214,7 +208,14 @@ Pair Transform::translateAzEl(const Pair& amount, const Pair& azel)
     return Pair(outAzimuth, outElevation);
 }
 
-void Transform::report(timespec *seconds)
+void Transform::report()
+{
+    timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+    report(now);
+}
+
+void Transform::report(const struct timespec &seconds)
 {
     calculate(seconds);
 
@@ -236,7 +237,7 @@ void Transform::report(timespec *seconds)
     std::cout << "Angle: " << orientation << std::endl;
 }
 
-Pair Transform::calculateOffset(const Pair& sunPixel, timespec *seconds)
+Pair Transform::calculateOffset(const Pair& sunPixel, const struct timespec &seconds)
 {
     calculate(seconds);
 

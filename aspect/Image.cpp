@@ -181,8 +181,8 @@ void ImagePacketQueue::add_array(uint8_t camera,
     uint16_t last_length = xpixels*ypixels - (nsections-1)*SECTION_MAX_PIXELS;
     bool last = false;
 
-    timeval now;
-    gettimeofday(&now, NULL);
+    timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
 
     for (uint16_t i=0; i<nsections; i++) {
         last = (i == nsections-1);
@@ -238,8 +238,8 @@ void ImagePacketQueue::reassembleTo(uint8_t &camera,
 
 void ImagePacketQueue::synchronize()
 {
-    timeval now;
-    gettimeofday(&now, NULL);
+    timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
 
     ImagePacket im(NULL);
 

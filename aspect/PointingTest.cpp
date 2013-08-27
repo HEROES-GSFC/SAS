@@ -296,7 +296,7 @@ int main(int argc, char* argv[])
                 if (runResult == 0) {
                     solarTransform.set_conversion(Pair(mapping[0],mapping[2]),
                                                   Pair(mapping[1],mapping[3]));
-                    solution = solarTransform.calculateOffset(Pair(center.x,center.y),&keys.captureTime);
+                    solution = solarTransform.calculateOffset(Pair(center.x,center.y),keys.captureTime);
                     screenCenter = solarTransform.getPointingAzEl(Pair(center.x,center.y));
                     csvPointing << solution.x() << ";" << solution.y() << ";";
                     csvPointing << solarTransform.getSunAzEl().x() << ";" << solarTransform.getSunAzEl().y() << ";";

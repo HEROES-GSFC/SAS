@@ -147,16 +147,16 @@ void TelemetryPacket::setSAS(int id)
     } else throw tpSASException;
 }
 
+void TelemetryPacket::setTimeAndFinish()
+{
+    timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+    setTimeAndFinish(now);
+}
+
 void TelemetryPacket::setTimeAndFinish(const struct timespec &time)
 {
     replace(INDEX_NANOSECONDS, (uint32_t)time.tv_nsec);
-    replace(INDEX_SECONDS, (uint32_t)time.tv_sec);
-    finish();
-}
-
-void TelemetryPacket::setTimeAndFinish(const timeval &time)
-{
-    replace(INDEX_NANOSECONDS, (uint32_t)time.tv_usec*1000);
     replace(INDEX_SECONDS, (uint32_t)time.tv_sec);
     finish();
 }
