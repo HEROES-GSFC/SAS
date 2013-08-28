@@ -154,6 +154,9 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
         pFits->pHDU().addKey("F_TRACK", (bool)keys.isTracking, "Is SAS currently tracking?");
         pFits->pHDU().addKey("F_OUTPUT", (bool)keys.isOutputting, "Is this SAS outputting to CTL?");
 
+        pFits->pHDU().addKey("GPS_LAT", (float)keys.latitude, "GPS latitude (degrees)");
+        pFits->pHDU().addKey("GPS_LON", (float)keys.longitude, "GPS longitude (degrees)");
+
         pFits->pHDU().addKey("TARGET_X", (float)keys.solarTarget[0], "Intended target in HPC (arcsec)"); 
         pFits->pHDU().addKey("TARGET_Y", (float)keys.solarTarget[1], "Intended target in HPC (arcsec)"); 
         pFits->pHDU().addKey("CLOCKANG", (float)keys.clockingAngle, "CCW angle from screen +Y to vertical"); 

@@ -80,6 +80,8 @@ uint16_t Command::lookup_payload_length(uint16_t heroes_cm, uint16_t sas_cm)
         return 2;
     case 0x1104:
         return 10;
+    case 0x000A:
+        return 8;
     
     default:
         throw cmUnknownException;

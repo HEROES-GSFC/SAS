@@ -39,6 +39,8 @@ struct HeaderData
 
     AspectCode runResult;
 
+    float latitude;
+    float longitude;
     float solarTarget[2];
     double northAngle;
     float clockingAngle;
