@@ -11,9 +11,17 @@
 #define AVI 0
 #define CSV 1
 
+//Calibrated parameters
 #define CLOCKING_ANGLE_PYASF -33.26
+#define CENTER_X_PYASF 0
+#define CENTER_Y_PYASF 0
+#define TWIST_PYASF 180.0
 #define CLOCKING_ANGLE_PYASR -53.26
-#define CLOCKING_ANGLE CLOCKING_ANGLE_PYASR
+#define CENTER_X_PYASR 0
+#define CENTER_Y_PYASR 0
+#define TWIST_PYASR 0.0
+
+#define IS_PYASF true
 
 int main(int argc, char* argv[])
 {
@@ -23,6 +31,12 @@ int main(int argc, char* argv[])
         std::cout << "Correct usage is: PointingTest frameList.txt outfile.csv\n";
         return -1;
     }
+
+    float clocking_angle, center_x, center_y, twist;
+    clocking_angle = (IS_PYASF ? CLOCKING_ANGLE_PYASF : CLOCKING_ANGLE_PYASR);
+    center_x = (IS_PYASF ? CENTER_X_PYASF : CENTER_X_PYASR);
+    center_y = (IS_PYASF ? CENTER_Y_PYASF : CENTER_Y_PYASR);
+    twist = (IS_PYASF ? TWIST_PYASF : TWIST_PYASR);
 
     size_t found;
     char line[256];
@@ -34,8 +48,8 @@ int main(int argc, char* argv[])
     cv::Point2f center,error, offset, IDCenter;
 
     Transform solarTransform(FORT_SUMNER, GROUND);
-    solarTransform.set_clocking(CLOCKING_ANGLE);
-    solarTransform.set_calibrated_center(Pair(0,0));
+    solarTransform.set_clocking(clocking_angle);
+    solarTransform.set_calibrated_center(Pair(center_x,center_y));
 
     HeaderData keys;
     Pair solution, screenCenter;
@@ -53,6 +67,8 @@ int main(int argc, char* argv[])
     std::vector<float> mapping;
         
     Aspect aspect;
+    aspect.setFloat(FIDUCIAL_TWIST, twist);
+
     AspectCode runResult;
     cv::namedWindow("Solution", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
 
