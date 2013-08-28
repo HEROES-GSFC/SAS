@@ -67,9 +67,10 @@
 #define PORT_RELAY_CONTROL 4567 // outgoing port to control relays
 
 //HEROES target ID for commands, source ID for telemetry
+#define TARGET_ID_ALL 0xFF
 #define TARGET_ID_CTL 0x01
 #define TARGET_ID_SAS 0x30
-#define SOURCE_ID_SAS 0x30
+#define SOURCE_ID_SAS TARGET_ID_SAS
 
 //HEROES telemetry types
 #define TM_ACK_RECEIPT 0x01
@@ -1080,7 +1081,8 @@ void *CommandListenerThread(void *threadargs)
             // update the command count
             printf("command sequence number to %i\n", command_sequence_number);
 
-            if (command_packet.getTargetID() == TARGET_ID_SAS) {
+            if ((command_packet.getTargetID() == TARGET_ID_SAS) ||
+                (command_packet.getTargetID() == TARGET_ID_ALL)) {
                 try { recvd_command_queue.add_packet(command_packet); }
                 catch (std::exception& e) {
                     std::cerr << e.what() << std::endl;
@@ -1741,11 +1743,15 @@ uint16_t cmd_send_test_ctl_solution( int type )
 void cmd_process_gps_info(Command &command)
 {
     if (command.get_heroes_command() != HKEY_FDR_GPS_INFO) return;
-    float latitude, longitude;
-    command >> latitude >> longitude;
-    Pair new_lat_lon(latitude, longitude);
-    std::cout << "GPS updated from " << solarTransform.get_lat_lon() << " " << new_lat_lon << std::endl;
-    solarTransform.set_lat_lon(new_lat_lon);
+    static float new_lat, new_lon;
+    static float old_lat = 0, old_lon = 0;
+    command >> new_lat >> new_lon;
+    if ((new_lat != old_lat) || (new_lon != old_lon)) {
+        printf("GPS updated from (%f, %f) to (%f, %f)\n", old_lat, old_lon, new_lat, new_lon);
+        solarTransform.set_lat_lon(Pair(new_lat, new_lon));
+        old_lat = new_lat;
+        old_lon = new_lon;
+    }
 }
 
 void cmd_process_sas_command(Command &command)
