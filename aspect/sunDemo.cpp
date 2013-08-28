@@ -13,9 +13,11 @@
 #define CLOCKING_ANGLE_PYASF -33.26
 #define CENTER_X_PYASF 0
 #define CENTER_Y_PYASF 0
+#define TWIST_PYASF 180.0
 #define CLOCKING_ANGLE_PYASR -53.26
 #define CENTER_X_PYASR 0
 #define CENTER_Y_PYASR 0
+#define TWIST_PYASR 0.0
 
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
@@ -98,7 +100,6 @@
 #define SKEY_SHUTDOWN            0x00F0
 #define SKEY_CTL_TEST_CMD        0x0081
 
-
 //Operations commands for controlling relays
 #define SKEY_TURN_RELAY_ON       0x0101
 #define SKEY_TURN_RELAY_OFF      0x0111
@@ -117,6 +118,7 @@
 #define SKEY_SET_CLOCKING        0x0621
 #define SKEY_SET_ASPECT_INT      0x0712
 #define SKEY_SET_ASPECT_FLOAT    0x0722
+#define SKEY_SET_CAMERA_TWIST    0x0731
 
 //Getting commands
 #define SKEY_REQUEST_PYAS_IMAGE  0x0810
@@ -130,6 +132,7 @@
 #define SKEY_GET_RAS_PREAMPGAIN  0x0970
 #define SKEY_GET_ASPECT_INT      0x0B11
 #define SKEY_GET_ASPECT_FLOAT    0x0B21
+#define SKEY_GET_CAMERA_TWIST    0x0B30
 
 #define PASSPHRASE_SBC_SHUTDOWN "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 #define PASSPHRASE_RELAY_CONTROL "tAzh0Sh?$:dGo4t8j$8ceh^,d;2#ob}j_VEHXtWrI_AL*5C3l/edTMoO2Q8FY&K"
@@ -1514,6 +1517,10 @@ void *CommandHandlerThread(void *threadargs)
             aspect.SetFloat((AspectFloat)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
             error_code = 0;
             break;
+        case SKEY_SET_CAMERA_TWIST:
+            aspect.SetFloat(FIDUCIAL_TWIST, Float2B(my_data->command_vars[0]).value());
+            error_code = 0;
+            break;
         case SKEY_TURN_OFF_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 // do we need to pause between these commands?
@@ -1565,6 +1572,9 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_GET_ASPECT_FLOAT:
             error_code = (uint16_t)Float2B(aspect.GetFloat((AspectFloat)my_data->command_vars[0])).code();
+            break;
+        case SKEY_GET_CAMERA_TWIST:
+            error_code = (uint16_t)Float2B(aspect.GetFloat(FIDUCIAL_TWIST)).code();
             break;
         default:
             error_code = 0xffff;            // unknown command!
@@ -1788,11 +1798,13 @@ int main(void)
     switch (sas_id) {
         case 1:
             isOutputting = true;
+            aspect.SetFloat(FIDUCIAL_TWIST, TWIST_PYASF);
             solarTransform.set_clocking(CLOCKING_ANGLE_PYASF);
             solarTransform.set_calibrated_center(Pair(CENTER_X_PYASF, CENTER_Y_PYASF));
             break;
         case 2:
             isOutputting = false;
+            aspect.SetFloat(FIDUCIAL_TWIST, TWIST_PYASR);
             solarTransform.set_clocking(CLOCKING_ANGLE_PYASR);
             solarTransform.set_calibrated_center(Pair(CENTER_X_PYASR, CENTER_Y_PYASR));
             break;
