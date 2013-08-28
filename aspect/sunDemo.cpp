@@ -970,8 +970,8 @@ void *TelemetryPackagerThread(void *threadargs)
                 tp << (uint16_t)isSavingImages;
                 break;
             default:
-                tp << (uint16_t)0xffff;
-                tp << (uint16_t)0xffff;
+                tp << (uint16_t)0xFFFF;
+                tp << (uint16_t)0xFFFF;
         }
 
 /*
@@ -1058,7 +1058,7 @@ void *CommandListenerThread(void *threadargs)
 
         usleep(USLEEP_UDP_LISTEN);
         packet_length = comReceiver.listen( );
-        printf("CommandListenerThread: %i bytes\n", packet_length);
+        printf("CommandListenerThread: %i bytes, ", packet_length);
         uint8_t *packet;
         packet = new uint8_t[packet_length];
         comReceiver.get_packet( packet );
@@ -1066,7 +1066,7 @@ void *CommandListenerThread(void *threadargs)
         CommandPacket command_packet( packet, packet_length );
 
         if (command_packet.valid()){
-            printf("CommandListenerThread: good command packet\n");
+            printf("valid checksum, ");
 
             command_sequence_number = command_packet.getSequenceNumber();
 
@@ -1079,7 +1079,7 @@ void *CommandListenerThread(void *threadargs)
             }
 
             // update the command count
-            printf("command sequence number to %i\n", command_sequence_number);
+            printf("command sequence number %i", command_sequence_number);
 
             if ((command_packet.getTargetID() == TARGET_ID_SAS) ||
                 (command_packet.getTargetID() == TARGET_ID_ALL)) {
@@ -1090,8 +1090,9 @@ void *CommandListenerThread(void *threadargs)
             }
 
         } else {
-            printf("CommandListenerThread: bad command packet\n");
+            printf("INVALID checksum");
         }
+        printf("\n");
 
         delete packet;
     }
@@ -1462,7 +1463,7 @@ void *CommandHandlerThread(void *threadargs)
     // error_code   description
     // 0x0000       command implemented successfully
     // 0x0001       command not implemented
-    // 0xffff       unknown command
+    // 0xFFFF       unknown command
     // 
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     struct Thread_data *my_data;
@@ -1600,7 +1601,7 @@ void *CommandHandlerThread(void *threadargs)
             error_code = (uint16_t)Float2B(aspect.GetFloat(FIDUCIAL_TWIST)).code();
             break;
         default:
-            error_code = 0xffff;            // unknown command!
+            error_code = 0xFFFF;            // unknown command!
     }
 
     queue_cmd_proc_ack_tmpacket( error_code );
@@ -1866,14 +1867,14 @@ int main(void)
     while(g_running){
         // check if new command have been added to command queue and service them
         if (!recvd_command_queue.empty()){
-            printf("size of queue: %zu\n", recvd_command_queue.size());
+            //printf("size of queue: %zu\n", recvd_command_queue.size());
             Command command;
             command = Command();
             recvd_command_queue >> command;
 
             latest_heroes_command_key = command.get_heroes_command();
             latest_sas_command_key = command.get_sas_command();
-            printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, command.get_sas_command());
+            printf("Received command key 0x%04X/0x%04X\n", latest_heroes_command_key, command.get_sas_command());
 
             switch(latest_heroes_command_key) {
                 case HKEY_FDR_SAS_CMD:
