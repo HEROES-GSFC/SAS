@@ -166,6 +166,7 @@
 
 // global declarations
 uint16_t command_sequence_number = -1;      // last SAS command packet number
+uint16_t latest_heroes_command_key = 0xFFFF;   // last HEROES command
 uint16_t latest_sas_command_key = 0xFFFF;   // last SAS command
 uint16_t ctl_sequence_number = 0;           // global so that 0x1104 packets share the same counter as the other 0x110? packets
 uint8_t tm_frames_to_suppress = 0;
@@ -1840,7 +1841,7 @@ int main(void)
             command = Command();
             recvd_command_queue >> command;
 
-            uint16_t latest_heroes_command_key = command.get_heroes_command();
+            latest_heroes_command_key = command.get_heroes_command();
             latest_sas_command_key = command.get_sas_command();
             printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, command.get_sas_command());
 
