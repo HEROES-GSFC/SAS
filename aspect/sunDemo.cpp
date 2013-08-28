@@ -599,6 +599,16 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
 
         //printf("Aspect result: %s\n", GetMessage(runResult));
 
+        argHeader.clockingAngle = solarTransform.get_clocking();
+
+        Pair localLatLon = solarTransform.get_lat_lon();
+        argHeader.latitude = localLatLon.x();
+        argHeader.longitude = localLatLon.y();
+
+        Pair localSolarTarget = solarTransform.get_solar_target();
+        argHeader.solarTarget[0] = localSolarTarget.x();
+        argHeader.solarTarget[1] = localSolarTarget.y();
+
         switch(GeneralizeError(runResult))
         {
             case NO_ERROR:
@@ -681,12 +691,6 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
 
         argHeader.isTracking = isTracking;
         argHeader.isOutputting = isOutputting;
-
-        argHeader.clockingAngle = solarTransform.get_clocking();
-
-        Pair localSolarTarget = solarTransform.get_solar_target();
-        argHeader.solarTarget[0] = localSolarTarget.x();
-        argHeader.solarTarget[1] = localSolarTarget.y();
     }
     else if((camera_id == 1) && !argFrame.empty()) {
         calcMinMax(frame[1], localMin, localMax);
@@ -1348,6 +1352,9 @@ uint16_t cmd_send_image_to_ground( int camera_id )
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlogical = localHeader.isTracking), TLOGICAL, "F_TRACK", "Is SAS currently tracking?");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlogical = localHeader.isOutputting), TLOGICAL, "F_OUTPUT", "Is this SAS outputting to CTL?");
 
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.latitude), TFLOAT, "GPS_LAT", "GPS latitude (degrees)");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.longitude), TFLOAT, "GPS_LAT", "GPS longitude (degrees)");
+
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.solarTarget[0]), TFLOAT, "TARGET_X", "Intended solar target in HPC (arcsec)");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.solarTarget[1]), TFLOAT, "TARGET_Y", "Intended solar target in HPC (arcsec)");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.clockingAngle), TFLOAT, "CLOCKANG", "CCW angle from screen +Y to vertical");
@@ -1728,7 +1735,7 @@ void cmd_process_gps_info(Command &command)
     if (command.get_heroes_command != HKEY_FDR_GPS_INFO) return;
     float latitude, longitude;
     command >> latitude >> longitude;
-    solarTransform.set_lat_lon(latitude, longitude);
+    solarTransform.set_lat_lon(Pair(latitude, longitude));
 }
 
 void cmd_process_sas_command(Command &command)

@@ -109,10 +109,10 @@ void Transform::set_solar_target(const Pair& arg)
     solar_target = arg;
 }
 
-void Transform::set_lat_lon(float latitude, float latitude)
+void Transform::set_lat_lon(const Pair& lat_lon)
 {
-    spa.latitude = latitude;
-    spa.longitude = longitude;
+    spa.latitude = lat_lon.x();
+    spa.longitude = lat_lon.y();
 }
 
 Pair Transform::getSunAzEl()
@@ -178,6 +178,7 @@ double Transform::calculateOrientation(const struct timespec &seconds)
 }
 
 float Transform::get_clocking() const { return clocking; }
+Pair Transform::get_lat_lon() const { return Pair(spa.latitude, spa.longitude); }
 Pair Transform::get_solar_target() const { return solar_target; }
 
 Pair Transform::translateAzEl(const Pair& amount, const Pair& azel)
