@@ -10,12 +10,14 @@
 #define SAVE_LOCATION2 "/mnt/disk2/"
 
 //Calibrated parameters
-#define CLOCKING_ANGLE_PYASF -33.26
-#define CENTER_X_PYASF 0
-#define CENTER_Y_PYASF 0
-#define CLOCKING_ANGLE_PYASR -53.26
-#define CENTER_X_PYASR 0
-#define CENTER_Y_PYASR 0
+#define CLOCKING_ANGLE_PYASF -33.26 //model is -33.26
+#define CENTER_X_PYASF    0 //mils
+#define CENTER_Y_PYASF    0 //mils
+#define TWIST_PYASF 180.0 //needs to be ~180
+#define CLOCKING_ANGLE_PYASR -53.00 //model is -53.26
+#define CENTER_X_PYASR -210 //mils
+#define CENTER_Y_PYASR   56 //mils
+#define TWIST_PYASR 0.0 //needs to be ~0
 
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
@@ -65,9 +67,10 @@
 #define PORT_RELAY_CONTROL 4567 // outgoing port to control relays
 
 //HEROES target ID for commands, source ID for telemetry
+#define TARGET_ID_ALL 0xFF
 #define TARGET_ID_CTL 0x01
 #define TARGET_ID_SAS 0x30
-#define SOURCE_ID_SAS 0x30
+#define SOURCE_ID_SAS TARGET_ID_SAS
 
 //HEROES telemetry types
 #define TM_ACK_RECEIPT 0x01
@@ -80,6 +83,7 @@
 #define HKEY_CTL_START_TRACKING  0x1000
 #define HKEY_CTL_STOP_TRACKING   0x1001
 #define HKEY_FDR_SAS_CMD         0x10FF
+#define HKEY_FDR_GPS_INFO        0x000A
 
 //HEROES commands, SAS to CTL
 #define HKEY_SAS_TRACKING_IS_ON  0x1100
@@ -97,7 +101,6 @@
 #define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
 #define SKEY_CTL_TEST_CMD        0x0081
-
 
 //Operations commands for controlling relays
 #define SKEY_TURN_RELAY_ON       0x0101
@@ -117,6 +120,7 @@
 #define SKEY_SET_CLOCKING        0x0621
 #define SKEY_SET_ASPECT_INT      0x0712
 #define SKEY_SET_ASPECT_FLOAT    0x0722
+#define SKEY_SET_CAMERA_TWIST    0x0731
 
 //Getting commands
 #define SKEY_REQUEST_PYAS_IMAGE  0x0810
@@ -128,8 +132,11 @@
 #define SKEY_GET_RAS_EXPOSURE    0x0950
 #define SKEY_GET_RAS_ANALOGGAIN  0x0960
 #define SKEY_GET_RAS_PREAMPGAIN  0x0970
+#define SKEY_GET_TARGET_X        0x0A10
+#define SKEY_GET_TARGET_Y        0x0A20
 #define SKEY_GET_ASPECT_INT      0x0B11
 #define SKEY_GET_ASPECT_FLOAT    0x0B21
+#define SKEY_GET_CAMERA_TWIST    0x0B30
 
 #define PASSPHRASE_SBC_SHUTDOWN "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 #define PASSPHRASE_RELAY_CONTROL "tAzh0Sh?$:dGo4t8j$8ceh^,d;2#ob}j_VEHXtWrI_AL*5C3l/edTMoO2Q8FY&K"
@@ -163,6 +170,7 @@
 
 // global declarations
 uint16_t command_sequence_number = -1;      // last SAS command packet number
+uint16_t latest_heroes_command_key = 0xFFFF;   // last HEROES command
 uint16_t latest_sas_command_key = 0xFFFF;   // last SAS command
 uint16_t ctl_sequence_number = 0;           // global so that 0x1104 packets share the same counter as the other 0x110? packets
 uint8_t tm_frames_to_suppress = 0;
@@ -173,7 +181,6 @@ bool isOutputting = false;                  // is this SAS supposed to be output
 bool acknowledgedCTL = true;                // have we acknowledged the last command from CTL?
 bool isSavingImages = SAVE_IMAGES;          // is the SAS saving images?
 bool isClockSynced = false;
-bool isSunFound = false;                    // is the Sun found on the screen?  
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -248,6 +255,7 @@ void *CommandSenderThread( void *threadargs );
 void *CommandListenerThread(void *threadargs);
 void cmd_process_heroes_command(uint16_t heroes_command);
 void cmd_process_sas_command(Command &command);
+void cmd_process_gps_info(Command &command);
 void *CommandHandlerThread(void *threadargs);
 void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
 uint16_t cmd_send_image_to_ground( int camera_id );
@@ -594,6 +602,16 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
 
         //printf("Aspect result: %s\n", GetMessage(runResult));
 
+        argHeader.clockingAngle = solarTransform.get_clocking();
+
+        Pair localLatLon = solarTransform.get_lat_lon();
+        argHeader.latitude = localLatLon.x();
+        argHeader.longitude = localLatLon.y();
+
+        Pair localSolarTarget = solarTransform.get_solar_target();
+        argHeader.solarTarget[0] = localSolarTarget.x();
+        argHeader.solarTarget[1] = localSolarTarget.y();
+
         switch(GeneralizeError(runResult))
         {
             case NO_ERROR:
@@ -676,12 +694,6 @@ void image_process(int camera_id, cv::Mat &argFrame, HeaderData &argHeader)
 
         argHeader.isTracking = isTracking;
         argHeader.isOutputting = isOutputting;
-
-        argHeader.clockingAngle = solarTransform.get_clocking();
-
-        Pair localSolarTarget = solarTransform.get_solar_target();
-        argHeader.solarTarget[0] = localSolarTarget.x();
-        argHeader.solarTarget[1] = localSolarTarget.y();
     }
     else if((camera_id == 1) && !argFrame.empty()) {
         calcMinMax(frame[1], localMin, localMax);
@@ -894,7 +906,7 @@ void *TelemetryPackagerThread(void *threadargs)
 
         uint8_t status_bitfield = 0;
         bitwrite(&status_bitfield, 7, 1, localHeaders[0].isTracking);
-        bitwrite(&status_bitfield, 6, 1, isSunFound);
+        bitwrite(&status_bitfield, 6, 1, false);
         bitwrite(&status_bitfield, 5, 1, localHeaders[0].isOutputting);
         bitwrite(&status_bitfield, 0, 5, localHeaders[0].runResult);
         tp << (uint8_t)status_bitfield;
@@ -958,8 +970,8 @@ void *TelemetryPackagerThread(void *threadargs)
                 tp << (uint16_t)isSavingImages;
                 break;
             default:
-                tp << (uint16_t)0xffff;
-                tp << (uint16_t)0xffff;
+                tp << (uint16_t)0xFFFF;
+                tp << (uint16_t)0xFFFF;
         }
 
 /*
@@ -1046,7 +1058,7 @@ void *CommandListenerThread(void *threadargs)
 
         usleep(USLEEP_UDP_LISTEN);
         packet_length = comReceiver.listen( );
-        printf("CommandListenerThread: %i bytes\n", packet_length);
+        printf("CommandListenerThread: %i bytes, ", packet_length);
         uint8_t *packet;
         packet = new uint8_t[packet_length];
         comReceiver.get_packet( packet );
@@ -1054,7 +1066,7 @@ void *CommandListenerThread(void *threadargs)
         CommandPacket command_packet( packet, packet_length );
 
         if (command_packet.valid()){
-            printf("CommandListenerThread: good command packet\n");
+            printf("valid checksum, ");
 
             command_sequence_number = command_packet.getSequenceNumber();
 
@@ -1067,9 +1079,10 @@ void *CommandListenerThread(void *threadargs)
             }
 
             // update the command count
-            printf("command sequence number to %i\n", command_sequence_number);
+            printf("command sequence number %i", command_sequence_number);
 
-            if (command_packet.getTargetID() == TARGET_ID_SAS) {
+            if ((command_packet.getTargetID() == TARGET_ID_SAS) ||
+                (command_packet.getTargetID() == TARGET_ID_ALL)) {
                 try { recvd_command_queue.add_packet(command_packet); }
                 catch (std::exception& e) {
                     std::cerr << e.what() << std::endl;
@@ -1077,8 +1090,9 @@ void *CommandListenerThread(void *threadargs)
             }
 
         } else {
-            printf("CommandListenerThread: bad command packet\n");
+            printf("INVALID checksum");
         }
+        printf("\n");
 
         delete packet;
     }
@@ -1225,7 +1239,11 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 {
     TelemetryPacket ack_tp(TM_ACK_PROCESS, SOURCE_ID_SAS);
     ack_tp << command_sequence_number;
-    ack_tp << latest_sas_command_key;
+    if (latest_heroes_command_key == HKEY_FDR_SAS_CMD) {
+        ack_tp << latest_sas_command_key;
+    } else {
+        ack_tp << latest_heroes_command_key;
+    }
     ack_tp << error_code;
     ack_tp.setTimeAndFinish();
     tm_packet_queue << ack_tp;
@@ -1339,6 +1357,9 @@ uint16_t cmd_send_image_to_ground( int camera_id )
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlogical = localHeader.isTracking), TLOGICAL, "F_TRACK", "Is SAS currently tracking?");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlogical = localHeader.isOutputting), TLOGICAL, "F_OUTPUT", "Is this SAS outputting to CTL?");
 
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.latitude), TFLOAT, "GPS_LAT", "GPS latitude (degrees)");
+                im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.longitude), TFLOAT, "GPS_LAT", "GPS longitude (degrees)");
+
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.solarTarget[0]), TFLOAT, "TARGET_X", "Intended solar target in HPC (arcsec)");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.solarTarget[1]), TFLOAT, "TARGET_Y", "Intended solar target in HPC (arcsec)");
                 im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tfloat = localHeader.clockingAngle), TFLOAT, "CLOCKANG", "CCW angle from screen +Y to vertical");
@@ -1442,7 +1463,7 @@ void *CommandHandlerThread(void *threadargs)
     // error_code   description
     // 0x0000       command implemented successfully
     // 0x0001       command not implemented
-    // 0xffff       unknown command
+    // 0xFFFF       unknown command
     // 
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     struct Thread_data *my_data;
@@ -1514,6 +1535,10 @@ void *CommandHandlerThread(void *threadargs)
             aspect.SetFloat((AspectFloat)my_data->command_vars[0], Float2B(my_data->command_vars[1]).value());
             error_code = 0;
             break;
+        case SKEY_SET_CAMERA_TWIST:
+            aspect.SetFloat(FIDUCIAL_TWIST, Float2B(my_data->command_vars[0]).value());
+            error_code = 0;
+            break;
         case SKEY_TURN_OFF_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 // do we need to pause between these commands?
@@ -1560,14 +1585,23 @@ void *CommandHandlerThread(void *threadargs)
         case SKEY_GET_DISKSPACE:
             error_code = (uint16_t)get_disk_usage((uint16_t)my_data->command_vars[0]);
             break;
+        case SKEY_GET_TARGET_X:
+            error_code = (uint16_t)Float2B((float)solarTransform.get_solar_target().x()).code();
+            break;
+        case SKEY_GET_TARGET_Y:
+            error_code = (uint16_t)Float2B((float)solarTransform.get_solar_target().y()).code();
+            break;
         case SKEY_GET_ASPECT_INT:
             error_code = (int16_t)aspect.GetInteger((AspectInt)my_data->command_vars[0]);
             break;
         case SKEY_GET_ASPECT_FLOAT:
             error_code = (uint16_t)Float2B(aspect.GetFloat((AspectFloat)my_data->command_vars[0])).code();
             break;
+        case SKEY_GET_CAMERA_TWIST:
+            error_code = (uint16_t)Float2B(aspect.GetFloat(FIDUCIAL_TWIST)).code();
+            break;
         default:
-            error_code = 0xffff;            // unknown command!
+            error_code = 0xFFFF;            // unknown command!
     }
 
     queue_cmd_proc_ack_tmpacket( error_code );
@@ -1583,19 +1617,19 @@ void cmd_process_heroes_command(uint16_t heroes_command)
             case HKEY_CTL_START_TRACKING: // start tracking
                 isTracking = true;
                 acknowledgedCTL = false;
+                queue_cmd_proc_ack_tmpacket(0);
                 // need to send 0x1100 command packet
                 break;
             case HKEY_CTL_STOP_TRACKING: // stop tracking
                 isTracking = false;
                 acknowledgedCTL = false;
+                queue_cmd_proc_ack_tmpacket(0);
                 // need to send 0x1101 command packet
-                break;
-            case HKEY_FDR_SAS_CMD: // SAS command, so do nothing here
                 break;
             default:
                 printf("Unknown HEROES command\n");
         }
-    } else printf("Not a HEROES-to-SAS command\n");
+    } else printf("Not a CTL-to-SAS command\n");
 }
 
 void start_thread(void *(*routine) (void *), const Thread_data *tdata)
@@ -1707,6 +1741,20 @@ uint16_t cmd_send_test_ctl_solution( int type )
     return error_code;
 }
 
+void cmd_process_gps_info(Command &command)
+{
+    if (command.get_heroes_command() != HKEY_FDR_GPS_INFO) return;
+    static float new_lat, new_lon;
+    static float old_lat = 0, old_lon = 0;
+    command >> new_lat >> new_lon;
+    if ((new_lat != old_lat) || (new_lon != old_lon)) {
+        printf("GPS updated from (%f, %f) to (%f, %f)\n", old_lat, old_lon, new_lat, new_lon);
+        solarTransform.set_lat_lon(Pair(new_lat, new_lon));
+        old_lat = new_lat;
+        old_lon = new_lon;
+    }
+}
+
 void cmd_process_sas_command(Command &command)
 {
     uint16_t sas_command = command.get_sas_command();
@@ -1788,11 +1836,13 @@ int main(void)
     switch (sas_id) {
         case 1:
             isOutputting = true;
+            aspect.SetFloat(FIDUCIAL_TWIST, TWIST_PYASF);
             solarTransform.set_clocking(CLOCKING_ANGLE_PYASF);
             solarTransform.set_calibrated_center(Pair(CENTER_X_PYASF, CENTER_Y_PYASF));
             break;
         case 2:
             isOutputting = false;
+            aspect.SetFloat(FIDUCIAL_TWIST, TWIST_PYASR);
             solarTransform.set_clocking(CLOCKING_ANGLE_PYASR);
             solarTransform.set_calibrated_center(Pair(CENTER_X_PYASR, CENTER_Y_PYASR));
             break;
@@ -1817,18 +1867,24 @@ int main(void)
     while(g_running){
         // check if new command have been added to command queue and service them
         if (!recvd_command_queue.empty()){
-            printf("size of queue: %zu\n", recvd_command_queue.size());
+            //printf("size of queue: %zu\n", recvd_command_queue.size());
             Command command;
             command = Command();
             recvd_command_queue >> command;
 
-            uint16_t latest_heroes_command_key = command.get_heroes_command();
+            latest_heroes_command_key = command.get_heroes_command();
             latest_sas_command_key = command.get_sas_command();
-            printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, command.get_sas_command());
+            printf("Received command key 0x%04X/0x%04X\n", latest_heroes_command_key, command.get_sas_command());
 
-            cmd_process_heroes_command(latest_heroes_command_key);
-            if(latest_heroes_command_key == HKEY_FDR_SAS_CMD) {
-                cmd_process_sas_command(command);
+            switch(latest_heroes_command_key) {
+                case HKEY_FDR_SAS_CMD:
+                    cmd_process_sas_command(command);
+                    break;
+                case HKEY_FDR_GPS_INFO:
+                    cmd_process_gps_info(command);
+                    break;
+                default:
+                    cmd_process_heroes_command(latest_heroes_command_key);
             }
         }
     }
