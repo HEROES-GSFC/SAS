@@ -1735,7 +1735,9 @@ void cmd_process_gps_info(Command &command)
     if (command.get_heroes_command() != HKEY_FDR_GPS_INFO) return;
     float latitude, longitude;
     command >> latitude >> longitude;
-    solarTransform.set_lat_lon(Pair(latitude, longitude));
+    Pair new_lat_lon(latitude, longitude);
+    std::cout << "GPS updated from " << solarTransform.get_lat_lon() << " " << new_lat_lon << std::endl;
+    solarTransform.set_lat_lon(new_lat_lon);
 }
 
 void cmd_process_sas_command(Command &command)
