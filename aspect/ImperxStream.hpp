@@ -14,7 +14,7 @@
 
 struct CameraSettings
 {
-    CameraSettings(): exposure(15000),
+    CameraSettings(): exposure(10000),
                       size(1296, 966),
                       offset(0,0),
                       analogGain(400),
