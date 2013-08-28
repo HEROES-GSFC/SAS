@@ -109,6 +109,12 @@ void Transform::set_solar_target(const Pair& arg)
     solar_target = arg;
 }
 
+void Transform::set_lat_lon(float latitude, float latitude)
+{
+    spa.latitude = latitude;
+    spa.longitude = longitude;
+}
+
 Pair Transform::getSunAzEl()
 {
     return Pair(spa.azimuth, 90.-spa.zenith);

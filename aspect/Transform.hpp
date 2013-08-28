@@ -94,6 +94,8 @@ public:
     void set_calibrated_center(const Pair& arg);
     void set_clocking(float arg);
 
+    void set_lat_lon(float latitude, float longitude);
+
     void set_solar_target(const Pair& arg);
 
     float get_clocking() const;

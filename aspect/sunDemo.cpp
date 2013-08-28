@@ -1728,7 +1728,7 @@ void cmd_process_gps_info(Command &command)
     if (command.get_heroes_command != HKEY_FDR_GPS_INFO) return;
     float latitude, longitude;
     command >> latitude >> longitude;
-    //do something with these values
+    solarTransform.set_lat_lon(latitude, longitude);
 }
 
 void cmd_process_sas_command(Command &command)
