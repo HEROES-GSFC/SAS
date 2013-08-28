@@ -1021,8 +1021,10 @@ void *TelemetryPackagerThread(void *threadargs)
         //7 is added to the ID number (Which ranges from -7 to 7)
         for(uint8_t j = 0; j < 6; j++) {
             uint8_t temp = 0;
-            bitwrite(&temp, 0, 4, localHeaders[0].fiducialIDX[j]+7);
-            bitwrite(&temp, 4, 4, localHeaders[0].fiducialIDY[j]+7);
+            int idx = localHeaders[0].fiducialIDX[j]+7;
+            int idy = localHeaders[0].fiducialIDY[j]+7;
+            bitwrite(&temp, 0, 4, (uint8_t)(idx >= 0 ? idx : 15));
+            bitwrite(&temp, 4, 4, (uint8_t)(idy >= 0 ? idy : 15));
             tp << (uint8_t)temp;
         }
 
