@@ -1228,7 +1228,11 @@ void queue_cmd_proc_ack_tmpacket( uint16_t error_code )
 {
     TelemetryPacket ack_tp(TM_ACK_PROCESS, SOURCE_ID_SAS);
     ack_tp << command_sequence_number;
-    ack_tp << latest_sas_command_key;
+    if (latest_heroes_command_key == HKEY_FDR_SAS_CMD) {
+        ack_tp << latest_sas_command_key;
+    } else {
+        ack_tp << latest_heroes_command_key;
+    }
     ack_tp << error_code;
     ack_tp.setTimeAndFinish();
     tm_packet_queue << ack_tp;
@@ -1593,11 +1597,13 @@ void cmd_process_heroes_command(uint16_t heroes_command)
             case HKEY_CTL_START_TRACKING: // start tracking
                 isTracking = true;
                 acknowledgedCTL = false;
+                queue_cmd_proc_ack_tmpacket(0);
                 // need to send 0x1100 command packet
                 break;
             case HKEY_CTL_STOP_TRACKING: // stop tracking
                 isTracking = false;
                 acknowledgedCTL = false;
+                queue_cmd_proc_ack_tmpacket(0);
                 // need to send 0x1101 command packet
                 break;
             case HKEY_FDR_SAS_CMD: // SAS command, so do nothing here
