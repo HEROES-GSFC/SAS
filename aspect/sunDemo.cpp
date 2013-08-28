@@ -10,14 +10,14 @@
 #define SAVE_LOCATION2 "/mnt/disk2/"
 
 //Calibrated parameters
-#define CLOCKING_ANGLE_PYASF -33.26
-#define CENTER_X_PYASF 0
-#define CENTER_Y_PYASF 0
-#define TWIST_PYASF 180.0
-#define CLOCKING_ANGLE_PYASR -53.26
-#define CENTER_X_PYASR 0
-#define CENTER_Y_PYASR 0
-#define TWIST_PYASR 0.0
+#define CLOCKING_ANGLE_PYASF -33.26 //model is -33.26
+#define CENTER_X_PYASF    0 //mils
+#define CENTER_Y_PYASF    0 //mils
+#define TWIST_PYASF 180.0 //needs to be ~180
+#define CLOCKING_ANGLE_PYASR -53.00 //model is -53.26
+#define CENTER_X_PYASR -210 //mils
+#define CENTER_Y_PYASR   56 //mils
+#define TWIST_PYASR 0.0 //needs to be ~0
 
 //Major settings
 #define FRAME_CADENCE 250000 // microseconds
