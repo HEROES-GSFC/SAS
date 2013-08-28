@@ -131,6 +131,8 @@
 #define SKEY_GET_RAS_EXPOSURE    0x0950
 #define SKEY_GET_RAS_ANALOGGAIN  0x0960
 #define SKEY_GET_RAS_PREAMPGAIN  0x0970
+#define SKEY_GET_TARGET_X        0x0A10
+#define SKEY_GET_TARGET_Y        0x0A20
 #define SKEY_GET_ASPECT_INT      0x0B11
 #define SKEY_GET_ASPECT_FLOAT    0x0B21
 #define SKEY_GET_CAMERA_TWIST    0x0B30
@@ -1579,6 +1581,12 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_GET_DISKSPACE:
             error_code = (uint16_t)get_disk_usage((uint16_t)my_data->command_vars[0]);
+            break;
+        case SKEY_GET_TARGET_X:
+            error_code = (uint16_t)Float2B(solarTransform.get_solar_target().x()).code();
+            break;
+        case SKEY_GET_TARGET_Y:
+            error_code = (uint16_t)Float2B(solarTransform.get_solar_target().y()).code();
             break;
         case SKEY_GET_ASPECT_INT:
             error_code = (int16_t)aspect.GetInteger((AspectInt)my_data->command_vars[0]);
