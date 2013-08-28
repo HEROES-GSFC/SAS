@@ -1732,7 +1732,7 @@ uint16_t cmd_send_test_ctl_solution( int type )
 
 void cmd_process_gps_info(Command &command)
 {
-    if (command.get_heroes_command != HKEY_FDR_GPS_INFO) return;
+    if (command.get_heroes_command() != HKEY_FDR_GPS_INFO) return;
     float latitude, longitude;
     command >> latitude >> longitude;
     solarTransform.set_lat_lon(Pair(latitude, longitude));
