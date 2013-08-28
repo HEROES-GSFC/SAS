@@ -177,7 +177,6 @@ bool isOutputting = false;                  // is this SAS supposed to be output
 bool acknowledgedCTL = true;                // have we acknowledged the last command from CTL?
 bool isSavingImages = SAVE_IMAGES;          // is the SAS saving images?
 bool isClockSynced = false;
-bool isSunFound = false;                    // is the Sun found on the screen?  
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -898,7 +897,7 @@ void *TelemetryPackagerThread(void *threadargs)
 
         uint8_t status_bitfield = 0;
         bitwrite(&status_bitfield, 7, 1, localHeaders[0].isTracking);
-        bitwrite(&status_bitfield, 6, 1, isSunFound);
+        bitwrite(&status_bitfield, 6, 1, false);
         bitwrite(&status_bitfield, 5, 1, localHeaders[0].isOutputting);
         bitwrite(&status_bitfield, 0, 5, localHeaders[0].runResult);
         tp << (uint8_t)status_bitfield;
