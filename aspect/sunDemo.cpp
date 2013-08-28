@@ -1583,10 +1583,10 @@ void *CommandHandlerThread(void *threadargs)
             error_code = (uint16_t)get_disk_usage((uint16_t)my_data->command_vars[0]);
             break;
         case SKEY_GET_TARGET_X:
-            error_code = (uint16_t)Float2B(solarTransform.get_solar_target()).x().code();
+            error_code = (uint16_t)Float2B((float)solarTransform.get_solar_target().x()).code();
             break;
         case SKEY_GET_TARGET_Y:
-            error_code = (uint16_t)Float2B(solarTransform.get_solar_target()).y().code();
+            error_code = (uint16_t)Float2B((float)solarTransform.get_solar_target().y()).code();
             break;
         case SKEY_GET_ASPECT_INT:
             error_code = (int16_t)aspect.GetInteger((AspectInt)my_data->command_vars[0]);
