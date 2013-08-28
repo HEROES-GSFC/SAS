@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
     std::vector<float> mapping;
         
     Aspect aspect;
-    aspect.setFloat(FIDUCIAL_TWIST, twist);
+    aspect.SetFloat(FIDUCIAL_TWIST, twist);
 
     AspectCode runResult;
     cv::namedWindow("Solution", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
