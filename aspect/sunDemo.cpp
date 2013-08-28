@@ -82,6 +82,7 @@
 #define HKEY_CTL_START_TRACKING  0x1000
 #define HKEY_CTL_STOP_TRACKING   0x1001
 #define HKEY_FDR_SAS_CMD         0x10FF
+#define HKEY_FDR_GPS_INFO        0x000A
 
 //HEROES commands, SAS to CTL
 #define HKEY_SAS_TRACKING_IS_ON  0x1100
@@ -251,6 +252,7 @@ void *CommandSenderThread( void *threadargs );
 void *CommandListenerThread(void *threadargs);
 void cmd_process_heroes_command(uint16_t heroes_command);
 void cmd_process_sas_command(Command &command);
+void cmd_process_gps_info(Command &command);
 void *CommandHandlerThread(void *threadargs);
 void queue_cmd_proc_ack_tmpacket( uint16_t error_code );
 uint16_t cmd_send_image_to_ground( int camera_id );
@@ -1606,12 +1608,10 @@ void cmd_process_heroes_command(uint16_t heroes_command)
                 queue_cmd_proc_ack_tmpacket(0);
                 // need to send 0x1101 command packet
                 break;
-            case HKEY_FDR_SAS_CMD: // SAS command, so do nothing here
-                break;
             default:
                 printf("Unknown HEROES command\n");
         }
-    } else printf("Not a HEROES-to-SAS command\n");
+    } else printf("Not a CTL-to-SAS command\n");
 }
 
 void start_thread(void *(*routine) (void *), const Thread_data *tdata)
@@ -1721,6 +1721,14 @@ uint16_t cmd_send_test_ctl_solution( int type )
     // no way to check if this worked so just always send 1
     error_code = 1;
     return error_code;
+}
+
+void cmd_process_gps_info(Command &command)
+{
+    if (command.get_heroes_command != HKEY_FDR_GPS_INFO) return;
+    float latitude, longitude;
+    command >> latitude >> longitude;
+    //do something with these values
 }
 
 void cmd_process_sas_command(Command &command)
@@ -1844,9 +1852,15 @@ int main(void)
             latest_sas_command_key = command.get_sas_command();
             printf("Received command key 0x%x/0x%x\n", latest_heroes_command_key, command.get_sas_command());
 
-            cmd_process_heroes_command(latest_heroes_command_key);
-            if(latest_heroes_command_key == HKEY_FDR_SAS_CMD) {
-                cmd_process_sas_command(command);
+            switch(latest_heroes_command_key) {
+                case HKEY_FDR_SAS_CMD:
+                    cmd_process_sas_command(command);
+                    break;
+                case HKEY_FDR_GPS_INFO:
+                    cmd_process_gps_info(command);
+                    break;
+                default:
+                    cmd_process_heroes_command(latest_heroes_command_key);
             }
         }
     }
