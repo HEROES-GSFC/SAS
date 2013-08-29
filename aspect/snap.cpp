@@ -102,14 +102,14 @@ int main(int argc, char* argv[])
         {
             if(!camera.Snap(localFrame, frameRate))
             {
+                memset(&localHeader, 0, sizeof(HeaderData));
+
                 timespec now;
                 clock_gettime(CLOCK_REALTIME, &now);
 
                 localHeader.captureTime = now;
 
                 uint8_t localMin, localMax;
-
-                memset(&localHeader, 0, sizeof(HeaderData));
 
                 localHeader.exposure = localExposure;
                 localHeader.preampGain = localPreampGain;
