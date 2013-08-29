@@ -4,13 +4,17 @@
 
 #include "ImperxStream.hpp"
 #include "compression.hpp"
+#include "processing.hpp"
 
 #define FRAME_CADENCE 250000 // microseconds
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 
-uint16_t localExposure = 15000;
+uint16_t localExposure = 1000;
 int16_t localPreampGain = -3;
-uint16_t localAnalogGain = 400;
+uint16_t localAnalogGain = 300;
+
+cv::Mat localFrame;
+HeaderData localHeader;
 
 sig_atomic_t volatile g_running = 1;
 
@@ -26,27 +30,17 @@ void sig_handler(int signum)
 
 void ImageSave()
 {
-    cv::Mat localFrame;
-    HeaderData localHeader;
-    memset(&localHeader, 0, sizeof(HeaderData));
-
-    localHeader.exposure = localExposure;
-    localHeader.preampGain = localPreampGain;
-    localHeader.analogGain = localAnalogGain;
-
     if(!localFrame.empty())
     {
         char timestamp[14];
         char filename[128];
-        timespec now;
-        clock_gettime(CLOCK_REALTIME, &now);
         struct tm *capturetime;
-        capturetime = gmtime(&now.tv_sec);
+        capturetime = gmtime(&localHeader.captureTime.tv_sec);
         strftime(timestamp,14,"%y%m%d_%H%M%S",capturetime);
 
-        sprintf(filename, "image_%s_%03d.fits", timestamp, (int)(now.tv_nsec/1000000l));
+        sprintf(filename, "image_%s_%03d.fits", timestamp, (int)(localHeader.captureTime.tv_nsec/1000000l));
 
-        printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d\n", filename, localHeader.exposure, localHeader.analogGain, localHeader.preampGain);
+        printf("Saving image %s: exposure %d us, analog gain %d, preamp gain %d, min %d, max %d\n", filename, localHeader.exposure, localHeader.analogGain, localHeader.preampGain, localHeader.imageMinMax[0], localHeader.imageMinMax[1]);
         writeFITSImage(localFrame, localHeader, filename);
     }
     else
@@ -70,7 +64,6 @@ int main(int argc, char* argv[])
     bool cameraReady;
     ImperxStream camera;
 
-    cv::Mat localFrame;
     int width, height;
 
     cameraReady = false;
@@ -109,6 +102,23 @@ int main(int argc, char* argv[])
         {
             if(!camera.Snap(localFrame, frameRate))
             {
+                timespec now;
+                clock_gettime(CLOCK_REALTIME, &now);
+
+                localHeader.captureTime = now;
+
+                uint8_t localMin, localMax;
+
+                memset(&localHeader, 0, sizeof(HeaderData));
+
+                localHeader.exposure = localExposure;
+                localHeader.preampGain = localPreampGain;
+                localHeader.analogGain = localAnalogGain;
+
+                calcMinMax(localFrame, localMin, localMax);
+                localHeader.imageMinMax[0] = localMin;
+                localHeader.imageMinMax[1] = localMax;
+
                 ImageSave();
             }
             else
@@ -118,7 +128,7 @@ int main(int argc, char* argv[])
         }
 
         std::cout << "Press return to snap\n";
-        std::cin.get();
+        while(std::cin.get() != '\n') {}
     }
 
     camera.Stop();
