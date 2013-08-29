@@ -137,6 +137,7 @@
 #define SKEY_GET_ASPECT_INT      0x0B11
 #define SKEY_GET_ASPECT_FLOAT    0x0B21
 #define SKEY_GET_CAMERA_TWIST    0x0B30
+#define SKEY_GET_CLOCKING        0x0C20
 
 #define PASSPHRASE_SBC_SHUTDOWN "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 #define PASSPHRASE_RELAY_CONTROL "tAzh0Sh?$:dGo4t8j$8ceh^,d;2#ob}j_VEHXtWrI_AL*5C3l/edTMoO2Q8FY&K"
@@ -1602,6 +1603,9 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_GET_CAMERA_TWIST:
             error_code = (uint16_t)Float2B(aspect.GetFloat(FIDUCIAL_TWIST)).code();
+            break;
+        case SKEY_GET_CLOCKING:
+            error_code = (uint16_t)Float2B(solarTransform.get_clocking()).code();
             break;
 
         default:
