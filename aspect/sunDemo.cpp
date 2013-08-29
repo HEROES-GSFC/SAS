@@ -173,7 +173,7 @@ uint16_t command_sequence_number = -1;      // last SAS command packet number
 uint16_t latest_heroes_command_key = 0xFFFF;   // last HEROES command
 uint16_t latest_sas_command_key = 0xFFFF;   // last SAS command
 uint16_t ctl_sequence_number = 0;           // global so that 0x1104 packets share the same counter as the other 0x110? packets
-uint8_t tm_frames_to_suppress = 0;
+uint16_t tm_frames_to_suppress = 0;
 uint8_t aspect_error_code = 0;
 
 bool isTracking = false;                    // does CTL want solutions?
@@ -1484,8 +1484,32 @@ void *CommandHandlerThread(void *threadargs)
             error_code = 0;
             break;
         case SKEY_SUPPRESS_TELEMETRY:
-            tm_frames_to_suppress = (uint8_t)my_data->command_vars[0];
+            tm_frames_to_suppress = (my_data->command_vars[0] <= 300 ? my_data->command_vars[0] : 300);
             error_code = 0;
+            break;
+        case SKEY_TURN_OFF_ALL_RELAYS:
+            for (int i = 0; i < NUM_RELAYS-1; i++) {
+                // do we need to pause between these commands?
+                send_relay_control(i, RELAY_OFF);
+            }
+            break;
+        case SKEY_TURN_ON_ALL_RELAYS:
+            for (int i = 0; i < NUM_RELAYS-1; i++) {
+                // do we need to pause between these commands?
+                send_relay_control(i, RELAY_ON);
+            }
+            break;
+        case SKEY_TURN_RELAY_ON:
+            send_relay_control(my_data->command_vars[0], RELAY_ON);
+            break;
+        case SKEY_TURN_RELAY_OFF:
+            send_relay_control(my_data->command_vars[0], RELAY_OFF);
+            break;
+        case SKEY_REQUEST_PYAS_IMAGE:
+            error_code = cmd_send_image_to_ground( 0 ); // 0 for PYAS
+            break;
+        case SKEY_REQUEST_RAS_IMAGE:
+            error_code = cmd_send_image_to_ground( 1 ); // 1 for RAS
             break;
 
         //Setting commands
@@ -1522,15 +1546,15 @@ void *CommandHandlerThread(void *threadargs)
             if( settings[1].analogGain == my_data->command_vars[0] ) error_code = 0;
             break;
         case SKEY_SET_TARGET:    // set new solar target
-            solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
+            solarTransform.set_solar_target(Pair(Float2B(my_data->command_vars[0]).value(), Float2B(my_data->command_vars[1]).value()));
             error_code = 0;
             break;
-        case SKEY_SET_CLOCKING:    // set new solar target
+        case SKEY_SET_CLOCKING:    // set clocking
             solarTransform.set_clocking(Float2B(my_data->command_vars[0]).value());
             error_code = 0;
             break;
         case SKEY_SET_ASPECT_INT:
-            aspect.SetInteger((AspectInt)my_data->command_vars[0], my_data->command_vars[1]);
+            aspect.SetInteger((AspectInt)my_data->command_vars[0], (int16_t)my_data->command_vars[1]);
             error_code = 0;
             break;
         case SKEY_SET_ASPECT_FLOAT:
@@ -1541,31 +1565,8 @@ void *CommandHandlerThread(void *threadargs)
             aspect.SetFloat(FIDUCIAL_TWIST, Float2B(my_data->command_vars[0]).value());
             error_code = 0;
             break;
-        case SKEY_TURN_OFF_ALL_RELAYS:
-            for (int i = 0; i < NUM_RELAYS-1; i++) {
-                // do we need to pause between these commands?
-                send_relay_control(i, RELAY_OFF);
-            }
-            break;
-        case SKEY_TURN_ON_ALL_RELAYS:
-            for (int i = 0; i < NUM_RELAYS-1; i++) {
-                // do we need to pause between these commands?
-                send_relay_control(i, RELAY_ON);
-            }
-            break;
-        case SKEY_TURN_RELAY_ON:
-            send_relay_control(my_data->command_vars[0], RELAY_ON);
-            break;
-        case SKEY_TURN_RELAY_OFF:
-            send_relay_control(my_data->command_vars[0], RELAY_OFF);
-            break;
+
         //Getting commands
-        case SKEY_REQUEST_PYAS_IMAGE:
-            error_code = cmd_send_image_to_ground( 0 );
-            break;
-        case SKEY_REQUEST_RAS_IMAGE:
-            error_code = cmd_send_image_to_ground( 1 );
-            break;
         case SKEY_GET_PYAS_EXPOSURE:
             error_code = (uint16_t)settings[0].exposure;
             break;
@@ -1602,6 +1603,7 @@ void *CommandHandlerThread(void *threadargs)
         case SKEY_GET_CAMERA_TWIST:
             error_code = (uint16_t)Float2B(aspect.GetFloat(FIDUCIAL_TWIST)).code();
             break;
+
         default:
             error_code = 0xFFFF;            // unknown command!
     }
