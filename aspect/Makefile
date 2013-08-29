@@ -65,6 +65,9 @@ test_telemetry: test_telemetry.cpp Telemetry.o $(PACKET) UDPSender.o types.o
 evaluate: evaluate.cpp compression.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
+snap: snap.cpp ImperxStream.o compression.o
+	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS) $(IMPERX)
+
 #This executable need to be copied to /usr/local/bin/ after it is built
 sbc_info: sbc_info.cpp $(PACKET) UDPSender.o smbus.o
 	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
