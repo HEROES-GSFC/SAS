@@ -1881,17 +1881,18 @@ int main(void)
             recvd_command_queue >> command;
 
             latest_heroes_command_key = command.get_heroes_command();
-            latest_sas_command_key = command.get_sas_command();
-            printf("Received command key 0x%04X/0x%04X\n", latest_heroes_command_key, command.get_sas_command());
 
             switch(latest_heroes_command_key) {
                 case HKEY_FDR_SAS_CMD:
+                    latest_sas_command_key = command.get_sas_command();
+                    printf("Received command key 0x%04X/0x%04X\n", latest_heroes_command_key, latest_sas_command_key);
                     cmd_process_sas_command(command);
                     break;
                 case HKEY_FDR_GPS_INFO:
                     cmd_process_gps_info(command);
                     break;
                 default:
+                    printf("Received command key 0x%04X\n", latest_heroes_command_key);
                     cmd_process_heroes_command(latest_heroes_command_key);
             }
         }
