@@ -1,5 +1,6 @@
 #include "processing.hpp"
 #include "utilities.hpp"
+#include "draw.hpp"
 #include "compression.hpp"
 #include "Transform.hpp"
 #include "types.hpp"
