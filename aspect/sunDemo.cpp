@@ -74,6 +74,7 @@
 
 //HEROES telemetry types
 #define TM_ACK_RECEIPT 0x01
+#define TM_IDLE 0x03
 #define TM_ACK_PROCESS 0xE1
 #define TM_SAS_GENERIC 0x70
 #define TM_SAS_IMAGE   0x82
@@ -1451,6 +1452,13 @@ uint16_t cmd_send_image_to_ground( int camera_id )
                     //log.flush();
                 }
             }
+
+            //This additional packet should flush the receiving buffer
+            TelemetryPacket idle(TM_IDLE, SOURCE_ID_SAS);
+            uint8_t fill[256];
+            memset(fill, 0xAA, 256);
+            idle.append_bytes(fill, 256);
+            tcpSndr.send_packet(&idle);
         }
         tcpSndr.close_connection();
         error_code = 1;
