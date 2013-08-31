@@ -194,7 +194,7 @@ bool started[MAX_THREADS];
 int tid_listen = -1; //Stores the ID for the CommandListener thread
 pthread_mutex_t mutexStartThread; //Keeps new threads from being started simultaneously
 pthread_mutex_t mutexHeader[2];  //Used to protect both the frame and header information
-pthread_mutex_t mutexSensors;
+pthread_mutex_t mutexSensors; //Used to protect sensor data
 
 //Used to make sure that there are no more than 3 saving threads per camera
 Semaphore semaphoreSave[2] = {Semaphore(3), Semaphore(3)};
@@ -226,7 +226,7 @@ struct Sensors {
     int8_t i2c_temperatures[8];
     float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 };
-struct Sensors sensors; //not protected!
+struct Sensors sensors; //not protected well!
 float ntp_drift;
 float ntp_offset_ms;
 float ntp_stability;
@@ -486,7 +486,7 @@ void *CameraThread( void * threadargs, int camera_id)
                     
                     for (int i=0; i<8; i++) localHeader.i2c_temperatures[i] = sensors.i2c_temperatures[i];
                     
-                    pthread_mutex_unlock(&mutexHeader[0]);
+                    pthread_mutex_unlock(&mutexSensors);
                 }
                 if(frameCount[camera_id] % MOD_PROCESS == 0) {
                     image_process(camera_id, localFrame, localHeader);
