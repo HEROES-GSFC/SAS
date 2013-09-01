@@ -1117,8 +1117,6 @@ void *ForwardCommandsFromSAS2Thread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("ForwardCommandsFromSAS2 thread #%ld!\n", tid);
 
-    tid_listen = tid;
-
     CommandReceiver comReceiver( (unsigned short) PORT_SAS2);
     comReceiver.init_connection();
 
