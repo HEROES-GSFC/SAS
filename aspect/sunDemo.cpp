@@ -321,8 +321,10 @@ void kill_all_threads()
     if (started[tid_listen]) {
         stop_message[tid_listen] = true;
         kill_all_workers();
-        printf("Quitting thread %i, quitting status is %i\n", tid_listen, pthread_cancel(threads[tid_listen]));
-        started[tid_listen] = false;
+        if (started[tid_listen]) {
+            printf("Quitting thread %i, quitting status is %i\n", tid_listen, pthread_cancel(threads[tid_listen]));
+            started[tid_listen] = false;
+        }
     }
 }
 
