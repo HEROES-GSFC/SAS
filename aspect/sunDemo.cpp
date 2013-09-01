@@ -1828,7 +1828,6 @@ void cmd_process_sas_command(Command &command)
             case SKEY_SHUTDOWN:
                 {
                     kill_all_threads();
-                    sleep(2);
                     send_shutdown();
                 }
             default:
