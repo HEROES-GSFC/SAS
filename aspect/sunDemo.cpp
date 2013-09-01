@@ -1763,7 +1763,9 @@ void cmd_process_gps_info(Command &command)
     static float new_lat, new_lon;
     static float old_lat = 0, old_lon = 0;
     command >> new_lat >> new_lon;
-    if ((new_lat != old_lat) || (new_lon != old_lon)) {
+    if (((new_lat != old_lat) || (new_lon != old_lon)) &&
+        ((old_lat == 0) || ((new_lat != 0) && (fabs(new_lat-old_lat) < 1.))) &&
+        ((old_lon == 0) || ((new_lon != 0) && (fabs(new_lon-old_lon) < 1.)))) {
         printf("GPS updated from (%f, %f) to (%f, %f)\n", old_lat, old_lon, new_lat, new_lon);
         solarTransform.set_lat_lon(Pair(new_lat, new_lon));
         old_lat = new_lat;
