@@ -1762,10 +1762,25 @@ void cmd_process_gps_info(Command &command)
     if (command.get_heroes_command() != HKEY_FDR_GPS_INFO) return;
     static float new_lat, new_lon;
     static float old_lat = 0, old_lon = 0;
+
+    //Initialize the starting location to the same as the Transform setting
+    if ((old_lat == 0) && (old_lon == 0)) {
+        Pair start = solarTransform.get_lat_lon();
+        old_lat = start.x();
+        old_lon = start.y();
+    }
+
     command >> new_lat >> new_lon;
+
+    //These packets shouldn't be sent to us anymore, but just in case...
+    if ((new_lat == 0) && (new_lon == 0)) {
+        std::cerr << "Bad GPS information packet!\n";
+        return;
+    }
+
+    //Update the location if it has changed, but not by more than a degree
     if (((new_lat != old_lat) || (new_lon != old_lon)) &&
-        ((old_lat == 0) || ((new_lat != 0) && (fabs(new_lat-old_lat) < 1.))) &&
-        ((old_lon == 0) || ((new_lon != 0) && (fabs(new_lon-old_lon) < 1.)))) {
+        (fabs(new_lat-old_lat) < 1.) && (fabs(new_lon-old_lon) < 1.)) {
         printf("GPS updated from (%f, %f) to (%f, %f)\n", old_lat, old_lon, new_lat, new_lon);
         solarTransform.set_lat_lon(Pair(new_lat, new_lon));
         old_lat = new_lat;
