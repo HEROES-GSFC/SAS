@@ -121,6 +121,7 @@
 #define SKEY_SET_RAS_ANALOGGAIN  0x0581
 #define SKEY_SET_RAS_PREAMPGAIN  0x0591
 #define SKEY_SET_CLOCKING        0x0621
+#define SKEY_SET_LAT_LON         0x06A2
 #define SKEY_SET_ASPECT_INT      0x0712
 #define SKEY_SET_ASPECT_FLOAT    0x0722
 #define SKEY_SET_CAMERA_TWIST    0x0731
@@ -139,6 +140,8 @@
 #define SKEY_GET_ASPECT_FLOAT    0x0B21
 #define SKEY_GET_CAMERA_TWIST    0x0B30
 #define SKEY_GET_CLOCKING        0x0C20
+#define SKEY_GET_LATITUDE        0x0CA0
+#define SKEY_GET_LONGITUDE       0x0CB0
 
 #define PASSPHRASE_SBC_SHUTDOWN "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 #define PASSPHRASE_RELAY_CONTROL "tAzh0Sh?$:dGo4t8j$8ceh^,d;2#ob}j_VEHXtWrI_AL*5C3l/edTMoO2Q8FY&K"
@@ -1562,6 +1565,10 @@ void *CommandHandlerThread(void *threadargs)
             solarTransform.set_clocking(Float2B(my_data->command_vars[0]).value());
             error_code = 0;
             break;
+        case SKEY_SET_LAT_LON: //will get overriden if GPS updating is enabled
+            solarTransform.set_lat_lon(Pair(Float2B(my_data->command_vars[0]).value(), Float2B(my_data->command_vars[1]).value()));
+            error_code = 0;
+            break;
         case SKEY_SET_ASPECT_INT:
             aspect.SetInteger((AspectInt)my_data->command_vars[0], (int16_t)my_data->command_vars[1]);
             error_code = 0;
@@ -1614,6 +1621,12 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_GET_CLOCKING:
             error_code = (uint16_t)Float2B(solarTransform.get_clocking()).code();
+            break;
+        case SKEY_GET_LATITUDE:
+            error_code = (uint16_t)Float2B(solarTransform.get_lat_lon().x()).code();
+            break;
+        case SKEY_GET_LONGITUDE:
+            error_code = (uint16_t)Float2B(solarTransform.get_lat_lon().y()).code();
             break;
 
         default:
