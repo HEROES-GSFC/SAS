@@ -1555,7 +1555,7 @@ void *CommandHandlerThread(void *threadargs)
             if( settings[1].analogGain == my_data->command_vars[0] ) error_code = 0;
             break;
         case SKEY_SET_TARGET:    // set new solar target
-            solarTransform.set_solar_target(Pair(Float2B(my_data->command_vars[0]).value(), Float2B(my_data->command_vars[1]).value()));
+            solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
             error_code = 0;
             break;
         case SKEY_SET_CLOCKING:    // set clocking
@@ -1598,10 +1598,10 @@ void *CommandHandlerThread(void *threadargs)
             error_code = (uint16_t)get_disk_usage((uint16_t)my_data->command_vars[0]);
             break;
         case SKEY_GET_TARGET_X:
-            error_code = (uint16_t)Float2B((float)solarTransform.get_solar_target().x()).code();
+            error_code = (int16_t)solarTransform.get_solar_target().x();
             break;
         case SKEY_GET_TARGET_Y:
-            error_code = (uint16_t)Float2B((float)solarTransform.get_solar_target().y()).code();
+            error_code = (int16_t)solarTransform.get_solar_target().y();
             break;
         case SKEY_GET_ASPECT_INT:
             error_code = (int16_t)aspect.GetInteger((AspectInt)my_data->command_vars[0]);
