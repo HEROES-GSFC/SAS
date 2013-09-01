@@ -114,6 +114,7 @@
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
 #define SKEY_SET_IMAGESAVEFLAG   0x0421
+#define SKEY_SET_GPSFLAG         0x0431
 #define SKEY_SET_PYAS_EXPOSURE   0x0451
 #define SKEY_SET_PYAS_ANALOGGAIN 0x0481
 #define SKEY_SET_PYAS_PREAMPGAIN 0x0491
@@ -186,6 +187,7 @@ bool isOutputting = false;                  // is this SAS supposed to be output
 bool acknowledgedCTL = true;                // have we acknowledged the last command from CTL?
 bool isSavingImages = SAVE_IMAGES;          // is the SAS saving images?
 bool isClockSynced = false;
+bool isAcceptingGPS = true;                 // are we accepting GPS updates from FDR?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -1530,6 +1532,11 @@ void *CommandHandlerThread(void *threadargs)
             if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
             std::cout << "Image saving is now turned " << ( isSavingImages ? "on\n" : "off\n");
             break;
+        case SKEY_SET_GPSFLAG:
+            isAcceptingGPS = (my_data->command_vars[0] > 0);
+            if( isAcceptingGPS == my_data->command_vars[0] ) error_code = 0;
+            std::cout << "GPS updating is now turned " << ( isAcceptingGPS ? "on\n" : "off\n");
+            break;
         case SKEY_SET_PYAS_EXPOSURE:    // set exposure time
             settings[0].exposure = my_data->command_vars[0];
             if( settings[0].exposure == my_data->command_vars[0] ) error_code = 0;
@@ -1773,6 +1780,9 @@ uint16_t cmd_send_test_ctl_solution( int type )
 void cmd_process_gps_info(Command &command)
 {
     if (command.get_heroes_command() != HKEY_FDR_GPS_INFO) return;
+
+    if (!isAcceptingGPS) return;
+
     static float new_lat, new_lon;
     static float old_lat = 0, old_lon = 0;
 
