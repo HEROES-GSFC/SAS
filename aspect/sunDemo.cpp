@@ -1801,9 +1801,12 @@ void cmd_process_gps_info(Command &command)
         return;
     }
 
-    //Update the location if it has changed, but not by more than a degree
+    //Update the location if it has changed
+    //Broad range of acceptable changes (in case software resets):
+    //  +/- 3 degrees in latitude
+    //  +/- 10 degrees in longitude
     if (((new_lat != old_lat) || (new_lon != old_lon)) &&
-        (fabs(new_lat-old_lat) < 1.) && (fabs(new_lon-old_lon) < 1.)) {
+        (fabs(new_lat-old_lat) < 3.) && (fabs(new_lon-old_lon) < 10.)) {
         printf("GPS updated from (%f, %f) to (%f, %f)\n", old_lat, old_lon, new_lat, new_lon);
         solarTransform.set_lat_lon(Pair(new_lat, new_lon));
         old_lat = new_lat;
