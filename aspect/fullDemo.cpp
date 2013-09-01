@@ -11,6 +11,7 @@
 #include "processing.hpp"
 #include "compression.hpp"
 #include "utilities.hpp"
+#include "draw.hpp"
 
 int main(int argc, char* agrv[])
 {

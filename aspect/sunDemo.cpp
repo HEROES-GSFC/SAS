@@ -74,6 +74,7 @@
 
 //HEROES telemetry types
 #define TM_ACK_RECEIPT 0x01
+#define TM_IDLE 0x03
 #define TM_ACK_PROCESS 0xE1
 #define TM_SAS_GENERIC 0x70
 #define TM_SAS_IMAGE   0x82
@@ -113,6 +114,7 @@
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
 #define SKEY_SET_IMAGESAVEFLAG   0x0421
+#define SKEY_SET_GPSFLAG         0x0431
 #define SKEY_SET_PYAS_EXPOSURE   0x0451
 #define SKEY_SET_PYAS_ANALOGGAIN 0x0481
 #define SKEY_SET_PYAS_PREAMPGAIN 0x0491
@@ -120,6 +122,7 @@
 #define SKEY_SET_RAS_ANALOGGAIN  0x0581
 #define SKEY_SET_RAS_PREAMPGAIN  0x0591
 #define SKEY_SET_CLOCKING        0x0621
+#define SKEY_SET_LAT_LON         0x06A2
 #define SKEY_SET_ASPECT_INT      0x0712
 #define SKEY_SET_ASPECT_FLOAT    0x0722
 #define SKEY_SET_CAMERA_TWIST    0x0731
@@ -138,6 +141,8 @@
 #define SKEY_GET_ASPECT_FLOAT    0x0B21
 #define SKEY_GET_CAMERA_TWIST    0x0B30
 #define SKEY_GET_CLOCKING        0x0C20
+#define SKEY_GET_LATITUDE        0x0CA0
+#define SKEY_GET_LONGITUDE       0x0CB0
 
 #define PASSPHRASE_SBC_SHUTDOWN "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 #define PASSPHRASE_RELAY_CONTROL "tAzh0Sh?$:dGo4t8j$8ceh^,d;2#ob}j_VEHXtWrI_AL*5C3l/edTMoO2Q8FY&K"
@@ -182,6 +187,7 @@ bool isOutputting = false;                  // is this SAS supposed to be output
 bool acknowledgedCTL = true;                // have we acknowledged the last command from CTL?
 bool isSavingImages = SAVE_IMAGES;          // is the SAS saving images?
 bool isClockSynced = false;
+bool isAcceptingGPS = true;                 // are we accepting GPS updates from FDR?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -194,7 +200,7 @@ bool started[MAX_THREADS];
 int tid_listen = -1; //Stores the ID for the CommandListener thread
 pthread_mutex_t mutexStartThread; //Keeps new threads from being started simultaneously
 pthread_mutex_t mutexHeader[2];  //Used to protect both the frame and header information
-pthread_mutex_t mutexSensors;
+pthread_mutex_t mutexSensors; //Used to protect sensor data
 
 //Used to make sure that there are no more than 3 saving threads per camera
 Semaphore semaphoreSave[2] = {Semaphore(3), Semaphore(3)};
@@ -226,7 +232,7 @@ struct Sensors {
     int8_t i2c_temperatures[8];
     float sbc_v105, sbc_v25, sbc_v33, sbc_v50, sbc_v120;
 };
-struct Sensors sensors; //not protected!
+struct Sensors sensors; //not protected well!
 float ntp_drift;
 float ntp_offset_ms;
 float ntp_stability;
@@ -315,8 +321,10 @@ void kill_all_threads()
     if (started[tid_listen]) {
         stop_message[tid_listen] = true;
         kill_all_workers();
-        printf("Quitting thread %i, quitting status is %i\n", tid_listen, pthread_cancel(threads[tid_listen]));
-        started[tid_listen] = false;
+        if (started[tid_listen]) {
+            printf("Quitting thread %i, quitting status is %i\n", tid_listen, pthread_cancel(threads[tid_listen]));
+            started[tid_listen] = false;
+        }
     }
 }
 
@@ -486,7 +494,7 @@ void *CameraThread( void * threadargs, int camera_id)
                     
                     for (int i=0; i<8; i++) localHeader.i2c_temperatures[i] = sensors.i2c_temperatures[i];
                     
-                    pthread_mutex_unlock(&mutexHeader[0]);
+                    pthread_mutex_unlock(&mutexSensors);
                 }
                 if(frameCount[camera_id] % MOD_PROCESS == 0) {
                     image_process(camera_id, localFrame, localHeader);
@@ -1111,8 +1119,6 @@ void *ForwardCommandsFromSAS2Thread(void *threadargs)
     long tid = (long)((struct Thread_data *)threadargs)->thread_id;
     printf("ForwardCommandsFromSAS2 thread #%ld!\n", tid);
 
-    tid_listen = tid;
-
     CommandReceiver comReceiver( (unsigned short) PORT_SAS2);
     comReceiver.init_connection();
 
@@ -1451,6 +1457,13 @@ uint16_t cmd_send_image_to_ground( int camera_id )
                     //log.flush();
                 }
             }
+
+            //This additional packet should flush the receiving buffer
+            TelemetryPacket idle(TM_IDLE, SOURCE_ID_SAS);
+            uint8_t fill[256];
+            memset(fill, 0xAA, 256);
+            idle.append_bytes(fill, 256);
+            tcpSndr.send_packet(&idle);
         }
         tcpSndr.close_connection();
         error_code = 1;
@@ -1519,6 +1532,11 @@ void *CommandHandlerThread(void *threadargs)
             if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
             std::cout << "Image saving is now turned " << ( isSavingImages ? "on\n" : "off\n");
             break;
+        case SKEY_SET_GPSFLAG:
+            isAcceptingGPS = (my_data->command_vars[0] > 0);
+            if( isAcceptingGPS == my_data->command_vars[0] ) error_code = 0;
+            std::cout << "GPS updating is now turned " << ( isAcceptingGPS ? "on\n" : "off\n");
+            break;
         case SKEY_SET_PYAS_EXPOSURE:    // set exposure time
             settings[0].exposure = my_data->command_vars[0];
             if( settings[0].exposure == my_data->command_vars[0] ) error_code = 0;
@@ -1547,11 +1565,15 @@ void *CommandHandlerThread(void *threadargs)
             if( settings[1].analogGain == my_data->command_vars[0] ) error_code = 0;
             break;
         case SKEY_SET_TARGET:    // set new solar target
-            solarTransform.set_solar_target(Pair(Float2B(my_data->command_vars[0]).value(), Float2B(my_data->command_vars[1]).value()));
+            solarTransform.set_solar_target(Pair((int16_t)my_data->command_vars[0], (int16_t)my_data->command_vars[1]));
             error_code = 0;
             break;
         case SKEY_SET_CLOCKING:    // set clocking
             solarTransform.set_clocking(Float2B(my_data->command_vars[0]).value());
+            error_code = 0;
+            break;
+        case SKEY_SET_LAT_LON: //will get overriden if GPS updating is enabled
+            solarTransform.set_lat_lon(Pair(Float2B(my_data->command_vars[0]).value(), Float2B(my_data->command_vars[1]).value()));
             error_code = 0;
             break;
         case SKEY_SET_ASPECT_INT:
@@ -1590,10 +1612,10 @@ void *CommandHandlerThread(void *threadargs)
             error_code = (uint16_t)get_disk_usage((uint16_t)my_data->command_vars[0]);
             break;
         case SKEY_GET_TARGET_X:
-            error_code = (uint16_t)Float2B((float)solarTransform.get_solar_target().x()).code();
+            error_code = (int16_t)solarTransform.get_solar_target().x();
             break;
         case SKEY_GET_TARGET_Y:
-            error_code = (uint16_t)Float2B((float)solarTransform.get_solar_target().y()).code();
+            error_code = (int16_t)solarTransform.get_solar_target().y();
             break;
         case SKEY_GET_ASPECT_INT:
             error_code = (int16_t)aspect.GetInteger((AspectInt)my_data->command_vars[0]);
@@ -1606,6 +1628,12 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_GET_CLOCKING:
             error_code = (uint16_t)Float2B(solarTransform.get_clocking()).code();
+            break;
+        case SKEY_GET_LATITUDE:
+            error_code = (uint16_t)Float2B((float)solarTransform.get_lat_lon().x()).code();
+            break;
+        case SKEY_GET_LONGITUDE:
+            error_code = (uint16_t)Float2B((float)solarTransform.get_lat_lon().y()).code();
             break;
 
         default:
@@ -1752,10 +1780,33 @@ uint16_t cmd_send_test_ctl_solution( int type )
 void cmd_process_gps_info(Command &command)
 {
     if (command.get_heroes_command() != HKEY_FDR_GPS_INFO) return;
+
+    if (!isAcceptingGPS) return;
+
     static float new_lat, new_lon;
     static float old_lat = 0, old_lon = 0;
+
+    //Initialize the starting location to the same as the Transform setting
+    if ((old_lat == 0) && (old_lon == 0)) {
+        Pair start = solarTransform.get_lat_lon();
+        old_lat = start.x();
+        old_lon = start.y();
+    }
+
     command >> new_lat >> new_lon;
-    if ((new_lat != old_lat) || (new_lon != old_lon)) {
+
+    //These packets shouldn't be sent to us anymore, but just in case...
+    if ((new_lat == 0) && (new_lon == 0)) {
+        std::cerr << "Bad GPS information packet!\n";
+        return;
+    }
+
+    //Update the location if it has changed
+    //Broad range of acceptable changes (in case software resets):
+    //  +/- 3 degrees in latitude
+    //  +/- 10 degrees in longitude
+    if (((new_lat != old_lat) || (new_lon != old_lon)) &&
+        (fabs(new_lat-old_lat) < 3.) && (fabs(new_lon-old_lon) < 10.)) {
         printf("GPS updated from (%f, %f) to (%f, %f)\n", old_lat, old_lon, new_lat, new_lon);
         solarTransform.set_lat_lon(Pair(new_lat, new_lon));
         old_lat = new_lat;
@@ -1803,7 +1854,6 @@ void cmd_process_sas_command(Command &command)
             case SKEY_SHUTDOWN:
                 {
                     kill_all_threads();
-                    sleep(2);
                     send_shutdown();
                 }
             default:
@@ -1881,17 +1931,18 @@ int main(void)
             recvd_command_queue >> command;
 
             latest_heroes_command_key = command.get_heroes_command();
-            latest_sas_command_key = command.get_sas_command();
-            printf("Received command key 0x%04X/0x%04X\n", latest_heroes_command_key, command.get_sas_command());
 
             switch(latest_heroes_command_key) {
                 case HKEY_FDR_SAS_CMD:
+                    latest_sas_command_key = command.get_sas_command();
+                    printf("Received command key 0x%04X/0x%04X\n", latest_heroes_command_key, latest_sas_command_key);
                     cmd_process_sas_command(command);
                     break;
                 case HKEY_FDR_GPS_INFO:
                     cmd_process_gps_info(command);
                     break;
                 default:
+                    printf("Received command key 0x%04X\n", latest_heroes_command_key);
                     cmd_process_heroes_command(latest_heroes_command_key);
             }
         }

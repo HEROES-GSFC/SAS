@@ -1,10 +1,12 @@
 #define PORT_SBC_SHUTDOWN 3789
+#define SECONDS_TO_WAIT 3
 
 #define PASSPHRASE "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "UDPReceiver.hpp"
 
@@ -26,6 +28,8 @@ int main()
 
         if((packet_length == strlen(PASSPHRASE)) && (strncmp((char *)array, PASSPHRASE, strlen(PASSPHRASE)) == 0)) {
             printf("Valid shutdown passphrase received\n");
+            printf("Shutting down in %d seconds...\n", SECONDS_TO_WAIT);
+            sleep(SECONDS_TO_WAIT);
             in = popen("shutdown -h now", "r");
             pclose(in);
         } else {
