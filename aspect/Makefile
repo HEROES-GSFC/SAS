@@ -44,7 +44,7 @@ default: $(EXEC_CORE)
 
 all: $(EXEC_ALL)
 
-fullDemo: fullDemo.cpp $(ASPECT) utilities.o ImperxStream.o compression.o
+fullDemo: fullDemo.cpp $(ASPECT) utilities.o ImperxStream.o compression.o draw.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(THREAD) $(IMPERX) $(CCFITS)
 
 CTLCommandSimulator: CTLCommandSimulator.cpp UDPSender.o Command.o $(PACKET)
@@ -67,6 +67,9 @@ evaluate: evaluate.cpp compression.o
 
 snap: snap.cpp ImperxStream.o compression.o processing.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS) $(IMPERX)
+
+playback: playback.cpp Telemetry.o $(PACKET) UDPSender.o utilities.o
+	$(CC) $(CFLAGS) $^ -o $@ $(THREAD)
 
 #This executable need to be copied to /usr/local/bin/ after it is built
 sbc_info: sbc_info.cpp $(PACKET) UDPSender.o smbus.o
@@ -106,11 +109,11 @@ test_relays: test_relays.cpp $(RELAYS)
 pmm/%.o: pmm/%.cpp pmm/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ $(DSCUD_LIBS) $(THREAD)
 
-PointingTest: PointingTest.cpp $(ASPECT) utilities.o compression.o Transform.o types.o $(PACKET)
+PointingTest: PointingTest.cpp $(ASPECT) utilities.o compression.o Transform.o types.o $(PACKET) draw.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 #This pattern is for any of Alex's weird test programs
-$(TESTS): % : %.cpp utilities.o $(ASPECT) compression.o
+$(TESTS): % : %.cpp utilities.o $(ASPECT) compression.o draw.o
 	$(CC) $(CFLAGS) $^ -o $@ $(OPENCV) $(CCFITS)
 
 smbus.o: smbus/smbus.c smbus/smbus.h

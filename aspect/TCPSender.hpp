@@ -15,7 +15,7 @@ public:
     TCPSender( const char *ip, unsigned short port );
     ~TCPSender();
         
-    virtual void send_packet(  ImagePacket *packet  );
+    virtual void send_packet(  Packet *packet  );
     int init_connection( void );
     void close_connection( void );
 };
