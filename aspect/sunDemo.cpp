@@ -1630,10 +1630,10 @@ void *CommandHandlerThread(void *threadargs)
             error_code = (uint16_t)Float2B(solarTransform.get_clocking()).code();
             break;
         case SKEY_GET_LATITUDE:
-            error_code = (uint16_t)Float2B(solarTransform.get_lat_lon().x()).code();
+            error_code = (uint16_t)Float2B((float)solarTransform.get_lat_lon().x()).code();
             break;
         case SKEY_GET_LONGITUDE:
-            error_code = (uint16_t)Float2B(solarTransform.get_lat_lon().y()).code();
+            error_code = (uint16_t)Float2B((float)solarTransform.get_lat_lon().y()).code();
             break;
 
         default:
