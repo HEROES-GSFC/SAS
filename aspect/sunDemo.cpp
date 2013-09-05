@@ -110,6 +110,7 @@
 #define SKEY_TURN_RELAY_OFF      0x0111
 #define SKEY_TURN_ON_ALL_RELAYS  0x0120
 #define SKEY_TURN_OFF_ALL_RELAYS 0x0130
+#define SKEY_DEFAULT_RELAYS      0x0140
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
@@ -1503,14 +1504,19 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_TURN_OFF_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
-                // do we need to pause between these commands?
                 send_relay_control(i, RELAY_OFF);
             }
             break;
         case SKEY_TURN_ON_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
-                // do we need to pause between these commands?
                 send_relay_control(i, RELAY_ON);
+            }
+            break;
+        case SKEY_DEFAULT_RELAYS:
+            send_relay_control(0, RELAY_ON);
+            send_relay_control(1, RELAY_ON);
+            for (int i = 2; i < NUM_RELAYS-1; i++) {
+                send_relay_control(i, RELAY_OFF);
             }
             break;
         case SKEY_TURN_RELAY_ON:
