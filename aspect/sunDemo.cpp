@@ -100,7 +100,7 @@
 #define SKEY_RESTART_THREADS     0x0020
 #define SKEY_START_OUTPUTTING    0x0030
 #define SKEY_STOP_OUTPUTTING     0x0040
-#define SKEY_EXIT_SERVICE        0x0050
+#define SKEY_QUIT_RUNTIME        0x0050
 #define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
 #define SKEY_CTL_TEST_CMD        0x0081
@@ -1862,7 +1862,7 @@ void cmd_process_sas_command(Command &command)
                     start_all_workers();
                 }
                 break;
-            case SKEY_EXIT_SERVICE:
+            case SKEY_QUIT_RUNTIME:
                 {
                     g_running = 0;
                 }
