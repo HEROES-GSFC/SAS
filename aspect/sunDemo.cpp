@@ -190,6 +190,8 @@ bool isSavingImages = SAVE_IMAGES;          // is the SAS saving images?
 bool isClockSynced = false;
 bool isAcceptingGPS = true;                 // are we accepting GPS updates from FDR?
 
+bool receivedGoodGPS = false; // have we received a good GPS packet?
+
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
 CommandPacketQueue cm_packet_queue;
@@ -916,7 +918,8 @@ void *TelemetryPackagerThread(void *threadargs)
 
         uint8_t status_bitfield = 0;
         bitwrite(&status_bitfield, 7, 1, localHeaders[0].isTracking);
-        bitwrite(&status_bitfield, 6, 1, false);
+        bitwrite(&status_bitfield, 6, 1, receivedGoodGPS);
+        receivedGoodGPS = false;
         bitwrite(&status_bitfield, 5, 1, localHeaders[0].isOutputting);
         bitwrite(&status_bitfield, 0, 5, localHeaders[0].runResult);
         tp << (uint8_t)status_bitfield;
@@ -1787,8 +1790,6 @@ void cmd_process_gps_info(Command &command)
 {
     if (command.get_heroes_command() != HKEY_FDR_GPS_INFO) return;
 
-    if (!isAcceptingGPS) return;
-
     static float new_lat, new_lon;
     static float old_lat = 0, old_lon = 0;
 
@@ -1806,6 +1807,10 @@ void cmd_process_gps_info(Command &command)
         std::cerr << "Bad GPS information packet!\n";
         return;
     }
+
+    receivedGoodGPS = true;
+
+    if (!isAcceptingGPS) return;
 
     //Update the location if it has changed
     //Broad range of acceptable changes (in case software resets):
