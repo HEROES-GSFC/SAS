@@ -43,6 +43,7 @@
 #define USLEEP_TM_SEND     50000 // period for popping off the telemetry queue
 #define USLEEP_TM_GENERIC 950000 // period for adding generic telemetry packets to queue
 #define USLEEP_UDP_LISTEN   1000 // safety measure in case UDP listening is changed to non-blocking
+#define USLEEP_MAIN         5000 // period for checking for new commands
 
 #define SAS1_MAC_ADDRESS "00:20:9d:23:26:b9"
 #define SAS2_MAC_ADDRESS "00:20:9d:23:5c:9e"
@@ -99,6 +100,7 @@
 #define SKEY_RESTART_THREADS     0x0020
 #define SKEY_START_OUTPUTTING    0x0030
 #define SKEY_STOP_OUTPUTTING     0x0040
+#define SKEY_QUIT_RUNTIME        0x0050
 #define SKEY_SUPPRESS_TELEMETRY  0x0071
 #define SKEY_SHUTDOWN            0x00F0
 #define SKEY_CTL_TEST_CMD        0x0081
@@ -110,6 +112,7 @@
 #define SKEY_TURN_RELAY_OFF      0x0111
 #define SKEY_TURN_ON_ALL_RELAYS  0x0120
 #define SKEY_TURN_OFF_ALL_RELAYS 0x0130
+#define SKEY_DEFAULT_RELAYS      0x0140
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
@@ -188,6 +191,8 @@ bool acknowledgedCTL = true;                // have we acknowledged the last com
 bool isSavingImages = SAVE_IMAGES;          // is the SAS saving images?
 bool isClockSynced = false;
 bool isAcceptingGPS = true;                 // are we accepting GPS updates from FDR?
+
+bool receivedGoodGPS = false; // have we received a good GPS packet?
 
 CommandQueue recvd_command_queue;
 TelemetryPacketQueue tm_packet_queue;
@@ -915,7 +920,8 @@ void *TelemetryPackagerThread(void *threadargs)
 
         uint8_t status_bitfield = 0;
         bitwrite(&status_bitfield, 7, 1, localHeaders[0].isTracking);
-        bitwrite(&status_bitfield, 6, 1, false);
+        bitwrite(&status_bitfield, 6, 1, receivedGoodGPS);
+        receivedGoodGPS = false;
         bitwrite(&status_bitfield, 5, 1, localHeaders[0].isOutputting);
         bitwrite(&status_bitfield, 0, 5, localHeaders[0].runResult);
         tp << (uint8_t)status_bitfield;
@@ -1503,14 +1509,19 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_TURN_OFF_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
-                // do we need to pause between these commands?
                 send_relay_control(i, RELAY_OFF);
             }
             break;
         case SKEY_TURN_ON_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
-                // do we need to pause between these commands?
                 send_relay_control(i, RELAY_ON);
+            }
+            break;
+        case SKEY_DEFAULT_RELAYS:
+            send_relay_control(0, RELAY_ON);
+            send_relay_control(1, RELAY_ON);
+            for (int i = 2; i < NUM_RELAYS-1; i++) {
+                send_relay_control(i, RELAY_OFF);
             }
             break;
         case SKEY_TURN_RELAY_ON:
@@ -1781,8 +1792,6 @@ void cmd_process_gps_info(Command &command)
 {
     if (command.get_heroes_command() != HKEY_FDR_GPS_INFO) return;
 
-    if (!isAcceptingGPS) return;
-
     static float new_lat, new_lon;
     static float old_lat = 0, old_lon = 0;
 
@@ -1800,6 +1809,10 @@ void cmd_process_gps_info(Command &command)
         std::cerr << "Bad GPS information packet!\n";
         return;
     }
+
+    receivedGoodGPS = true;
+
+    if (!isAcceptingGPS) return;
 
     //Update the location if it has changed
     //Broad range of acceptable changes (in case software resets):
@@ -1839,7 +1852,6 @@ void cmd_process_sas_command(Command &command)
             case SKEY_KILL_WORKERS:    // kill all worker threads
                 {
                     kill_all_workers();
-                    queue_cmd_proc_ack_tmpacket( 0 );
                 }
                 break;
             case SKEY_RESTART_THREADS:    // (re)start all worker threads
@@ -1848,7 +1860,11 @@ void cmd_process_sas_command(Command &command)
 
                     start_thread(CommandListenerThread, NULL);
                     start_all_workers();
-                    queue_cmd_proc_ack_tmpacket( 0 );
+                }
+                break;
+            case SKEY_QUIT_RUNTIME:
+                {
+                    g_running = 0;
                 }
                 break;
             case SKEY_SHUTDOWN:
@@ -1923,6 +1939,8 @@ int main(void)
     start_all_workers();
 
     while(g_running){
+        usleep(USLEEP_MAIN);
+
         // check if new command have been added to command queue and service them
         if (!recvd_command_queue.empty()){
             //printf("size of queue: %zu\n", recvd_command_queue.size());

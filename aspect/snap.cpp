@@ -22,8 +22,8 @@ void sig_handler(int signum)
 {
     if ((signum == SIGINT) || (signum == SIGTERM))
     {
-        if (signum == SIGINT) std::cerr << "Keyboard interrupt received\n";
-        if (signum == SIGTERM) std::cerr << "Termination signal received\n";
+        if (signum == SIGINT) std::cerr << "Keyboard interrupt received (press enter)\n";
+        if (signum == SIGTERM) std::cerr << "Termination signal received (press enter)\n";
         g_running = 0;
     }
 }
@@ -51,9 +51,18 @@ void ImageSave()
 
 int main(int argc, char* argv[])
 {
-    if(argc != 2) {
-        std::cout << "Calling sequeunce: snap <camera IP>\n";
-        return 0;
+    switch(argc) {
+        case 5:
+            localPreampGain = atoi(argv[4]);
+        case 4:
+            localAnalogGain = atoi(argv[3]);
+        case 3:
+            localExposure = atoi(argv[2]);
+        case 2:
+            break;
+        default:
+            std::cout << "Calling sequeunce: snap <camera IP> [exposure time (us)] [analog gain (0-1023)] [preamp gain (-3,0,3,6)]\n";
+            return 0;
     }
 
     // to catch a Ctrl-C or termination signal and clean up
@@ -128,7 +137,10 @@ int main(int argc, char* argv[])
         }
 
         std::cout << "Press return to snap\n";
-        while(std::cin.get() != '\n') {}
+
+        std::string buffer;
+
+        std::getline(cin, buffer);
     }
 
     camera.Stop();
