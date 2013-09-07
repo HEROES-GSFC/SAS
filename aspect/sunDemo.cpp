@@ -148,6 +148,7 @@
 #define SKEY_GET_CLOCKING        0x0C20
 #define SKEY_GET_LATITUDE        0x0CA0
 #define SKEY_GET_LONGITUDE       0x0CB0
+#define SKEY_GET_NTP_OFFSET_US   0x0D10
 
 #define PASSPHRASE_SBC_SHUTDOWN "cS8XU:DpHq;dpCSA>wllge+gc9p2Xkjk;~a2OXahm0hFZDaXJ6C}hJ6cvB-WEp,"
 #define PASSPHRASE_RELAY_CONTROL "tAzh0Sh?$:dGo4t8j$8ceh^,d;2#ob}j_VEHXtWrI_AL*5C3l/edTMoO2Q8FY&K"
@@ -1657,6 +1658,9 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_GET_LONGITUDE:
             error_code = (uint16_t)Float2B((float)solarTransform.get_lat_lon().y()).code();
+            break;
+        case SKEY_GET_NTP_OFFSET_US:
+            error_code = (int16_t)(ntp_offset_ms*1000);
             break;
 
         default:
