@@ -118,9 +118,11 @@
 #define SKEY_SET_TARGET          0x0412
 #define SKEY_SET_IMAGESAVEFLAG   0x0421
 #define SKEY_SET_GPSFLAG         0x0431
+#define SKEY_SET_PYAS_SAVEFLAG   0x0441
 #define SKEY_SET_PYAS_EXPOSURE   0x0451
 #define SKEY_SET_PYAS_ANALOGGAIN 0x0481
 #define SKEY_SET_PYAS_PREAMPGAIN 0x0491
+#define SKEY_SET_RAS_SAVEFLAG    0x0541
 #define SKEY_SET_RAS_EXPOSURE    0x0551
 #define SKEY_SET_RAS_ANALOGGAIN  0x0581
 #define SKEY_SET_RAS_PREAMPGAIN  0x0591
@@ -188,7 +190,7 @@ uint8_t aspect_error_code = 0;
 bool isTracking = false;                    // does CTL want solutions?
 bool isOutputting = false;                  // is this SAS supposed to be outputting solutions?
 bool acknowledgedCTL = true;                // have we acknowledged the last command from CTL?
-bool isSavingImages = SAVE_IMAGES;          // is the SAS saving images?
+bool isSavingImages[2] = {SAVE_IMAGES, SAVE_IMAGES}; // is the PYAS/RAS saving images?
 bool isClockSynced = false;
 bool isAcceptingGPS = true;                 // are we accepting GPS updates from FDR?
 
@@ -514,7 +516,7 @@ void *CameraThread( void * threadargs, int camera_id)
                     if(camera_id == 0) image_queue_solution(localHeader);
                 }
 
-                if(isSavingImages && (frameCount[camera_id] % MOD_SAVE == 0)) {
+                if(isSavingImages[camera_id] && (frameCount[camera_id] % MOD_SAVE == 0)) {
                     try {
                         semaphoreSave[camera_id].increment();
                         Thread_data tdata;
@@ -982,7 +984,7 @@ void *TelemetryPackagerThread(void *threadargs)
                 break;
             case 7:
                 tp << (uint16_t)isClockSynced;
-                tp << (uint16_t)isSavingImages;
+                tp << (uint16_t)(isSavingImages[0]+2*isSavingImages[1]);
                 break;
             default:
                 tp << (uint16_t)0xFFFF;
@@ -1539,14 +1541,19 @@ void *CommandHandlerThread(void *threadargs)
 
         //Setting commands
         case SKEY_SET_IMAGESAVEFLAG:
-            isSavingImages = (my_data->command_vars[0] > 0);
-            if( isSavingImages == my_data->command_vars[0] ) error_code = 0;
-            std::cout << "Image saving is now turned " << ( isSavingImages ? "on\n" : "off\n");
+            isSavingImages[0] = isSavingImages[1] = (my_data->command_vars[0] > 0);
+            if( isSavingImages[0] == my_data->command_vars[0] ) error_code = 0;
+            std::cout << "PYAS/RAS image saving is now turned " << ( isSavingImages[0] ? "on\n" : "off\n");
             break;
         case SKEY_SET_GPSFLAG:
             isAcceptingGPS = (my_data->command_vars[0] > 0);
             if( isAcceptingGPS == my_data->command_vars[0] ) error_code = 0;
             std::cout << "GPS updating is now turned " << ( isAcceptingGPS ? "on\n" : "off\n");
+            break;
+        case SKEY_SET_PYAS_SAVEFLAG:
+            isSavingImages[0] = (my_data->command_vars[0] > 0);
+            if( isSavingImages[0] == my_data->command_vars[0] ) error_code = 0;
+            std::cout << "PYAS image saving is now turned " << ( isSavingImages[0] ? "on\n" : "off\n");
             break;
         case SKEY_SET_PYAS_EXPOSURE:    // set exposure time
             settings[0].exposure = my_data->command_vars[0];
@@ -1562,6 +1569,11 @@ void *CommandHandlerThread(void *threadargs)
         case SKEY_SET_PYAS_ANALOGGAIN:    // set analog gain
             settings[0].analogGain = my_data->command_vars[0];
             if( settings[0].analogGain == my_data->command_vars[0] ) error_code = 0;
+            break;
+        case SKEY_SET_RAS_SAVEFLAG:
+            isSavingImages[1] = (my_data->command_vars[0] > 0);
+            if( isSavingImages[1] == my_data->command_vars[0] ) error_code = 0;
+            std::cout << "RAS image saving is now turned " << ( isSavingImages[1] ? "on\n" : "off\n");
             break;
         case SKEY_SET_RAS_EXPOSURE:    // set exposure time
             settings[1].exposure = my_data->command_vars[0];
