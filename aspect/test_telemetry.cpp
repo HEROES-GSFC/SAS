@@ -105,6 +105,15 @@ int main()
         tp << (float)(((float)(count % 13)-7)/700+0.5); //azimuth offset
         tp << (float)(((float)(count % 17)-9)/900-0.5); //elevation offset
 
+        //Fiduical IDs (currently 6)
+        //7 is added to the ID number (Which ranges from -7 to 7)
+        for(uint8_t j = 0; j < 6; j++) {
+            uint8_t temp = 0;
+            bitwrite(&temp, 0, 4, 1+7);
+            bitwrite(&temp, 4, 4, 1+7);
+            tp << (uint8_t)temp;
+        }
+        
         std::cout << tp << std::endl;
         std::cout << "Packet size: " << tp.getReadIndex()+tp.remainingBytes() << std::endl;
 
