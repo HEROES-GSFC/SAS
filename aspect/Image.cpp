@@ -194,14 +194,6 @@ void ImagePacketQueue::add_array(uint8_t camera,
         isp.setTimeAndFinish(now);
         *this << isp;
     }
-
-    /*
-    ImageTagPacket itp(NULL);
-    uint32_t exposure = 10000;
-    itp = ImageTagPacket(camera, &exposure, TLONG, "EXPOSURE", "Exposure time (usec)");
-    itp.setTimeAndFinish(now);
-    *this << itp;
-    */
 }
 
 void ImagePacketQueue::reassembleTo(uint8_t &camera,
