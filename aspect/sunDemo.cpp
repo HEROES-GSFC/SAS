@@ -1364,7 +1364,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTimeMono.tv_sec), TLONG, "MON_SEC", "Monotonic clock, seconds");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTimeMono.tv_nsec), TLONG, "MON_NSEC", "Monotonic clock, nanoseconds");
 
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.exposure), TINT, "EXPOSURE", "Exposure time in msec");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.exposure), TINT, "EXPOSURE", "Exposure time in usec");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.preampGain), TINT, "GAIN_PRE", "Preamp gain of CCD");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.analogGain), TINT, "GAIN_ANA", "Analog gain of CCD");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.frameCount), TLONG, "FRAMENUM", "Frame number");
