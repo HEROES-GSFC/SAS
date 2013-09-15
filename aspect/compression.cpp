@@ -143,7 +143,7 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     pFits->pHDU().addKey("MON_SEC", (long)keys.captureTimeMono.tv_sec , "Monotonic clock, seconds");
     pFits->pHDU().addKey("MON_NSEC", (long)keys.captureTimeMono.tv_nsec, "Monotonic clock, nanoseconds");
 
-    pFits->pHDU().addKey("EXPOSURE", (int)keys.exposure,"Exposure time in msec");
+    pFits->pHDU().addKey("EXPOSURE", (int)keys.exposure,"Exposure time in usec");
     pFits->pHDU().addKey("GAIN_PRE", (int)keys.preampGain, "Preamp gain of CCD");
     pFits->pHDU().addKey("GAIN_ANA", (int)keys.analogGain, "Analog gain of CCD");
     pFits->pHDU().addKey("FRAMENUM", (long)keys.frameCount, "Frame number");
