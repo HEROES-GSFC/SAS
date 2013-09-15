@@ -9,7 +9,7 @@
 #define FRAME_CADENCE 250000 // microseconds
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 
-uint16_t localExposure = 1000;
+long localExposure = 1000;
 int16_t localPreampGain = -3;
 uint16_t localAnalogGain = 300;
 
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
         case 4:
             localAnalogGain = atoi(argv[3]);
         case 3:
-            localExposure = atoi(argv[2]);
+            localExposure = atol(argv[2]);
         case 2:
             break;
         default:

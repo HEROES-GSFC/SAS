@@ -351,12 +351,20 @@ void ImperxStream::ConfigureSnap()
     lDeviceParams->SetBooleanValue("AgcEnable", false);
 }
 
-int ImperxStream::SetExposure(int exposureTime)
+int ImperxStream::SetExposure(long exposureTime)
 {
     PvResult outcome;
     if (exposureTime >= 5 && exposureTime <= 38221)
     {
+        lDeviceParams->SetIntegerValue("ProgFrameTimeEnable", 0);
         outcome = lDeviceParams->SetIntegerValue("ExposureTimeRaw",exposureTime);
+        if (outcome.IsSuccess())
+        {
+            return 0;
+        }
+    } else if (exposureTime > 38221) {
+        lDeviceParams->SetIntegerValue("ProgFrameTimeEnable", 1);
+        outcome = lDeviceParams->SetIntegerValue("ProgFrameTimeAbs", exposureTime);
         if (outcome.IsSuccess())
         {
             return 0;

@@ -48,7 +48,7 @@ public:
        returns 0 for a successful set,
        returns -1 otherwise
     */
-    int SetExposure(int exposureTime);
+    int SetExposure(long exposureTime);
     int SetROISize(cv::Size size);
     int SetROISize(int width, int height);
     int SetROIOffset(cv::Point offset);
