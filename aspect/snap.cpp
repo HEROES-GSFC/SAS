@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
         case 4:
             localAnalogGain = atoi(argv[3]);
         case 3:
-            localExposure = atol(argv[2]);
+            localExposure = atoi(argv[2]);
         case 2:
             break;
         default:
