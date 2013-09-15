@@ -1364,7 +1364,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTimeMono.tv_sec), TLONG, "MON_SEC", "Monotonic clock, seconds");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.captureTimeMono.tv_nsec), TLONG, "MON_NSEC", "Monotonic clock, nanoseconds");
 
-            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.exposure), TINT, "EXPOSURE", "Exposure time in msec");
+            im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.exposure), TINT, "EXPOSURE", "Exposure time in usec");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.preampGain), TINT, "GAIN_PRE", "Preamp gain of CCD");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tint = localHeader.analogGain), TINT, "GAIN_ANA", "Analog gain of CCD");
             im_packet_queue << ImageTagPacket(localHeader.cameraID, &(tlong = localHeader.frameCount), TLONG, "FRAMENUM", "Frame number");
@@ -1832,10 +1832,10 @@ void cmd_process_gps_info(Command &command)
 
     //Update the location if it has changed
     //Broad range of acceptable changes (in case software resets):
-    //  +/- 3 degrees in latitude
-    //  +/- 10 degrees in longitude
+    //  +/- 5 degrees in latitude
+    //  +/- 15 degrees in longitude
     if (((new_lat != old_lat) || (new_lon != old_lon)) &&
-        (fabs(new_lat-old_lat) < 3.) && (fabs(new_lon-old_lon) < 10.)) {
+        (fabs(new_lat-old_lat) < 5.) && (fabs(new_lon-old_lon) < 15.)) {
         printf("GPS updated from (%f, %f) to (%f, %f)\n", old_lat, old_lon, new_lat, new_lon);
         solarTransform.set_lat_lon(Pair(new_lat, new_lon));
         old_lat = new_lat;
