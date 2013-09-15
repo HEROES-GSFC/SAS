@@ -6,7 +6,7 @@
 #include "compression.hpp"
 #include "processing.hpp"
 
-#define FRAME_CADENCE 250000 // microseconds
+#define TIMEOUT 20000 // milliseconds
 #define SLEEP_CAMERA_CONNECT   1 // waits for errors while connecting to camera
 
 long localExposure = 1000;
@@ -69,7 +69,6 @@ int main(int argc, char* argv[])
     signal(SIGINT, &sig_handler);
     signal(SIGTERM, &sig_handler);
 
-    timespec frameRate = {0,FRAME_CADENCE*1000};
     bool cameraReady;
     ImperxStream camera;
 
@@ -109,7 +108,7 @@ int main(int argc, char* argv[])
         }
         else
         {
-            if(!camera.Snap(localFrame, frameRate))
+            if(!camera.Snap(localFrame, TIMEOUT))
             {
                 memset(&localHeader, 0, sizeof(HeaderData));
 
