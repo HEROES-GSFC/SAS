@@ -793,7 +793,7 @@ void *SBCInfoThread(void *threadargs)
         packet >> ntp_drift;
         packet >> ntp_offset_ms;
         packet >> ntp_stability;
-        if (ntp_offset_ms * 1000 < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockSynced = false; }
+        if (fabs(ntp_offset_ms * 1000) < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockSynced = false; }
         delete array;
     }
 
