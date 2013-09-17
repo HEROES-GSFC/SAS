@@ -113,6 +113,10 @@
 #define SKEY_TURN_ON_ALL_RELAYS  0x0120
 #define SKEY_TURN_OFF_ALL_RELAYS 0x0130
 #define SKEY_DEFAULT_RELAYS      0x0140
+#define SKEY_CAN_HEATERS_OFF     0x01A0
+#define SKEY_CAN_HEATERS_LOW     0x01B0
+#define SKEY_CAN_HEATERS_MEDIUM  0x01C0
+#define SKEY_CAN_HEATERS_HIGH    0x01D0
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
@@ -1532,6 +1536,22 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_TURN_RELAY_OFF:
             send_relay_control(my_data->command_vars[0], RELAY_OFF);
+            break;
+        case SKEY_CAN_HEATERS_OFF:
+            send_relay_control(9, RELAY_OFF);
+            send_relay_control(10, RELAY_OFF);
+            break;
+        case SKEY_CAN_HEATERS_LOW:
+            send_relay_control(9, RELAY_OFF);
+            send_relay_control(10, RELAY_ON);
+            break;
+        case SKEY_CAN_HEATERS_MEDIUM:
+            send_relay_control(9, RELAY_ON);
+            send_relay_control(10, RELAY_OFF);
+            break;
+        case SKEY_CAN_HEATERS_HIGH:
+            send_relay_control(9, RELAY_ON);
+            send_relay_control(10, RELAY_ON);
             break;
         case SKEY_REQUEST_PYAS_IMAGE:
             error_code = cmd_send_image_to_ground( 0 ); // 0 for PYAS
