@@ -1522,11 +1522,13 @@ void *CommandHandlerThread(void *threadargs)
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 send_relay_control(i, RELAY_OFF);
             }
+            error_code = 0;
             break;
         case SKEY_TURN_ON_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 send_relay_control(i, RELAY_ON);
             }
+            error_code = 0;
             break;
         case SKEY_DEFAULT_RELAYS:
             send_relay_control(0, RELAY_ON);
@@ -1534,40 +1536,51 @@ void *CommandHandlerThread(void *threadargs)
             for (int i = 2; i < NUM_RELAYS-1; i++) {
                 send_relay_control(i, RELAY_OFF);
             }
+            error_code = 0;
             break;
         case SKEY_TURN_RELAY_ON:
             send_relay_control(my_data->command_vars[0], RELAY_ON);
+            error_code = 0;
             break;
         case SKEY_TURN_RELAY_OFF:
             send_relay_control(my_data->command_vars[0], RELAY_OFF);
+            error_code = 0;
             break;
         case SKEY_PYAS_TSTAT_BYPASS:
             send_relay_control(8, RELAY_ON);
+            error_code = 0;
             break;
         case SKEY_PYAS_TSTAT_ENABLE:
             send_relay_control(8, RELAY_OFF);
+            error_code = 0;
             break;
         case SKEY_RAS_TSTAT_BYPASS:
             send_relay_control(11, RELAY_ON);
+            error_code = 0;
             break;
         case SKEY_RAS_TSTAT_ENABLE:
             send_relay_control(11, RELAY_OFF);
+            error_code = 0;
             break;
         case SKEY_CAN_HEATERS_OFF:
             send_relay_control(9, RELAY_OFF);
             send_relay_control(10, RELAY_OFF);
+            error_code = 0;
             break;
         case SKEY_CAN_HEATERS_LOW:
             send_relay_control(9, RELAY_OFF);
             send_relay_control(10, RELAY_ON);
+            error_code = 0;
             break;
         case SKEY_CAN_HEATERS_MEDIUM:
             send_relay_control(9, RELAY_ON);
             send_relay_control(10, RELAY_OFF);
+            error_code = 0;
             break;
         case SKEY_CAN_HEATERS_HIGH:
             send_relay_control(9, RELAY_ON);
             send_relay_control(10, RELAY_ON);
+            error_code = 0;
             break;
         case SKEY_REQUEST_PYAS_IMAGE:
             error_code = cmd_send_image_to_ground( 0 ); // 0 for PYAS
