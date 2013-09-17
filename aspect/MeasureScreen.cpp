@@ -6,6 +6,18 @@
 #include <iostream>
 #include <string>
 
+//Calibrated parameters
+#define CLOCKING_ANGLE_PYASF -33.26 //model is -33.26
+#define CENTER_X_PYASF    0 //mils
+#define CENTER_Y_PYASF    0 //mils
+#define TWIST_PYASF 180.0 //needs to be ~180
+#define CLOCKING_ANGLE_PYASR -53.00 //model is -53.26
+#define CENTER_X_PYASR -210 //mils
+#define CENTER_Y_PYASR   56 //mils
+#define TWIST_PYASR 0.0 //needs to be ~0
+
+#define IS_PYASF true
+
 int main(int argc, char* argv[])
 {
 
@@ -14,6 +26,12 @@ int main(int argc, char* argv[])
         std::cout << "Correct usage is: MeasureScreen frameList.txt\n";
         return -1;
     }
+
+    float clocking_angle, center_x, center_y, twist;
+    clocking_angle = (IS_PYASF ? CLOCKING_ANGLE_PYASF : CLOCKING_ANGLE_PYASR);
+    center_x = (IS_PYASF ? CENTER_X_PYASF : CENTER_X_PYASR);
+    center_y = (IS_PYASF ? CENTER_Y_PYASF : CENTER_Y_PYASR);
+    twist = (IS_PYASF ? TWIST_PYASF : TWIST_PYASR);
 
     size_t found;
     char line[256];
@@ -36,6 +54,8 @@ int main(int argc, char* argv[])
     std::vector<float> mapping, spacing;
         
     Aspect aspect;
+    aspect.SetFloat(FIDUCIAL_TWIST, twist);
+
     AspectCode runResult;
     cv::namedWindow("Solution", CV_WINDOW_NORMAL | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED );
     std::ifstream frames(argv[1]);
