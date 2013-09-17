@@ -113,6 +113,10 @@
 #define SKEY_TURN_ON_ALL_RELAYS  0x0120
 #define SKEY_TURN_OFF_ALL_RELAYS 0x0130
 #define SKEY_DEFAULT_RELAYS      0x0140
+#define SKEY_PYAS_TSTAT_BYPASS   0x0160
+#define SKEY_PYAS_TSTAT_USE      0x0170
+#define SKEY_RAS_TSTAT_BYPASS    0x0180
+#define SKEY_RAS_TSTAT_USE       0x0190
 #define SKEY_CAN_HEATERS_OFF     0x01A0
 #define SKEY_CAN_HEATERS_LOW     0x01B0
 #define SKEY_CAN_HEATERS_MEDIUM  0x01C0
@@ -1536,6 +1540,18 @@ void *CommandHandlerThread(void *threadargs)
             break;
         case SKEY_TURN_RELAY_OFF:
             send_relay_control(my_data->command_vars[0], RELAY_OFF);
+            break;
+        case SKEY_PYAS_TSTAT_BYPASS:
+            send_relay_control(8, RELAY_ON);
+            break;
+        case SKEY_PYAS_TSTAT_USE:
+            send_relay_control(8, RELAY_OFF);
+            break;
+        case SKEY_RAS_TSTAT_BYPASS:
+            send_relay_control(11, RELAY_ON);
+            break;
+        case SKEY_RAS_TSTAT_USE:
+            send_relay_control(11, RELAY_OFF);
             break;
         case SKEY_CAN_HEATERS_OFF:
             send_relay_control(9, RELAY_OFF);
