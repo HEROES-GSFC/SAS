@@ -746,6 +746,12 @@ void *TelemetrySenderThread(void *threadargs)
         filename[128 - 1] = '\0';
         printf("Creating telemetry log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
+        if (!log.is_open()) {
+            sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION2, timestamp);
+            filename[128 - 1] = '\0';
+            printf("Creating telemetry log file %s \n",filename);
+            log.open(filename, std::ofstream::binary);
+        }
     }
 
     TelemetrySender telSender(IP_FDR, (unsigned short) PORT_TM);
@@ -759,7 +765,7 @@ void *TelemetrySenderThread(void *threadargs)
             tm_packet_queue >> tp;
             telSender.send( &tp );
             //std::cout << "TelemetrySender:" << tp << std::endl;
-            if (LOG_PACKETS) {
+            if (LOG_PACKETS && log.is_open()) {
                 uint16_t length = tp.getLength();
                 uint8_t *payload = new uint8_t[length];
                 tp.outputTo(payload);
@@ -771,7 +777,7 @@ void *TelemetrySenderThread(void *threadargs)
     }
 
     printf("TelemetrySender thread #%ld exiting\n", tid);
-    if (LOG_PACKETS) log.close();
+    if (LOG_PACKETS && log.is_open()) log.close();
     started[tid] = false;
     pthread_exit( NULL );
 }
@@ -1187,6 +1193,12 @@ void *CommandSenderThread( void *threadargs )
         filename[128 - 1] = '\0';
         printf("Creating command log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
+        if (!log.is_open()) {
+            sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION2, timestamp);
+            filename[128 - 1] = '\0';
+            printf("Creating command log file %s \n",filename);
+            log.open(filename, std::ofstream::binary);
+        }
     }
 
     CommandSender comSender(IP_CTL, PORT_CMD);
@@ -1200,7 +1212,7 @@ void *CommandSenderThread( void *threadargs )
             cm_packet_queue >> cp;
             comSender.send( &cp );
             //std::cout << "CommandSender: " << cp << std::endl;
-            if (LOG_PACKETS) {
+            if (LOG_PACKETS && log.is_open()) {
                 uint8_t length = cp.getLength();
                 uint8_t *payload = new uint8_t[length];
                 cp.outputTo(payload);
@@ -1212,7 +1224,7 @@ void *CommandSenderThread( void *threadargs )
     }
 
     printf("CommandSender thread #%ld exiting\n", tid);
-    if (LOG_PACKETS) log.close();
+    if (LOG_PACKETS && log.is_open()) log.close();
     started[tid] = false;
     pthread_exit( NULL );
 }
@@ -1293,6 +1305,12 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         filename[128 - 1] = '\0';
         printf("Creating science log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
+        if (!log.is_open()) {
+            sprintf(filename, "%slog_sc_%s.bin", SAVE_LOCATION2, timestamp);
+            filename[128 - 1] = '\0';
+            printf("Creating science log file %s \n",filename);
+            log.open(filename, std::ofstream::binary);
+        }
     }
 
     TCPSender tcpSndr(IP_FDR, (unsigned short) PORT_IMAGE);
@@ -1465,7 +1483,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             while(!im_packet_queue.empty()) {
                 im_packet_queue >> im;
                 tcpSndr.send_packet( &im );
-                if (LOG_PACKETS) {
+                if (LOG_PACKETS && log.is_open()) {
                     uint16_t length = im.getLength();
                     uint8_t *payload = new uint8_t[length];
                     im.outputTo(payload);
@@ -1486,7 +1504,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         error_code = 1;
     } else { error_code = 2; }
 
-    if (LOG_PACKETS) log.close();
+    if (LOG_PACKETS && log.is_open()) log.close();
     return error_code;
 }
         
