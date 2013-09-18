@@ -855,7 +855,7 @@ void *SaveTemperaturesThread(void *threadargs)
     }
 
     printf("SaveTemperatures thread #%ld exiting\n", tid);
-    fclose(file);
+    if (file != NULL) fclose(file);
     started[tid] = false;
     pthread_exit( NULL );
 }
