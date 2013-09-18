@@ -154,3 +154,4 @@ void rotate(float angle, const CoordList &inPoints, CoordList &outPoints);
 //histogram (approximately the 0.5% on each end)
 void calcMinMax(cv::Mat frame, unsigned char& min, unsigned char& max);
 
+cv::Point2f fiducialIDtoScreen(cv::Point2i id);

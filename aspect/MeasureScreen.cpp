@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
     
     aspect.SetInteger(NUM_FIDUCIALS, 225);
     aspect.SetFloat(RADIUS_MARGIN, 20);
-    aspect.SetFloat(FIDUCIAL_THRESHOLD, 3.5);
+    aspect.SetFloat(FIDUCIAL_THRESHOLD, 5);
 
     if (!frames.good())
     {
@@ -145,7 +145,9 @@ int main(int argc, char* argv[])
                     DrawCross(image, fiducials[k], fiducialColor, 15, 1, 8);
 
                     cv::putText(image, label, fiducials[k], cv::FONT_HERSHEY_SIMPLEX, .5, IDColor,2);
-                    std::cout << IDs[k];
+                    std::cout << IDs[k].x << "," << IDs[k].y << ",";
+                    std::cout << fiducialIDtoScreen(IDs[k]).x << "," << fiducialIDtoScreen(IDs[k]).y << ",";
+                    std::cout << fiducials[k].x << "," fiducials[k].y << std::endl;
                 }
                 std::cout << std::endl;
 
