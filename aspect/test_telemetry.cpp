@@ -36,16 +36,24 @@ int main()
         //Command echo
         tp << (uint16_t)0x1234;
 
-        //Housekeeping field 0 (SBC and I2C temperatures)
-        tp << (uint16_t)((count % 30)+30);
+        float value;
 
-		float value;
+        //Housekeeping field 0 (SBC and I2C temperatures)
+        switch (count/2 % 8) {
+            case 7:
+                tp << (uint16_t)true;
+                break;
+            default:
+                value = ((count % 30)+30) * 10;
+                tp << Float2B((float)value);
+        }
 
         //Housekeeping field 1 (camera temperature, SBC voltages, and flag)
         switch (count/2 % 8) {
             case 0:
             case 1:
-                tp << Float2B((float)((count % 20)+20+(count/2 % 8)));
+                value = ((count % 20)+20+(count/2 % 8)) * 10;
+                tp << Float2B((float)value);
                 break;
             case 2:
             	value = (1.05 + 0.6* (rand() / (float)RAND_MAX - 0.5)) * 500;
@@ -113,7 +121,9 @@ int main()
             bitwrite(&temp, 4, 4, 1+7);
             tp << (uint8_t)temp;
         }
-        
+
+        tp.setTimeAndFinish();
+
         std::cout << tp << std::endl;
         std::cout << "Packet size: " << tp.getReadIndex()+tp.remainingBytes() << std::endl;
 
