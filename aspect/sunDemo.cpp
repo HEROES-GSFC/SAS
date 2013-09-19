@@ -238,7 +238,7 @@ cv::Mat frame[2]; //protected by mutexHeader
 HeaderData header[2]; //protected by mutexHeader
 
 Aspect aspect;
-Transform solarTransform(FORT_SUMNER, GROUND); //see Transform.hpp for options
+Transform solarTransform(FORT_SUMNER, FLIGHT); //see Transform.hpp for options
 
 CameraSettings settings[2]; //not protected!
 
