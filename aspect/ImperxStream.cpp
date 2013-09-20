@@ -366,7 +366,10 @@ int ImperxStream::SetExposure(int exposureTime)
     } else if (exposureTime > 38221) {
         lDeviceParams->SetBooleanValue("ProgFrameTimeEnable", true);
         lDeviceParams->SetIntegerValue("ProgFrameTimeAbs", exposureTime);
-        lDeviceParams->GetIntegerValue("MaxExposure", temp);
+        //It can take a while for MaxExposure to update properly
+        do {
+            lDeviceParams->GetIntegerValue("MaxExposure", temp);
+        } while (exposureTime - temp > 100);
         outcome = lDeviceParams->SetIntegerValue("ExposureTimeRaw", temp);
         if (outcome.IsSuccess())
         {

@@ -13,14 +13,14 @@
 #define CSV 1
 
 //Calibrated parameters
-#define CLOCKING_ANGLE_PYASF -33.26
-#define CENTER_X_PYASF 0
-#define CENTER_Y_PYASF 0
-#define TWIST_PYASF 180.0
-#define CLOCKING_ANGLE_PYASR -53.26
-#define CENTER_X_PYASR 0
-#define CENTER_Y_PYASR 0
-#define TWIST_PYASR 0.0
+#define CLOCKING_ANGLE_PYASF -32.425 //model is -33.26
+#define CENTER_X_PYASF    124.68 //mils
+#define CENTER_Y_PYASF    -74.64 //mils
+#define TWIST_PYASF 180.0 //needs to be ~180
+#define CLOCKING_ANGLE_PYASR -52.175 //model is -53.26
+#define CENTER_X_PYASR -105.59 //mils
+#define CENTER_Y_PYASR   -48.64 //mils
+#define TWIST_PYASR 0.0 //needs to be ~0
 
 #define IS_PYASF true
 
