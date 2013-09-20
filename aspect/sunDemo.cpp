@@ -10,13 +10,13 @@
 #define SAVE_LOCATION2 "/mnt/disk2/"
 
 //Calibrated parameters
-#define CLOCKING_ANGLE_PYASF -33.26 //model is -33.26
-#define CENTER_X_PYASF    0 //mils
-#define CENTER_Y_PYASF    0 //mils
+#define CLOCKING_ANGLE_PYASF -32.425 //model is -33.26
+#define CENTER_X_PYASF    124.68 //mils
+#define CENTER_Y_PYASF    -74.64 //mils
 #define TWIST_PYASF 180.0 //needs to be ~180
-#define CLOCKING_ANGLE_PYASR -53.00 //model is -53.26
-#define CENTER_X_PYASR -210 //mils
-#define CENTER_Y_PYASR   56 //mils
+#define CLOCKING_ANGLE_PYASR -52.175 //model is -53.26
+#define CENTER_X_PYASR -105.59 //mils
+#define CENTER_Y_PYASR   -48.64 //mils
 #define TWIST_PYASR 0.0 //needs to be ~0
 
 //Major settings
@@ -113,6 +113,14 @@
 #define SKEY_TURN_ON_ALL_RELAYS  0x0120
 #define SKEY_TURN_OFF_ALL_RELAYS 0x0130
 #define SKEY_DEFAULT_RELAYS      0x0140
+#define SKEY_PYAS_TSTAT_BYPASS   0x0160
+#define SKEY_PYAS_TSTAT_ENABLE   0x0170
+#define SKEY_RAS_TSTAT_BYPASS    0x0180
+#define SKEY_RAS_TSTAT_ENABLE    0x0190
+#define SKEY_CAN_HEATERS_OFF     0x01A0
+#define SKEY_CAN_HEATERS_LOW     0x01B0
+#define SKEY_CAN_HEATERS_MEDIUM  0x01C0
+#define SKEY_CAN_HEATERS_HIGH    0x01D0
 
 //Setting commands
 #define SKEY_SET_TARGET          0x0412
@@ -230,7 +238,7 @@ cv::Mat frame[2]; //protected by mutexHeader
 HeaderData header[2]; //protected by mutexHeader
 
 Aspect aspect;
-Transform solarTransform(FORT_SUMNER, GROUND); //see Transform.hpp for options
+Transform solarTransform(FORT_SUMNER, FLIGHT); //see Transform.hpp for options
 
 CameraSettings settings[2]; //not protected!
 
@@ -738,6 +746,12 @@ void *TelemetrySenderThread(void *threadargs)
         filename[128 - 1] = '\0';
         printf("Creating telemetry log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
+        if (!log.is_open()) {
+            sprintf(filename, "%slog_tm_%s.bin", SAVE_LOCATION2, timestamp);
+            filename[128 - 1] = '\0';
+            printf("Creating telemetry log file %s \n",filename);
+            log.open(filename, std::ofstream::binary);
+        }
     }
 
     TelemetrySender telSender(IP_FDR, (unsigned short) PORT_TM);
@@ -751,7 +765,7 @@ void *TelemetrySenderThread(void *threadargs)
             tm_packet_queue >> tp;
             telSender.send( &tp );
             //std::cout << "TelemetrySender:" << tp << std::endl;
-            if (LOG_PACKETS) {
+            if (LOG_PACKETS && log.is_open()) {
                 uint16_t length = tp.getLength();
                 uint8_t *payload = new uint8_t[length];
                 tp.outputTo(payload);
@@ -763,7 +777,7 @@ void *TelemetrySenderThread(void *threadargs)
     }
 
     printf("TelemetrySender thread #%ld exiting\n", tid);
-    if (LOG_PACKETS) log.close();
+    if (LOG_PACKETS && log.is_open()) log.close();
     started[tid] = false;
     pthread_exit( NULL );
 }
@@ -793,7 +807,7 @@ void *SBCInfoThread(void *threadargs)
         packet >> ntp_drift;
         packet >> ntp_offset_ms;
         packet >> ntp_stability;
-        if (ntp_offset_ms * 1000 < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockSynced = false; }
+        if (fabs(ntp_offset_ms * 1000) < MAX_CLOCK_OFFSET_UMS){ isClockSynced = true; } else { isClockSynced = false; }
         delete array;
     }
 
@@ -841,7 +855,7 @@ void *SaveTemperaturesThread(void *threadargs)
     }
 
     printf("SaveTemperatures thread #%ld exiting\n", tid);
-    fclose(file);
+    if (file != NULL) fclose(file);
     started[tid] = false;
     pthread_exit( NULL );
 }
@@ -1179,6 +1193,12 @@ void *CommandSenderThread( void *threadargs )
         filename[128 - 1] = '\0';
         printf("Creating command log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
+        if (!log.is_open()) {
+            sprintf(filename, "%slog_cm_%s.bin", SAVE_LOCATION2, timestamp);
+            filename[128 - 1] = '\0';
+            printf("Creating command log file %s \n",filename);
+            log.open(filename, std::ofstream::binary);
+        }
     }
 
     CommandSender comSender(IP_CTL, PORT_CMD);
@@ -1192,7 +1212,7 @@ void *CommandSenderThread( void *threadargs )
             cm_packet_queue >> cp;
             comSender.send( &cp );
             //std::cout << "CommandSender: " << cp << std::endl;
-            if (LOG_PACKETS) {
+            if (LOG_PACKETS && log.is_open()) {
                 uint8_t length = cp.getLength();
                 uint8_t *payload = new uint8_t[length];
                 cp.outputTo(payload);
@@ -1204,7 +1224,7 @@ void *CommandSenderThread( void *threadargs )
     }
 
     printf("CommandSender thread #%ld exiting\n", tid);
-    if (LOG_PACKETS) log.close();
+    if (LOG_PACKETS && log.is_open()) log.close();
     started[tid] = false;
     pthread_exit( NULL );
 }
@@ -1285,6 +1305,12 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         filename[128 - 1] = '\0';
         printf("Creating science log file %s \n",filename);
         log.open(filename, std::ofstream::binary);
+        if (!log.is_open()) {
+            sprintf(filename, "%slog_sc_%s.bin", SAVE_LOCATION2, timestamp);
+            filename[128 - 1] = '\0';
+            printf("Creating science log file %s \n",filename);
+            log.open(filename, std::ofstream::binary);
+        }
     }
 
     TCPSender tcpSndr(IP_FDR, (unsigned short) PORT_IMAGE);
@@ -1457,7 +1483,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
             while(!im_packet_queue.empty()) {
                 im_packet_queue >> im;
                 tcpSndr.send_packet( &im );
-                if (LOG_PACKETS) {
+                if (LOG_PACKETS && log.is_open()) {
                     uint16_t length = im.getLength();
                     uint8_t *payload = new uint8_t[length];
                     im.outputTo(payload);
@@ -1478,7 +1504,7 @@ uint16_t cmd_send_image_to_ground( int camera_id )
         error_code = 1;
     } else { error_code = 2; }
 
-    if (LOG_PACKETS) log.close();
+    if (LOG_PACKETS && log.is_open()) log.close();
     return error_code;
 }
         
@@ -1514,11 +1540,13 @@ void *CommandHandlerThread(void *threadargs)
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 send_relay_control(i, RELAY_OFF);
             }
+            error_code = 0;
             break;
         case SKEY_TURN_ON_ALL_RELAYS:
             for (int i = 0; i < NUM_RELAYS-1; i++) {
                 send_relay_control(i, RELAY_ON);
             }
+            error_code = 0;
             break;
         case SKEY_DEFAULT_RELAYS:
             send_relay_control(0, RELAY_ON);
@@ -1526,12 +1554,51 @@ void *CommandHandlerThread(void *threadargs)
             for (int i = 2; i < NUM_RELAYS-1; i++) {
                 send_relay_control(i, RELAY_OFF);
             }
+            error_code = 0;
             break;
         case SKEY_TURN_RELAY_ON:
             send_relay_control(my_data->command_vars[0], RELAY_ON);
+            error_code = 0;
             break;
         case SKEY_TURN_RELAY_OFF:
             send_relay_control(my_data->command_vars[0], RELAY_OFF);
+            error_code = 0;
+            break;
+        case SKEY_PYAS_TSTAT_BYPASS:
+            send_relay_control(8, RELAY_ON);
+            error_code = 0;
+            break;
+        case SKEY_PYAS_TSTAT_ENABLE:
+            send_relay_control(8, RELAY_OFF);
+            error_code = 0;
+            break;
+        case SKEY_RAS_TSTAT_BYPASS:
+            send_relay_control(11, RELAY_ON);
+            error_code = 0;
+            break;
+        case SKEY_RAS_TSTAT_ENABLE:
+            send_relay_control(11, RELAY_OFF);
+            error_code = 0;
+            break;
+        case SKEY_CAN_HEATERS_OFF:
+            send_relay_control(9, RELAY_OFF);
+            send_relay_control(10, RELAY_OFF);
+            error_code = 0;
+            break;
+        case SKEY_CAN_HEATERS_LOW:
+            send_relay_control(9, RELAY_OFF);
+            send_relay_control(10, RELAY_ON);
+            error_code = 0;
+            break;
+        case SKEY_CAN_HEATERS_MEDIUM:
+            send_relay_control(9, RELAY_ON);
+            send_relay_control(10, RELAY_OFF);
+            error_code = 0;
+            break;
+        case SKEY_CAN_HEATERS_HIGH:
+            send_relay_control(9, RELAY_ON);
+            send_relay_control(10, RELAY_ON);
+            error_code = 0;
             break;
         case SKEY_REQUEST_PYAS_IMAGE:
             error_code = cmd_send_image_to_ground( 0 ); // 0 for PYAS

@@ -57,7 +57,13 @@ int writeFITSImage(cv::InputArray _image, HeaderData keys, const std::string fil
     catch (FITS::CantCreate)
     {
         // ... or not, as the case may be.
-        return -1;       
+        return -1;
+    }
+    catch (FITS::CantOpen)
+    {
+        // ... or not, as the case may be.
+        std::cerr << "Could not open file to save FITS image\n";
+        return -1;
     }
 
     long nelements(1); 

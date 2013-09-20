@@ -39,13 +39,13 @@ Transform::Transform(Location location, Environment environment)
 
     switch(environment) {
         case GROUND:
-            spa.elevation       = 0; //meters
+            spa.elevation       = 1280; //meters
             spa.pressure        = 1013; //millibars
             spa.temperature     = 20; //degrees Celsius
             break;
         case FLIGHT:
         default:
-            spa.elevation     = 40000; //meters
+            spa.elevation     = 38405; //meters
             spa.pressure      = 3; //millibars
             spa.temperature   = -50; //degrees Celsius
     }
